@@ -1,3 +1,4 @@
+import { expectAccessible } from "./accessibility";
 import { expect, test } from "./fixtures";
 
 // Without a satellite key, places are drawn on the nursery's own picture: no address search, and the outline is kept
@@ -81,6 +82,7 @@ test("a place is drawn on the nursery's own picture", async ({ page }) => {
   ).toBeVisible();
   await expect(page.getByLabel(/Find a postcode/)).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Finish" })).toBeEnabled();
+  await expectAccessible(page, "Drawing on the nursery's picture");
 
   const canvas = page.locator(".place-map-canvas");
   const area = (await canvas.boundingBox())!;
@@ -92,6 +94,8 @@ test("a place is drawn on the nursery's own picture", async ({ page }) => {
   ]) {
     await page.mouse.click(area.x + area.width * x, area.y + area.height * y);
   }
+  await expectAccessible(page, "Corners tapped");
+  await page.screenshot({ path: "build/peek/map-corners.png" });
   await page.getByRole("button", { name: "Finish" }).click();
   await page.screenshot({ path: "build/peek/map-picture.png" });
   await page.getByRole("button", { name: "Save the outline" }).click();
@@ -104,6 +108,7 @@ test("a place is drawn on the nursery's own picture", async ({ page }) => {
     page.getByRole("button", { name: "Change it on the map" }),
   ).toBeVisible();
   await page.screenshot({ path: "build/peek/place-page.png" });
+  await expectAccessible(page, "Place page with its outline");
   expect(saved!.onPicture).toBe(true);
   for (const [down, across] of saved!.points) {
     expect(down).toBeGreaterThan(0);

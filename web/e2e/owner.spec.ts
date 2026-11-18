@@ -1,4 +1,5 @@
 import { type Page } from "@playwright/test";
+import { expectAccessible } from "./accessibility";
 import { expect, test } from "./fixtures";
 
 /** Gives this browser context a built-in passkey that approves requests by itself. */
@@ -63,6 +64,8 @@ test("the owner sets up the nursery and staff can sign in", async ({
   page,
   browser,
 }) => {
+  // Every screen is checked for accessibility on the way, which takes a while.
+  test.setTimeout(900_000);
   await addPasskeySupport(page);
   page.on("dialog", (dialog) => void dialog.accept());
 
@@ -71,22 +74,26 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(
     page.getByRole("heading", { name: "Set up Hortiplanner" }),
   ).toBeVisible();
+  await expectAccessible(page, "Set up");
   await page.getByLabel("Setup code").fill("wrong");
   await page.getByLabel("Your name").fill("Sam Fielding");
   await button(page, "Create my passkey").click();
   await expect(page.getByRole("alert")).toHaveText(
     "That setup code isn't right.",
   );
+  await expectAccessible(page, "Set up, refused");
 
   await page.getByLabel("Setup code").fill("e2e-setup-code");
   await button(page, "Create my passkey").click();
   await expect(
     page.getByRole("heading", { name: "Hello, Sam Fielding" }),
   ).toBeVisible();
+  await expectAccessible(page, "Record work");
 
   // Signing out and back in uses the passkey just made.
   await button(page, "Settings").click();
   await button(page, "Sign out").click();
+  await expectAccessible(page, "Sign in");
   await button(page, "Sign in with passkey").click();
   await expect(
     page.getByRole("heading", { name: "Hello, Sam Fielding" }),
@@ -117,6 +124,8 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await page.getByLabel("How many we've got", { exact: true }).fill("120");
   await button(page, "Save count").click();
   await expect(page.getByText("120 in stock")).toBeVisible();
+  await expectAccessible(page, "Pot sizes");
+  await page.screenshot({ path: "build/peek/pot-sizes.png", fullPage: true });
   await page.getByLabel("New pot size").fill("9CM");
   await button(page, "Add").click();
   await expect(page.getByRole("alert")).toHaveText(
@@ -128,6 +137,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await openManage(page, "Plants");
   await page.getByLabel("Find or add a plant").fill("Lavender");
   await button(page, "Not listed? Add it by hand").click();
+  await expectAccessible(page, "Plants, add by hand");
   await page.getByLabel("Variety (if there is one)").fill("Hidcote");
   await page
     .getByLabel("Botanical name (if you know it)")
@@ -142,6 +152,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await page.getByLabel("Add a growing note").fill("Cut back hard in August.");
   await button(page, "Add note").click();
   await expect(page.getByText("Cut back hard in August.")).toBeVisible();
+  await expectAccessible(page, "Plant card");
   await button(page, "Change").click();
   await expect(page.getByLabel("Price for 9cm (£)")).toHaveValue("4.5");
   await page.getByLabel("Variety", { exact: true }).fill("Munstead");
@@ -153,6 +164,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await page.getByLabel("Name", { exact: true }).fill("Hillside Plants");
   await button(page, "Add").click();
   await expect(page.getByText("Hillside Plants")).toBeVisible();
+  await expectAccessible(page, "Suppliers");
   await leaveManage(page);
 
   // Places: a site, a greenhouse in it, then numbered benches in one go. A single new place goes on the map next,
@@ -170,6 +182,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(
     page.getByRole("heading", { name: "Where is Croft?" }),
   ).toBeVisible();
+  await expectAccessible(page, "Place map");
   await button(page, "Skip the map for now").click();
   await expect(
     page.locator(".place-row strong", { hasText: "Croft" }),
@@ -196,6 +209,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   }
   await button(page, "Finish").click();
   await expect(page.getByText("Is that the right shape?")).toBeVisible();
+  await expectAccessible(page, "Place outline check");
   await button(page, "Save the outline").click();
   await expect(
     page.locator(".place-row strong", { hasText: "Greenhouse 2" }),
@@ -211,6 +225,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(
     page.locator(".place-row strong", { hasText: "Bench 3" }),
   ).toBeVisible();
+  await expectAccessible(page, "Places");
 
   // Each place has its own page, with what's inside it and a label to print.
   await page.locator(".place-row", { hasText: "Greenhouse 2" }).click();
@@ -221,6 +236,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(
     page.getByRole("link", { name: "Print place label" }),
   ).toBeVisible();
+  await expectAccessible(page, "Place page");
   await button(page, "Back").click();
 
   // A place's own page opens it on the map again, outline and all. Breadcrumbs show the way back up.
@@ -264,6 +280,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
     buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1]),
   });
   await expect(page.getByRole("link", { name: "Receipt 1" })).toBeVisible();
+  await expectAccessible(page, "Purchases");
   await button(page, "Mark paid").click();
   await expect(page.getByText("Still owed: £0.00")).toBeVisible();
   await leaveManage(page);
@@ -280,6 +297,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await page.getByLabel("Amount taken (£)").fill("10");
   await button(page, "Save takings").click();
   await expect(page.getByRole("alert")).toContainText("already entered");
+  await expectAccessible(page, "Money");
   await leaveManage(page);
 
   // Trade sales: a customer, then an invoice that prints as a PDF.
@@ -288,6 +306,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await page.getByLabel("Address").fill("1 High Street\nBakewell");
   await button(page, "Add").click();
   await expect(page.getByText("Hilltop Garden Centre")).toBeVisible();
+  await expectAccessible(page, "Customers");
   await leaveManage(page);
 
   await openManage(page, "Invoices");
@@ -298,6 +317,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(page.getByText("Total £54.00")).toBeVisible();
   await button(page, "Issue invoice").click();
   await expect(page.getByRole("status")).toContainText("Invoice 0001 issued");
+  await expectAccessible(page, "Invoice issued");
   const invoicePdf = await page.request.get(
     (await page
       .getByRole("status")
@@ -310,6 +330,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   // Figures open, with nothing recorded yet.
   await openManage(page, "Figures");
   await expect(page.getByText("Nothing has been recorded yet.")).toBeVisible();
+  await expectAccessible(page, "Figures");
   await leaveManage(page);
 
   // Tracing finds nothing before any batch is started.
@@ -318,6 +339,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await page.getByLabel("Batch, tray or plant").fill("B000001");
   await button(page, "Find").click();
   await expect(page.getByText("No batch matches that.")).toBeVisible();
+  await expectAccessible(page, "Trace a batch");
   await leaveManage(page);
 
   // Staff, with a refused PIN first.
@@ -331,6 +353,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await page.getByLabel("PIN for the bench").fill("4821");
   await button(page, "Add").click();
   await expect(page.getByText("Alex Moss", { exact: true })).toBeVisible();
+  await expectAccessible(page, "Staff");
 
   // An invitation opened on someone's own phone.
   await page
@@ -338,6 +361,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
     .getByRole("button", { name: "Invite by phone" })
     .click();
   const link = await page.getByTestId("invite-link").innerText();
+  await expectAccessible(page, "Staff invitation");
 
   const phone = await browser.newContext();
   const phonePage = await phone.newPage();
@@ -347,6 +371,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(
     phonePage.getByRole("heading", { name: "Hello, Alex Moss" }),
   ).toBeVisible();
+  await expectAccessible(phonePage, "Staff home on their phone");
   await expect(button(phonePage, "Manage")).toHaveCount(0);
   expect(new URL(phonePage.url()).search).toBe("");
 
@@ -355,6 +380,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(phonePage.getByRole("alert")).toContainText(
     "expired or been used",
   );
+  await expectAccessible(phonePage, "Invitation used");
 
   await leaveManage(page);
 
@@ -376,12 +402,14 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(page.getByRole("heading", { name: "My account" })).toBeVisible();
   await settings.getByRole("button", { name: "About Hortiplanner" }).click();
   await expect(page.getByText("development", { exact: true })).toBeVisible();
+  await expectAccessible(page, "About Hortiplanner");
   await expect(page.getByRole("link", { name: "Source code" })).toHaveAttribute(
     "href",
     "https://github.com/Jellman86/hortiplanner",
   );
   await settings.getByRole("button", { name: "Signing in" }).click();
   await expect(page.getByTestId("redirect-uri")).toBeVisible();
+  await expectAccessible(page, "Signing in, desk");
   await expect(button(page, "Back")).toHaveCount(0);
   await sidebar.getByRole("button", { name: "Record work" }).click();
   await expect(page.getByLabel("Scan a label")).toBeFocused();
@@ -408,6 +436,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect
     .poll(() => rail.evaluate((node) => node.getBoundingClientRect().width))
     .toBeGreaterThan(200);
+  await expectAccessible(page, "Plants, desk, dark");
   await page.reload();
   await expect(root).toHaveAttribute("data-theme", "dark");
 
@@ -433,6 +462,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(page.getByRole("status")).toHaveText(
     "Your password has been saved.",
   );
+  await expectAccessible(page, "My account");
 
   // The owner chooses how much signing in the nursery wants, and can set someone to just tap their name.
   await openSettings(page, "Signing in");
@@ -443,9 +473,11 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await chooser(page, "How they sign in").selectOption("name");
   await button(page, "Add").click();
   await expect(page.getByText("Signs in by tapping their name")).toBeVisible();
+  await expectAccessible(page, "Staff, name tap");
   await leaveManage(page);
   await button(page, "Settings").click();
   await button(page, "Sign out").click();
+  await expectAccessible(page, "Sign-in names");
   await button(page, "Jo Reed").click();
   await expect(
     page.getByRole("heading", { name: "Hello, Jo Reed" }),
@@ -456,6 +488,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await button(page, "Settings").click();
   await button(page, "Sign out").click();
   await button(page, "Sam Fielding").click();
+  await expectAccessible(page, "Sign-in password");
   await page.getByLabel("Password", { exact: true }).fill("not the one");
   await button(page, "Sign in").click();
   await expect(page.getByRole("alert")).toHaveText(
@@ -477,6 +510,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await page.getByLabel("Client ID").fill("hortiplanner");
   await button(page, "Save").click();
   await expect(page.getByRole("alert")).toContainText("https address");
+  await expectAccessible(page, "Signing in, refused");
   await leaveManage(page);
 
   // A network label printer; a test print to the server's own address is refused.
@@ -488,6 +522,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(page.getByText("Potting shed saved.")).toBeVisible();
   await button(page, "Test print").click();
   await expect(page.getByText("belongs to the server itself")).toBeVisible();
+  await expectAccessible(page, "Printers");
   await leaveManage(page);
 
   // A place label now prints on that printer, with a PDF still offered.
@@ -497,6 +532,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(
     page.getByRole("link", { name: "Open the PDF instead" }),
   ).toBeVisible();
+  await expectAccessible(page, "Place label printing");
   await button(page, "Back").click();
   await leaveManage(page);
 
@@ -514,12 +550,14 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(page.locator("li", { hasText: "Row 3:" })).toContainText(
     "yes or no",
   );
+  await expectAccessible(page, "Import rows to check");
   await page.screenshot({ path: "build/peek/import.png", fullPage: true });
   await button(page, "Leave out those rows").click();
   await button(page, "Bring in 2 plants").click();
   await expect(page.getByRole("status")).toContainText(
     "2 plants were brought in from plants.csv",
   );
+  await expectAccessible(page, "Import done");
   const records = await page.request.get(
     (await page
       .getByRole("link", { name: "Download everything" })
@@ -540,6 +578,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(
     page.getByText("There are no counted trays to send from."),
   ).toBeVisible();
+  await expectAccessible(page, "New consignment");
   await expect(button(page, "Record the consignment")).toBeDisabled();
   await page.screenshot({
     path: "build/peek/consignment-new.png",
@@ -555,6 +594,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await button(page, "Add sensor").click();
   const sensorKey = (await page.locator(".sensor-key").innerText()).trim();
   expect(sensorKey).toMatch(/^glk_/);
+  await expectAccessible(page, "New sensor key");
   for (let hour = 22; hour >= 0; hour--) {
     // Retired sensors supply historical samples; each sensor still sends at most once a minute.
     let key = sensorKey;
@@ -607,6 +647,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   const box = (await chart.boundingBox())!;
   await page.mouse.move(box.x + box.width - 30, box.y + box.height / 2);
   await expect(page.locator(".chart-tip").first()).toContainText("°");
+  await expectAccessible(page, "Climate chart");
   await page.screenshot({
     path: "build/peek/climate-light.png",
     fullPage: true,
@@ -629,6 +670,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await climateSwitch.click();
   await expect(climateSwitch).not.toBeChecked();
   await expect(page.getByText("It's off, so these are hidden:")).toBeVisible();
+  await expectAccessible(page, "Features");
   await leaveManage(page);
   await button(page, "Manage").click();
   await expect(button(page, "Jobs")).toBeVisible();
@@ -648,9 +690,11 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(
     page.getByRole("heading", { name: "Who's working?" }),
   ).toBeVisible();
+  await expectAccessible(page, "Bench station names");
 
   // Tap a name, then the PIN: wrong first, then right.
   await button(page, "Alex Moss").click();
+  await expectAccessible(page, "Bench PIN");
   for (const digit of "1111") {
     await button(page, digit).click();
   }
@@ -658,6 +702,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(page.getByRole("alert")).toHaveText(
     "That PIN isn't right. Please try again.",
   );
+  await expectAccessible(page, "Bench PIN refused");
 
   for (const digit of "4821") {
     await button(page, digit).click();
@@ -666,18 +711,22 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(
     page.getByRole("heading", { name: "Hello, Alex Moss" }),
   ).toBeVisible();
+  await expectAccessible(page, "Bench home");
 
   // Start a batch.
   await button(page, "New batch").click();
+  await expectAccessible(page, "New batch: plant");
   await page.locator(".plant-card", { hasText: "Lavender 'Munstead'" }).click();
   await button(page, "40").click();
   await chooser(page, "Pot size").selectOption({ label: "9cm" });
   await button(page, "Next").click();
+  await expectAccessible(page, "New batch: count");
   await chooser(page, "Supplier").selectOption({ label: "Hillside Plants" });
   // Sown yesterday, written up today: the calendar goes no further than today.
   await expect(button(page, "Today")).toHaveAttribute("aria-pressed", "true");
   await button(page, "Another day").click();
   await expect(page.getByRole("button", { name: "Next month" })).toBeDisabled();
+  await expectAccessible(page, "New batch: calendar");
   await button(page, "Yesterday").click();
   await expect(button(page, "Yesterday")).toHaveAttribute(
     "aria-pressed",
@@ -692,16 +741,19 @@ test("the owner sets up the nursery and staff can sign in", async ({
       "base64",
     ),
   });
+  await expectAccessible(page, "New batch: photos");
   await expect(button(page, "Next")).toBeVisible();
   await button(page, "Next").click();
   await chooser(page, "Place").selectOption({ label: "Greenhouse 2, Bench 1" });
   await button(page, "Next").click();
+  await expectAccessible(page, "New batch: place");
 
   // Everything is shown to check before it's recorded, and can be changed.
   const check = page.locator(".batch-check");
   await expect(check).toContainText("Lavender 'Munstead'");
   await expect(check).toContainText("Hillside Plants");
   await expect(check).toContainText("yesterday");
+  await expectAccessible(page, "New batch: check");
   await page.getByRole("button", { name: "Change how many" }).click();
   await button(page, "+10").click();
   await button(page, "Next").click();
@@ -721,9 +773,11 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(started).toContainText("Started 40 Lavender 'Munstead'");
   const label = /Label: (C\d+)/.exec((await started.innerText()) ?? "")![1];
 
+  await expectAccessible(page, "Batch started");
   // A new batch's label goes to the shed's printer, which can't be reached here, and is always a PDF too.
   await button(page, "Print label").click();
   await expect(page.getByText("belongs to the server itself")).toBeVisible();
+  await expectAccessible(page, "Label printing");
   const pdf = await page.request.get(
     (await page
       .getByRole("link", { name: "Open the PDF instead" })
@@ -748,6 +802,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(page.locator(".batch-check")).toContainText(
     "Not set → Packet 12",
   );
+  await expectAccessible(page, "Edit batch: check");
   await button(page, "Save changes").click();
   await expect(page.getByRole("status")).toContainText("corrected");
   await button(page, "Back").click();
@@ -761,6 +816,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await where.getByLabel("Move to").selectOption({ index: 1 });
   await where.getByRole("button", { name: "Move it" }).click();
   await expect(where.getByRole("status")).toContainText(`Moved ${label} to`);
+  await expectAccessible(page, "Edit batch: moved");
   await where.getByRole("button", { name: "Move", exact: true }).click();
   await where
     .getByLabel("Move to")
@@ -777,6 +833,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await scan(label);
   await expect(page.getByRole("heading", { name: label })).toBeVisible();
   await expect(page.getByText("40 Lavender 'Munstead'")).toBeVisible();
+  await expectAccessible(page, "Tray");
   await expect(
     page
       .getByText("Greenhouse 2, Bench 1")
@@ -787,10 +844,12 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await button(page, "+1").click();
   await button(page, "+1").click();
   await expect(page.getByTestId("quantity")).toHaveText("3");
+  await expectAccessible(page, "Lost: how many");
   await button(page, "Pest").click();
   await expect(page.getByRole("status")).toContainText(
     "Lost 3 Lavender 'Munstead' (Pest)",
   );
+  await expectAccessible(page, "Lost: done");
 
   await scan(label);
   await expect(page.getByText("37 Lavender 'Munstead'")).toBeVisible();
@@ -812,6 +871,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await button(page, "+10").click();
   await expect(page.getByTestId("quantity")).toHaveText("37");
   await expect(page.locator(".action-for")).toContainText(label);
+  await expectAccessible(page, "Lost: no more than there");
 
   // The phone's Back button steps back to the tray, and a reload stays there.
   await page.goBack();
@@ -822,6 +882,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   // Move it. The scan box is ready for a USB scanner straight away.
   await button(page, "Move").click();
   await expect(page.getByLabel("Scan the place's label")).toBeFocused();
+  await expectAccessible(page, "Move");
   await button(page, "Greenhouse 2").click();
   await expect(page.getByRole("status")).toContainText(
     `Moved ${label} to Greenhouse 2`,
@@ -833,6 +894,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(page.getByTestId("quantity")).toHaveText("37");
   await button(page, "Type a number instead").click();
   await page.getByLabel("How many", { exact: true }).fill("11");
+  await expectAccessible(page, "Pot on: typed");
   await page.getByLabel("How many", { exact: true }).press("Tab");
   await expect(page.getByTestId("quantity")).toHaveText("11");
   await button(page, "Done").click();
@@ -854,6 +916,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await button(page, "−1").click();
   await button(page, "Done").click();
   await expect(page.getByRole("status")).toContainText("Counted 25");
+  await expectAccessible(page, "Counted");
 
   // A treatment, then a note.
   await scan(label);
@@ -861,12 +924,14 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await page.getByLabel("Product").fill("Neem oil");
   await page.getByLabel("Dose").fill("5ml per litre");
   await page.getByLabel("Area or crop treated").fill("Tray");
+  await expectAccessible(page, "Treated");
   await button(page, "Done").click();
   await expect(page.getByRole("status")).toContainText("with Neem oil");
 
   await scan(label);
   await button(page, "Note").click();
   await page.getByLabel("Note", { exact: true }).fill("Looking strong");
+  await expectAccessible(page, "Note");
   await button(page, "Done").click();
   await expect(page.getByRole("status")).toContainText("Note added");
 
@@ -882,6 +947,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
     ),
   });
   await page.getByRole("button", { name: "Day 2 · Sown" }).click();
+  await expectAccessible(page, "Photo viewer");
   await page.screenshot({ path: "build/peek/photo-viewer.png" });
   await button(page, "Remove this photo").click();
   await expect(page.getByRole("button", { name: "Day 2 · Sown" })).toHaveCount(
@@ -900,6 +966,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
     "Lavandula angustifolia",
   );
   await expect(page.getByText("registration number, for part B")).toBeVisible();
+  await expectAccessible(page, "Issue a passport");
   await expect(button(page, "Issue passport")).toBeDisabled();
   await button(page, "Cancel").click();
 
@@ -912,6 +979,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
     "Lavandula angustifolia",
   );
   await expect(page.getByLabel("D: Origin")).toHaveValue("GB");
+  await expectAccessible(page, "Received passport form");
   await page.getByLabel("B: Registration number").fill("12345");
   await page.getByLabel("C: Traceability code").fill("LOT-77");
   await button(page, "Save passport").click();
@@ -921,6 +989,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(
     page.locator(".passport strong", { hasText: "Used up" }),
   ).toBeVisible();
+  await expectAccessible(page, "Passports");
   await button(page, "Back").click();
   await button(page, "Back").click();
 
@@ -929,6 +998,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(page.getByRole("alert")).toContainText(
     "No tray or pot has the label NOPE",
   );
+  await expectAccessible(page, "Unknown label");
 
   // One press repeats a recent action.
   await page
@@ -949,6 +1019,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(page.getByRole("heading", { name: "Production" })).toBeVisible();
   const trayRow = page.locator(".production-row", { hasText: label });
   await expect(trayRow).toContainText("Ready");
+  await expectAccessible(page, "Production");
   await page.locator(".chips button", { hasText: "Sown" }).click();
   await expect(trayRow).toHaveCount(0);
   await page.locator(".chips button", { hasText: "Ready" }).click();
@@ -963,6 +1034,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await page.getByLabel("What are you planting?").fill("Cosmos");
   await button(page, "Not listed? Add it by hand").click();
   await expect(page.getByLabel("Common name")).toHaveValue("Cosmos");
+  await expectAccessible(page, "New batch by hand");
   await button(page, "Next").click();
   await button(page, "Next").click();
   await button(page, "Next").click();
@@ -987,6 +1059,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
     phonePage.getByRole("heading", { name: "Hello, Alex Moss" }),
   ).toBeVisible();
   await expect(phonePage.getByTestId("offline")).toBeVisible();
+  await expectAccessible(phonePage, "Offline");
 
   await phonePage.getByLabel("Scan a label").fill(label);
   await phonePage.getByLabel("Scan a label").press("Enter");
@@ -999,6 +1072,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(phonePage.getByTestId("waiting")).toContainText(
     "1 thing is waiting",
   );
+  await expectAccessible(phonePage, "Work waiting");
 
   // Waiting work survives the app being closed and opened again.
   await phonePage.reload();
@@ -1021,4 +1095,5 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(
     page.getByRole("heading", { name: "Who's working?" }),
   ).toBeVisible();
+  await expectAccessible(page, "Bench station names again");
 });

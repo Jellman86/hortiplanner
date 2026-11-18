@@ -101,7 +101,7 @@
     <div
       class="place-mini-map-canvas"
       bind:this={box}
-      role="img"
+      role="group"
       aria-label="{place.name} on the map"
     ></div>
     {#if onDraw}

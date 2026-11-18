@@ -529,15 +529,11 @@
                   >Sign in by name only</button
                 >
               {/if}
-              <button
-                class="secondary"
-                aria-label={member.hasTune
-                  ? "Picture and sign-in tune, a tune is set"
-                  : "Picture and sign-in tune"}
-                onclick={() => (tuneFor = member.id)}
-                >{member.hasTune
-                  ? "Picture and tune ♪"
-                  : "Picture and tune"}</button
+              <button class="secondary" onclick={() => (tuneFor = member.id)}
+                >Picture and tune{#if member.hasTune}<span aria-hidden="true">
+                    ♪</span
+                  ><span class="visually-hidden">, a tune is set</span
+                  >{/if}</button
               >
               {#if member.id !== myId}
                 <button class="secondary" onclick={() => archive(member)}

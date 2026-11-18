@@ -1,4 +1,5 @@
 import { type Page } from "@playwright/test";
+import { expectAccessible } from "./accessibility";
 import { expect, test } from "./fixtures";
 
 // Ask Hortiplanner against a pretend server: offered on Record and in the sidebar, answers shown as plain text with the
@@ -76,6 +77,7 @@ test("Ask Hortiplanner answers on a phone, and lays out on a desk", async ({
   await expect(
     page.getByRole("button", { name: "C000012 Lavender" }),
   ).toBeVisible();
+  await expectAccessible(page, "Ask Hortiplanner, answered");
   expect(asked).toHaveLength(1);
   expect((asked[0] as { messages: { text: string }[] }).messages[0].text).toBe(
     "What needs attention this week?",
