@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Trash2 } from "@lucide/svelte";
   import { shrinkPhoto } from "../../lib/photo";
 
   let {
@@ -86,11 +87,15 @@
           loading="lazy"
         />
       </a>
+      <!-- Below the photo, not on it, so a tap meant for one never lands on the other. -->
       <button
         type="button"
-        class="photo-remove"
-        aria-label="Remove photo"
-        onclick={() => remove(photoId)}>×</button
+        class="secondary photo-remove"
+        title="Remove photo"
+        onclick={() => remove(photoId)}
+        ><Trash2 size={18} aria-hidden="true" /><span
+          class={gallery ? undefined : "visually-hidden"}>Remove photo</span
+        ></button
       >
     </span>
   {/each}

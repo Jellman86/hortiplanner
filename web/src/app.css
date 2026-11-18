@@ -756,28 +756,20 @@ button.link-button.danger-link:hover:not(:disabled) {
 }
 
 .entry-photo {
-  position: relative;
   display: inline-flex;
+  flex-direction: column;
+  gap: 0.35rem;
 }
 
+/* A full-size target under its photo. */
 button.photo-remove {
-  position: absolute;
-  top: -0.35rem;
-  right: -0.35rem;
-  min-height: 0;
-  width: 1.4rem;
-  height: 1.4rem;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: var(--problem);
-  color: var(--on-problem);
-  font-size: 0.9rem;
-  line-height: 1;
-}
-
-button.photo-remove:hover:not(:disabled) {
-  background: var(--problem-hover);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.2rem;
+  padding: 0.25rem 0.5rem;
+  color: var(--problem);
 }
 
 .photo-add {
@@ -2111,9 +2103,13 @@ button.danger:hover:not(:disabled) {
   padding: 0 0.7rem;
   overflow: hidden;
   font-size: 0.8rem;
-  opacity: 80%;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Only the words are softened: a faded picture would make its initials hard to read. */
+.signed-in > span:not(.avatar) {
+  opacity: 80%;
 }
 
 .about-intro {
@@ -3482,9 +3478,12 @@ button.ask-card:hover:not(:disabled) {
   align-items: stretch;
 }
 
-.entry-photos.gallery .entry-photo,
 .entry-photos.gallery .entry-photo a {
   display: block;
+}
+
+.entry-photos.gallery .entry-photo {
+  display: flex;
 }
 
 .entry-photos.gallery .plant-thumb {
@@ -3492,11 +3491,6 @@ button.ask-card:hover:not(:disabled) {
   height: auto;
   aspect-ratio: 4 / 3;
   object-fit: cover;
-}
-
-.entry-photos.gallery .photo-remove {
-  top: 0.3rem;
-  right: 0.3rem;
 }
 
 .entry-photos.gallery .photo-add {
@@ -4117,4 +4111,30 @@ button.person-button {
 button:disabled,
 button.link-button:disabled {
   box-shadow: none;
+}
+
+/* The drawing tool's corner handles: the dot stays small, but the part a finger can catch is bigger. */
+.place-map-canvas .marker-icon {
+  width: 28px !important;
+  height: 28px !important;
+  margin: -14px 0 0 -14px !important;
+  border: 0;
+  background: radial-gradient(
+    circle,
+    #ffffff 0 6px,
+    #3388ff 6px 7.5px,
+    transparent 8px
+  );
+}
+
+.place-map-canvas .marker-icon-middle {
+  width: 24px !important;
+  height: 24px !important;
+  margin: -12px 0 0 -12px !important;
+  background: radial-gradient(
+    circle,
+    #ffffff 0 4px,
+    #3388ff 4px 5.5px,
+    transparent 6px
+  );
 }

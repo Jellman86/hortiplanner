@@ -92,8 +92,11 @@
 {#if person && needsPin}
   <main>
     <h1>{person.name}</h1>
-    <p class="pin-display" aria-label="PIN digits entered">
-      {"•".repeat(pin.length)}
+    <p class="pin-display" aria-live="polite">
+      <span aria-hidden="true">{"•".repeat(pin.length)}</span>
+      <span class="visually-hidden"
+        >{pin.length === 1 ? "1 digit" : `${pin.length} digits`} entered</span
+      >
     </p>
     {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
 
@@ -107,10 +110,8 @@
         aria-label="Delete last digit">⌫</button
       >
       <button class="secondary" onclick={() => press(0)}>0</button>
-      <button
-        onclick={submit}
-        disabled={busy || pin.length < minPinLength}
-        aria-label="Sign in">OK</button
+      <button onclick={submit} disabled={busy || pin.length < minPinLength}
+        >Sign in</button
       >
     </div>
 

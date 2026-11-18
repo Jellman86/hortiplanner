@@ -1,4 +1,5 @@
 import { type Route } from "@playwright/test";
+import { expectAccessible } from "./accessibility";
 import { expect, test } from "./fixtures";
 
 test("phone edits open the customer form and slow climate replies cannot replace the current span", async ({
@@ -88,6 +89,7 @@ test("phone edits open the customer form and slow climate replies cannot replace
   await page.waitForLoadState("networkidle");
   await expect(page.locator(".climate-table")).toContainText("19.0°C");
   await expect(page.locator(".climate-table")).not.toContainText("42.0°C");
+  await expectAccessible(page, "Climate, day by day");
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,

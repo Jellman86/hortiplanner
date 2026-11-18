@@ -202,8 +202,36 @@
     }
   }
 
+  // The drawing tool's corner handles are buttons with no name. They're named as they appear, so a screen reader
+  // says what they are: a corner, or the spot between two where a corner can be added.
+  function nameCorners(root: HTMLElement) {
+    const name = () => {
+      // The dot that follows the pointer while drawing is only a picture, never something to press.
+      for (const cursor of root.querySelectorAll<HTMLElement>(
+        ".cursor-marker:not([aria-hidden])",
+      )) {
+        cursor.setAttribute("aria-hidden", "true");
+        cursor.tabIndex = -1;
+      }
+
+      for (const handle of root.querySelectorAll<HTMLElement>(
+        ".leaflet-marker-icon[role=button]:not(.cursor-marker):not([aria-label])",
+      )) {
+        const label = handle.classList.contains("marker-icon-middle")
+          ? "Add a corner here"
+          : "Corner of the outline";
+        handle.setAttribute("aria-label", label);
+        handle.title = label;
+      }
+    };
+    const watcher = new MutationObserver(name);
+    watcher.observe(root, { childList: true, subtree: true });
+    return () => watcher.disconnect();
+  }
+
   onMount(() => {
     let stopped = false;
+    let stopNaming: (() => void) | undefined;
 
     void attempt(async () => {
       L = await loadLeaflet(true);
@@ -222,6 +250,7 @@
       key = data?.imageryKey ?? null;
       const view = await openPlaceMap(L, box, data ?? {});
       map = view.map;
+      stopNaming = nameCorners(box);
       onPicture = view.onPicture;
       satellite = view.satellite;
       toMap = view.toMap;
@@ -284,6 +313,7 @@
 
     return () => {
       stopped = true;
+      stopNaming?.();
       // Stopped first: removing a map mid-animation makes Leaflet throw.
       map?.stop();
       map?.off();
