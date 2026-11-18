@@ -30,14 +30,18 @@ export async function expectAccessible(page: Page, screen: string) {
     targets: string[];
   }[] = [];
 
-  // On a phone and on a desk, whichever the screen is on now, then back.
-  for (const size of [
-    viewport!,
+  // On a phone and on a desk, whichever the screen is on now, then back. An emulated phone (a touch screen) stays
+  // its own size: WebKit doesn't lay a phone out quite the same after being stretched to a desk and back, and the
+  // desk is checked in Chromium anyway.
+  const touch = await page.evaluate(
+    () => matchMedia("(pointer: coarse)").matches,
+  );
+  const other =
     viewport!.width < 700
       ? { width: 1280, height: 800 }
-      : { width: 390, height: 900 },
-  ]) {
-    await page.setViewportSize(size);
+      : { width: 390, height: 900 };
+  for (const size of touch ? [viewport!] : [viewport!, other]) {
+    if (!touch) await page.setViewportSize(size);
     await page.evaluate(() => new Promise(requestAnimationFrame));
     for (const theme of ["light", "dark"]) {
       await page.evaluate(
@@ -57,7 +61,7 @@ export async function expectAccessible(page: Page, screen: string) {
       }
     }
   }
-  await page.setViewportSize(viewport!);
+  if (!touch) await page.setViewportSize(viewport!);
 
   await page.evaluate((t) => {
     if (t === null) delete document.documentElement.dataset.theme;
