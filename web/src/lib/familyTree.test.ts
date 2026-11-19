@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { listWords, rankLabel } from "./familyTree";
+import { everydayName, listWords, rankLabel } from "./familyTree";
 
 describe("family tree", () => {
   it("names each rank", () => {
     expect(rankLabel("family")).toBe("Family");
     expect(rankLabel("subfamily")).toBe("Subfamily");
+  });
+
+  it("puts the groups' everyday names in lower case, but not a species'", () => {
+    expect(everydayName("family", "Mint Family")).toBe("mint family");
+    expect(everydayName("species", "English Lavender")).toBe(
+      "English Lavender",
+    );
   });
 
   it("lists names as a sentence would", () => {

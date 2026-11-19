@@ -5,7 +5,7 @@
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import { onMount } from "svelte";
   import { api } from "../../api/client";
-  import { rankLabel } from "../../lib/familyTree";
+  import { everydayName, rankLabel } from "../../lib/familyTree";
   import type { Schemas } from "../../lib/types";
 
   // Where a plant sits in the plant kingdom, from the broadest group down to the plant itself, and the nursery's other
@@ -109,7 +109,7 @@
             {rankLabel(rung.rank)}:
             {#if italic(rung.rank)}<em>{rung.scientificName}</em
               >{:else}{rung.scientificName}{/if}{rung.commonName
-              ? ` (${rung.commonName})`
+              ? ` (${everydayName(rung.rank, rung.commonName)})`
               : ""}
           </span>
           {#if openable.has(rung.rank) && rung.otherPlants.length > 0}
@@ -172,7 +172,10 @@
           size={16}
           aria-hidden="true"
         /></a
-      >. Everyday names are from
+      >.
+    </p>
+    <p class="muted credit">
+      Everyday names are from
       <a
         class="small-button"
         href="https://www.inaturalist.org/"

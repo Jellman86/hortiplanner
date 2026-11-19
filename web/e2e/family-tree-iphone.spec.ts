@@ -125,8 +125,8 @@ test("a plant's family tree shows its ranks and relatives on a phone", async ({
   await page.getByRole("button", { name: "About this plant" }).click();
 
   const tree = page.getByRole("region", { name: "Family tree" });
-  await expect(tree).toContainText("Family: Lamiaceae (Mint Family)");
-  await expect(tree).toContainText("Genus: Lavandula (Lavenders)");
+  await expect(tree).toContainText("Family: Lamiaceae (mint family)");
+  await expect(tree).toContainText("Genus: Lavandula (lavenders)");
   await expect(tree).toContainText("You grow one other plant in this genus.");
   await expect(tree).toContainText(
     "You grow one other plant in the same family.",
