@@ -158,6 +158,18 @@ test("a plant's photos are added, captioned, chosen and asked about on a phone",
         notes: [],
         lookupUnavailable: false,
       },
+      "/api/batches/0193a6f0-0000-7000-8000-0000000000b1/photos": [
+        {
+          id: "0193a6f0-0000-7000-8000-0000000000e1",
+          batchId: "0193a6f0-0000-7000-8000-0000000000b1",
+          traceabilityCode: "B000001",
+          takenAt: "2026-11-12T10:00:00Z",
+          stage: "Germinated",
+          kind: "Growing",
+          canRemove: false,
+          canBeAsked: true,
+        },
+      ],
       [`/api/plants/${plantId}/batch-photos`]: [
         {
           id: "0193a6f0-0000-7000-8000-0000000000e1",
@@ -177,6 +189,32 @@ test("a plant's photos are added, captioned, chosen and asked about on a phone",
   await page.goto("/");
   await page.getByLabel("Scan a label").fill("C000001");
   await page.getByLabel("Scan a label").press("Enter");
+
+  // A batch's photo on the tray is asked about, with the tray it's on.
+  await page
+    .getByRole("list", { name: "Photos of this batch" })
+    .getByRole("button")
+    .click();
+  await page
+    .getByRole("dialog", { name: "Photo" })
+    .getByRole("button", { name: "Ask about this photo" })
+    .click();
+  await expect(page.getByText("About a photo of Foxglove")).toBeVisible();
+  await page.getByLabel("Your question").fill("Are these healthy?");
+  await page.getByRole("button", { name: "Ask", exact: true }).click();
+  await expect.poll(() => asked.length).toBe(1);
+  expect(asked[0].about).toMatchObject({
+    photoId: "0193a6f0-0000-7000-8000-0000000000e1",
+    trayLabel: "C000001",
+  });
+  asked.length = 0;
+  await page
+    .getByRole("navigation", { name: "Breadcrumb" })
+    .getByRole("link", { name: "Record work" })
+    .click();
+  await page.getByLabel("Scan a label").fill("C000001");
+  await page.getByLabel("Scan a label").press("Enter");
+
   await page.getByRole("button", { name: "About this plant" }).click();
   await expect(page.getByRole("heading", { name: "Foxglove" })).toBeVisible();
 
