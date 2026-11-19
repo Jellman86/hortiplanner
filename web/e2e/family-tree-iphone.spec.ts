@@ -183,6 +183,19 @@ test("a plant's family tree shows its ranks and relatives on a phone", async ({
   ).toBeVisible();
   await expectAccessible(page, "Plant family tree, opened up");
 
+  // On a desk the tree branches across the page, still without scrolling sideways.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(branches.locator(".ftree-item").first()).toHaveCSS(
+    "display",
+    "flex",
+  );
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.setViewportSize({ width: 390, height: 900 });
+
   // A relative opens its own page, and Back comes back.
   await tree.getByRole("button", { name: "Rosemary" }).first().click();
   await expect(page.getByRole("heading", { name: "Rosemary" })).toBeVisible();

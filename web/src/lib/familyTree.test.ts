@@ -133,6 +133,26 @@ describe("family tree", () => {
     expect(alone.above).toHaveLength(1);
   });
 
+  it("hangs a plant matched to its genus from the genus, beside the species there", () => {
+    const { root } = grow(
+      {
+        linked: true,
+        unavailable: false,
+        lineage: [rung("family", "Asteraceae"), rung("genus", "Rudbeckia")],
+        relatives: [
+          relative("Goldsturm", "Asteraceae", "Rudbeckia", "R. fulgida"),
+        ],
+      },
+      self,
+    );
+    const genus = root!.branches[0];
+    expect(genus.onPath).toBe(true);
+    expect(genus.leaves.map((leaf) => leaf.self)).toEqual([true]);
+    expect(genus.branches.map((each) => each.scientificName)).toEqual([
+      "R. fulgida",
+    ]);
+  });
+
   it("lists names as a sentence would", () => {
     expect(listWords(["Rosemary", "Sage", "Catmint"])).toBe(
       "Rosemary, Sage and Catmint",

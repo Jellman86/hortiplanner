@@ -167,11 +167,10 @@
           <strong>{item.name}</strong>
         </span>
       </div>
-    {:else}
+    {:else if onOpenPlant}
       <button
         class="link-button ftree-leaf"
         onclick={() => onOpenPlant?.(item.plantId)}
-        disabled={!onOpenPlant}
       >
         <PlantThumb
           url={item.hasPhoto ? `/api/plants/${item.plantId}/photo` : null}
@@ -179,14 +178,29 @@
         <span class="ftree-leaf-name">{item.name}</span>
         <ArrowRight size={16} aria-hidden="true" />
       </button>
+    {:else}
+      <div class="ftree-leaf">
+        <PlantThumb
+          url={item.hasPhoto ? `/api/plants/${item.plantId}/photo` : null}
+        />
+        <span class="ftree-leaf-name">{item.name}</span>
+      </div>
     {/if}
   </li>
 {/snippet}
 
 {#snippet node(branch: Branch, parent: Branch | null)}
   {@const open = parent ? isOpen(branch, parent) : true}
+  {@const foldable =
+    !!parent &&
+    !branch.onPath &&
+    (opened[branch.taxonId] !== undefined || !open)}
+  {@const hidden = branch === root && branch.rank === "order" && !distant}
   {@const all = showingAll[branch.taxonId] ?? false}
-  {@const leaves = all ? branch.leaves : branch.leaves.slice(0, mostLeaves)}
+  {@const leaves = (all ? branch.leaves : branch.leaves.slice(0, mostLeaves))
+    .filter((item) => !item.self)
+    .filter(() => !hidden)}
+  {@const own = branch.leaves.find((item) => item.self)}
   {@const word =
     branch.rank === "species"
       ? "of this species"
@@ -201,18 +215,32 @@
       role="list"
       id={listId(branch)}
     >
+      <!-- One toggle that stays put, so focus stays on it as the group opens and folds. -->
+      {#if foldable}
+        <li class="ftree-item">
+          {@render toggle(
+            open,
+            listId(branch),
+            `${open ? "Hide" : "Show"} ${plants(relativeCount(branch))} ${word}`,
+            () => (opened[branch.taxonId] = !open),
+            nodeId(branch),
+          )}
+        </li>
+      {/if}
       {#if open}
+        <!-- This plant first, so the way down to it runs straight. -->
+        {#if own}
+          {@render leaf(own)}
+        {/if}
         {#each branch.branches as child (child.taxonId)}
           {#if shown(child, branch)}
             {@render node(child, branch)}
           {/if}
         {/each}
         {#each leaves as item (item.plantId)}
-          {#if branch !== root || branch.rank !== "order" || distant}
-            {@render leaf(item)}
-          {/if}
+          {@render leaf(item)}
         {/each}
-        {#if branch.leaves.length > mostLeaves}
+        {#if branch.leaves.length > mostLeaves && !hidden}
           <li class="ftree-item">
             {@render toggle(
               all,
@@ -225,27 +253,6 @@
             )}
           </li>
         {/if}
-        {#if parent && opened[branch.taxonId] && !branch.onPath}
-          <li class="ftree-item">
-            {@render toggle(
-              true,
-              listId(branch),
-              `Hide the plants ${word}`,
-              () => (opened[branch.taxonId] = false),
-              nodeId(branch),
-            )}
-          </li>
-        {/if}
-      {:else}
-        <li class="ftree-item">
-          {@render toggle(
-            false,
-            listId(branch),
-            `Show ${plants(relativeCount(branch))} ${word}`,
-            () => (opened[branch.taxonId] = true),
-            nodeId(branch),
-          )}
-        </li>
       {/if}
     </ul>
   </li>
@@ -287,8 +294,8 @@
   {:else if tree && grown}
     <p class="muted">
       {tree.relatives.length > 0
-        ? "This is where the plant sits among other plants. Its relatives at the nursery are on the branches."
-        : "This is where the plant sits among other plants, from the wider groups down to the plant itself."}
+        ? "This is where this plant sits among other plants. Its relatives at the nursery are on the branches."
+        : "This is where this plant sits among other plants, from the wider groups down to the plant itself."}
     </p>
     <div class="card family-card">
       {#if grown.above.length > 0 && root}
@@ -347,7 +354,7 @@
         <p class="muted">
           Nothing else at the nursery is related to this plant yet.
         </p>
-      {:else if closeCount === 0}
+      {:else if family && closeCount === 0}
         <p class="muted">Nothing else at the nursery is in this family yet.</p>
       {/if}
 
