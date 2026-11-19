@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { broaderRanks, listWords, rankLabel, relatives } from "./familyTree";
+import {
+  aboveSpecies,
+  broaderRanks,
+  listWords,
+  rankLabel,
+  relatives,
+} from "./familyTree";
 
 const plant = (id: string) => ({ plantId: id, name: id });
 const rung = (rank: string, otherPlants: string[] = []) => ({
@@ -20,6 +26,12 @@ describe("family tree", () => {
     expect(broaderRanks.has("class")).toBe(true);
     expect(broaderRanks.has("order")).toBe(false);
     expect(broaderRanks.has("subfamily")).toBe(false);
+  });
+
+  it("knows a variety is no further up than a species", () => {
+    expect(aboveSpecies.has("genus")).toBe(true);
+    expect(aboveSpecies.has("species")).toBe(false);
+    expect(aboveSpecies.has("variety")).toBe(false);
   });
 
   it("lists each relative once, in the closest group it shares", () => {

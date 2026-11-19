@@ -159,7 +159,9 @@ test("a plant's family tree shows its ranks and relatives on a phone", async ({
   await expect(
     tree.getByRole("button", { name: "Hide the more distant relatives" }),
   ).toHaveAttribute("aria-expanded", "true");
-  await expect(tree).toContainText("This plant is in the same order.");
+  await expect(tree).toContainText(
+    "You grow one other plant in the same order.",
+  );
   await expectAccessible(page, "Plant family tree, opened up");
 
   // A relative opens its own page, and Back comes back.

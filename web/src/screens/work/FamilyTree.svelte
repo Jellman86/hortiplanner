@@ -6,7 +6,12 @@
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import { onMount } from "svelte";
   import { api } from "../../api/client";
-  import { broaderRanks, rankLabel, relatives } from "../../lib/familyTree";
+  import {
+    aboveSpecies,
+    broaderRanks,
+    rankLabel,
+    relatives,
+  } from "../../lib/familyTree";
   import type { Schemas } from "../../lib/types";
 
   // Where a plant sits among other plants, from the wider groups down to the plant itself, and the nursery's other
@@ -70,10 +75,15 @@
   const close = $derived(
     kin ? kin.species.length + kin.genus.length + kin.family.length : 0,
   );
-  const italic = (rank: string) => rank === "genus" || rank === "species";
+  const italic = (rank: string) => rank === "genus" || !aboveSpecies.has(rank);
   const rankWord = (rank: string) => rankLabel(rank).toLowerCase();
 
-  const groups: { key: Group; one: string; many: string; all: string }[] = [
+  const groups: {
+    key: Group;
+    one: string;
+    many: string;
+    all: string;
+  }[] = [
     {
       key: "species",
       one: "You grow one other plant of the same species.",
@@ -95,8 +105,9 @@
   ];
 </script>
 
-{#snippet plantRows(plants: readonly Schemas["PlantName"][])}
-  <ul class="family-plants">
+{#snippet plantRows(plants: readonly Schemas["PlantName"][], id?: string)}
+  <!-- role="list" because Safari drops a list's role when its bullets are hidden. -->
+  <ul class="family-plants" role="list" {id}>
     {#each plants as plant (plant.plantId)}
       <li>
         <button
@@ -133,11 +144,15 @@
   </button>
 {/snippet}
 
-<section class="stack family-tree" aria-labelledby="family-tree-heading">
+<section
+  class="stack family-tree"
+  aria-labelledby="family-tree-heading"
+  aria-busy={!tree && !failed}
+>
   <h2 id="family-tree-heading">Family tree</h2>
 
   {#if !tree && !failed}
-    <p class="muted" aria-live="polite">Finding the family tree…</p>
+    <p class="muted">Finding the family tree…</p>
   {:else if failed}
     <p class="muted">
       We couldn't get the family tree just now. Everything else on this page
@@ -164,8 +179,8 @@
     </p>
   {:else if tree && kin}
     <p class="muted">
-      This is where it sits among other plants, from the wider groups down to
-      the plant itself.
+      This is where the plant sits among other plants, from the wider groups
+      down to the plant itself.
     </p>
     <div class="card family-card">
       {#if folds}
@@ -180,6 +195,7 @@
       <ol
         id="family-ladder"
         class="family-ladder"
+        role="list"
         aria-label={`Classification, from the ${rankWord(shown[0]?.rank ?? "kingdom")} down to this plant`}
       >
         {#each shown as rung (rung.taxonId)}
@@ -208,7 +224,7 @@
         </li>
       </ol>
 
-      {#if lastRank && lastRank !== "species"}
+      {#if lastRank && aboveSpecies.has(lastRank)}
         <p class="muted">
           This plant is matched to its {rankWord(lastRank)} rather than to one species,
           so its family tree stops at the {rankWord(lastRank)}.
@@ -223,14 +239,17 @@
             <p>{plants.length === 1 ? group.one : group.many}</p>
             {@render plantRows(
               showingAll[group.key] ? plants : plants.slice(0, mostNames),
+              `family-${group.key}`,
             )}
-            {#if plants.length > mostNames && !showingAll[group.key]}
-              <button
-                class="link-button"
-                onclick={() => (showingAll[group.key] = true)}
-                ><ChevronDown size={16} aria-hidden="true" /> Show all {plants.length}
-                {group.all}</button
-              >
+            {#if plants.length > mostNames}
+              {@render toggle(
+                showingAll[group.key],
+                `family-${group.key}`,
+                showingAll[group.key]
+                  ? `Show only the first ${mostNames} ${group.all}`
+                  : `Show all ${plants.length} ${group.all}`,
+                () => (showingAll[group.key] = !showingAll[group.key]),
+              )}
             {/if}
           {/if}
         {/each}
@@ -259,39 +278,39 @@
           <div id="family-distant" class="stack" hidden={!distant}>
             <p>
               {kin.order.length === 1
-                ? "This plant is in the same order."
-                : "These plants are in the same order."}
+                ? "You grow one other plant in the same order."
+                : "You grow these other plants in the same order."}
             </p>
             {@render plantRows(kin.order)}
           </div>
         {/if}
       </div>
 
-      <p class="muted credit family-credits">
-        <span
-          >The classification is from
+      <div class="family-credits stack">
+        <p class="muted credit">
+          The classification is from the GBIF Backbone Taxonomy, which is shared
+          under CC BY 4.0. The everyday names are from iNaturalist.
+        </p>
+        <div class="row">
           <a
             class="small-button"
             href="https://doi.org/10.15468/39omei"
             target="_blank"
             rel="noopener noreferrer"
-            >GBIF Backbone Taxonomy, CC BY 4.0 <ExternalLink
+            >See the GBIF Backbone Taxonomy <ExternalLink
               size={16}
               aria-hidden="true"
             /></a
-          >.</span
-        >
-        <span
-          >Everyday names are from
+          >
           <a
             class="small-button"
             href="https://www.inaturalist.org/"
             target="_blank"
             rel="noopener noreferrer"
-            >iNaturalist <ExternalLink size={16} aria-hidden="true" /></a
-          >.</span
-        >
-      </p>
+            >Go to iNaturalist <ExternalLink size={16} aria-hidden="true" /></a
+          >
+        </div>
+      </div>
     </div>
   {/if}
 </section>

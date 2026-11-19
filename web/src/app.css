@@ -4291,11 +4291,16 @@ button.link-button:disabled {
 }
 
 .family-credits {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.4rem 0.75rem;
+  gap: 0.5rem;
+}
+
+.family-credits p {
   margin: 0;
+}
+
+.family-credits .row {
+  flex-wrap: wrap;
+  gap: 0.4rem;
 }
 
 .family-plants {
@@ -4320,10 +4325,4 @@ button.link-button:disabled {
 
 .family-plants button.link-button svg {
   flex: none;
-}
-
-@media (min-width: 640px) {
-  .family-plants {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }

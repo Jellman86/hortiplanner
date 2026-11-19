@@ -24,6 +24,16 @@ export const broaderRanks: ReadonlySet<string> = new Set([
   "class",
 ]);
 
+/** The ranks above a species. Anything below one, such as a variety, is as close as a species. */
+export const aboveSpecies: ReadonlySet<string> = new Set([
+  "kingdom",
+  "phylum",
+  "class",
+  "order",
+  "family",
+  "genus",
+]);
+
 /** The nursery's other plants, closest first, each listed once: same species, then genus, then family, then order. */
 export function relatives(tree: Tree): {
   species: Plant[];
