@@ -284,6 +284,217 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/plants/{id}/photos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PlantPhotoSummary"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: {
+                    kind?: components["schemas"]["PlantPhotoKind"];
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PlantPhotoSummary"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/plants/{id}/batch-photos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PlantBatchPhoto"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/plant-photos/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PlantPhotoDescription"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PlantPhotoSummary"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/plant-photos/{id}/main": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/plants/{id}/photo": {
         parameters: {
             query?: never;
@@ -7784,6 +7995,8 @@ export interface components {
             plantId: null | string;
             /** Format: uuid */
             photoId: null | string;
+            /** Format: uuid */
+            plantPhotoId?: null | string;
         };
         AskAnswer: {
             answer: string;
@@ -8863,6 +9076,17 @@ export interface components {
         PlacesCreated: {
             ids: string[];
         };
+        PlantBatchPhoto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            batchId: string;
+            traceabilityCode: string;
+            /** Format: date-time */
+            takenAt: string;
+            stage: null | components["schemas"]["ProductionStage"];
+            canBeAsked: boolean;
+        };
         PlantCardResponse: {
             /** Format: uuid */
             id: string;
@@ -8929,6 +9153,23 @@ export interface components {
             addedBy: string;
             /** Format: date-time */
             createdAt: string;
+        };
+        PlantPhotoDescription: {
+            kind: components["schemas"]["PlantPhotoKind"];
+            caption: null | string;
+        };
+        /** @enum {unknown} */
+        PlantPhotoKind: "Flower" | "Foliage" | "Habit" | "Label" | "Other";
+        PlantPhotoSummary: {
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["PlantPhotoKind"];
+            caption: null | string;
+            isMain: boolean;
+            /** Format: date-time */
+            takenAt: string;
+            canRemove: boolean;
+            canBeAsked: boolean;
         };
         PlantPriceDto: {
             /** Format: uuid */

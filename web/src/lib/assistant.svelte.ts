@@ -3,12 +3,14 @@ import { isOn } from "./features.svelte";
 import type { Schemas } from "./types";
 
 // Whether this person can use Ask Hortiplanner, and whether its model reads photos, for screens to offer it.
-/** What a question is asked from: a tray, a plant or one of a batch's photos, with words to show for it. */
+/** What a question is asked from: a tray, a plant, or a photo of a batch or a plant, with words to show for it. */
 export type AskAbout = {
   title: string;
   trayLabel?: string | null;
   plantId?: string | null;
   photoId?: string | null;
+  /** One of the plant's own photos, rather than a batch's. */
+  plantPhotoId?: string | null;
 };
 export type AskSource = Schemas["AskSource"];
 

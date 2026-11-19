@@ -41,4 +41,41 @@ public sealed class ReviewMigrationTests(PostgresFixture database)
         Assert.Equal(AppendResult.Stored, await store.AppendAsync(Work(EventType.Lost, start.AddHours(1), -3), Cancellation));
         Assert.Equal(35, Assert.Single((await store.GetContainerStateAsync(tray.Id, Cancellation)).Contents).Quantity);
     }
+
+    [Fact]
+    public async Task A_plants_single_picture_comes_through_as_its_main_photo()
+    {
+        await using var db = await database.CreateMigratedDatabaseAsync();
+        var plant = new Plant { CommonName = "Lavender" };
+        var other = new Plant { CommonName = "Foxglove" };
+        db.AddRange(plant, other);
+        await db.SaveChangesAsync(Cancellation);
+        await db.GetService<IMigrator>().MigrateAsync("20261114101014_PersonPicture", Cancellation);
+        byte[] picture = [0xFF, 0xD8, 0xFF, 7];
+        await db.Database.ExecuteSqlAsync($"INSERT INTO plant_photos (plant_id, content_type, content) VALUES ({plant.Id}, 'image/jpeg', {picture}), ({other.Id}, 'image/jpeg', {picture})", Cancellation);
+
+        await db.Database.MigrateAsync(Cancellation);
+        db.ChangeTracker.Clear();
+
+        // Each comes through as its plant's main photo, with an id of its own.
+        Assert.Equal(2, (await db.PlantPhotos.Select(row => row.Id).Distinct().ToListAsync(Cancellation)).Count);
+        Assert.Equal(2, await db.PlantPhotos.CountAsync(row => row.IsMain, Cancellation));
+        var photo = await db.PlantPhotos.SingleAsync(row => row.PlantId == plant.Id, Cancellation);
+        Assert.Equal(plant.Id, photo.PlantId);
+        Assert.True(photo.IsMain);
+        Assert.Equal(PlantPhotoKind.Other, photo.Kind);
+        Assert.NotEqual(Guid.Empty, photo.Id);
+        Assert.Null(photo.UploadedBy);
+        Assert.Equal(picture, photo.Content);
+
+        // A photo added since isn't the main one unless it says so.
+        db.PlantPhotos.Add(new PlantPhoto { PlantId = plant.Id, ContentType = "image/jpeg", Content = picture });
+        await db.SaveChangesAsync(Cancellation);
+        Assert.Equal(1, await db.PlantPhotos.CountAsync(row => row.PlantId == plant.Id && row.IsMain, Cancellation));
+
+        // Going back keeps each plant's main photo as its one picture.
+        await db.GetService<IMigrator>().MigrateAsync("20261114101014_PersonPicture", Cancellation);
+        Assert.Equal(2, await db.Database.SqlQueryRaw<int>("SELECT count(*)::int AS \"Value\" FROM plant_photos").SingleAsync(Cancellation));
+        await db.Database.MigrateAsync(Cancellation);
+    }
 }

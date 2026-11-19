@@ -146,6 +146,43 @@ public sealed class AssistantTests(PostgresFixture database)
     }
 
     [Fact]
+    public async Task A_plants_own_photo_is_sent_when_asked_about_even_with_batch_photos_off()
+    {
+        var openRouter = new PretendOpenRouter();
+        await using var nursery = await TwoPersonNursery.CreateAsync(database, outsideWorld: openRouter);
+        var plant = Json(await PostForTextAsync(nursery.Owner, "/api/plants", new { commonName = "Lavender", xylellaHost = false, protectedVariety = false })).GetProperty("id").GetGuid();
+        using (var saved = await nursery.Owner.PutAsJsonAsync(Route("/api/assistant/settings"), new { key = Key, model = "test/model", forStaff = false }, Cancellation))
+        {
+            Assert.Equal(HttpStatusCode.NoContent, saved.StatusCode);
+        }
+
+        using (var off = await nursery.Owner.PutAsJsonAsync(Route("/api/settings/features/BatchPhotos"), new { on = false }, Cancellation))
+        {
+            Assert.Equal(HttpStatusCode.NoContent, off.StatusCode);
+        }
+
+        Guid photo;
+        using (var content = new ByteArrayContent([0xFF, 0xD8, 0xFF, 0xE0, 42]))
+        using (var added = await nursery.Owner.PostAsync(Route($"/api/plants/{plant}/photos?kind=Flower"), content, Cancellation))
+        {
+            photo = Json(await added.Content.ReadAsStringAsync(Cancellation)).GetProperty("id").GetGuid();
+        }
+
+        async Task<string> AskedAsync(Guid plantPhotoId)
+        {
+            openRouter.Questions.Clear();
+            using var asked = await nursery.Owner.PostAsJsonAsync(Route("/api/assistant/ask"), new { messages = new[] { new { role = "user", text = "What is this?" } }, about = new { plantId = plant, plantPhotoId } }, Cancellation);
+            Assert.Equal(HttpStatusCode.OK, asked.StatusCode);
+            return openRouter.Questions[0].Body;
+        }
+
+        Assert.Contains("data:image/jpeg;base64,", await AskedAsync(photo), StringComparison.Ordinal);
+
+        // A photo that isn't there is left out, and the question still goes.
+        Assert.DoesNotContain("data:image/jpeg;base64,", await AskedAsync(Guid.CreateVersion7()), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Turned_off_it_is_refused_and_odd_questions_are_turned_away()
     {
         await using var nursery = await TwoPersonNursery.CreateAsync(database, outsideWorld: new PretendOpenRouter());

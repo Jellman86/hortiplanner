@@ -303,7 +303,7 @@
 {#if !container}
   <main><p class="muted">Loading…</p></main>
 {:else if cardPlant}
-  <PlantCard plantId={cardPlant} onBack={back}>
+  <PlantCard plantId={cardPlant} onBack={back} {onAsk}>
     {#snippet actions()}
       {#if onAsk}
         {@const plant = container!.contents.find(

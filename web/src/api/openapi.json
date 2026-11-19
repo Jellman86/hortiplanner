@@ -225,10 +225,216 @@
         }
       }
     },
+    "/api/plants/{id}/photos": {
+      "get": {
+        "tags": [
+          "PlantPhotoEndpoints"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlantPhotoSummary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "PlantPhotoEndpoints"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/PlantPhotoKind"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlantPhotoSummary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/plants/{id}/batch-photos": {
+      "get": {
+        "tags": [
+          "PlantPhotoEndpoints"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlantBatchPhoto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/plant-photos/{id}": {
+      "get": {
+        "tags": [
+          "PlantPhotoEndpoints"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "PlantPhotoEndpoints"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlantPhotoDescription"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlantPhotoSummary"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "PlantPhotoEndpoints"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/plant-photos/{id}/main": {
+      "put": {
+        "tags": [
+          "PlantPhotoEndpoints"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/plants/{id}/photo": {
       "put": {
         "tags": [
-          "PhotoEndpoints"
+          "PlantPhotoEndpoints"
         ],
         "parameters": [
           {
@@ -249,7 +455,7 @@
       },
       "get": {
         "tags": [
-          "PhotoEndpoints"
+          "PlantPhotoEndpoints"
         ],
         "parameters": [
           {
@@ -6204,6 +6410,13 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "plantPhotoId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -10623,6 +10836,47 @@
           }
         }
       },
+      "PlantBatchPhoto": {
+        "required": [
+          "id",
+          "batchId",
+          "traceabilityCode",
+          "takenAt",
+          "stage",
+          "canBeAsked"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "batchId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "traceabilityCode": {
+            "type": "string"
+          },
+          "takenAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "stage": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ProductionStage"
+              }
+            ]
+          },
+          "canBeAsked": {
+            "type": "boolean"
+          }
+        }
+      },
       "PlantCardResponse": {
         "required": [
           "id",
@@ -10943,6 +11197,73 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "PlantPhotoDescription": {
+        "required": [
+          "kind",
+          "caption"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/PlantPhotoKind"
+          },
+          "caption": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "PlantPhotoKind": {
+        "enum": [
+          "Flower",
+          "Foliage",
+          "Habit",
+          "Label",
+          "Other"
+        ]
+      },
+      "PlantPhotoSummary": {
+        "required": [
+          "id",
+          "kind",
+          "caption",
+          "isMain",
+          "takenAt",
+          "canRemove",
+          "canBeAsked"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/PlantPhotoKind"
+          },
+          "caption": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isMain": {
+            "type": "boolean"
+          },
+          "takenAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "canRemove": {
+            "type": "boolean"
+          },
+          "canBeAsked": {
+            "type": "boolean"
           }
         }
       },
@@ -13738,6 +14059,9 @@
     },
     {
       "name": "PhotoEndpoints"
+    },
+    {
+      "name": "PlantPhotoEndpoints"
     },
     {
       "name": "PlantCardEndpoints"

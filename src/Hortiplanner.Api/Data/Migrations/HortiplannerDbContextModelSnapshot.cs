@@ -1651,9 +1651,14 @@ namespace Hortiplanner.Api.Data.Migrations
 
             modelBuilder.Entity("Hortiplanner.Api.Data.PlantPhoto", b =>
                 {
-                    b.Property<Guid>("PlantId")
+                    b.Property<Guid>("Id")
                         .HasColumnType("uuid")
-                        .HasColumnName("plant_id");
+                        .HasColumnName("id");
+
+                    b.Property<string>("Caption")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("caption");
 
                     b.Property<byte[]>("Content")
                         .IsRequired()
@@ -1665,8 +1670,42 @@ namespace Hortiplanner.Api.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("content_type");
 
-                    b.HasKey("PlantId")
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<bool>("IsMain")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_main");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("kind");
+
+                    b.Property<Guid>("PlantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("plant_id");
+
+                    b.Property<Guid?>("UploadedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("uploaded_by");
+
+                    b.HasKey("Id")
                         .HasName("pk_plant_photos");
+
+                    b.HasIndex("PlantId")
+                        .HasDatabaseName("ix_plant_photos_plant_id");
+
+                    b.HasIndex("UploadedBy")
+                        .HasDatabaseName("ix_plant_photos_uploaded_by");
+
+                    b.HasIndex("PlantId", "IsMain")
+                        .IsUnique()
+                        .HasDatabaseName("ix_plant_photos_one_main")
+                        .HasFilter("is_main");
 
                     b.ToTable("plant_photos", (string)null);
                 });
@@ -3058,11 +3097,17 @@ namespace Hortiplanner.Api.Data.Migrations
             modelBuilder.Entity("Hortiplanner.Api.Data.PlantPhoto", b =>
                 {
                     b.HasOne("Hortiplanner.Api.Data.Plant", null)
-                        .WithOne()
-                        .HasForeignKey("Hortiplanner.Api.Data.PlantPhoto", "PlantId")
+                        .WithMany()
+                        .HasForeignKey("PlantId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_plant_photos_plants_plant_id");
+
+                    b.HasOne("Hortiplanner.Api.Accounts.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UploadedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_plant_photos_asp_net_users_uploaded_by");
                 });
 
             modelBuilder.Entity("Hortiplanner.Api.Data.PlantPrice", b =>

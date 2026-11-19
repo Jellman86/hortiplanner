@@ -217,6 +217,7 @@
   <PlantCard
     plantId={cardId}
     {canManage}
+    {onAsk}
     onBack={() => {
       cardId = null;
       void attempt(load, setProblem);

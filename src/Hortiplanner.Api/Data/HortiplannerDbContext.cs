@@ -121,6 +121,7 @@ internal sealed class HortiplannerDbContext(DbContextOptions<HortiplannerDbConte
         ConfigureEvents(modelBuilder);
         ConfigureCatalogue(modelBuilder);
         ConfigureSpeciesAndPhotos(modelBuilder);
+        ConfigurePlantPhotos(modelBuilder);
 
         ConfigureStock(modelBuilder);
         ConfigureSettings(modelBuilder);
@@ -565,13 +566,20 @@ internal sealed class HortiplannerDbContext(DbContextOptions<HortiplannerDbConte
             entity.HasOne<Batch>().WithMany().HasForeignKey(e => e.BatchId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne<AppUser>().WithMany().HasForeignKey(e => e.UploadedBy).OnDelete(DeleteBehavior.Restrict);
         });
+    }
 
+    private static void ConfigurePlantPhotos(ModelBuilder modelBuilder) =>
         modelBuilder.Entity<PlantPhoto>(entity =>
         {
-            entity.HasKey(e => e.PlantId);
-            entity.HasOne<Plant>().WithOne().HasForeignKey<PlantPhoto>(e => e.PlantId).OnDelete(DeleteBehavior.Restrict);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Kind).HasConversion<string>();
+            entity.Property(e => e.Caption).HasMaxLength(PlantPhoto.CaptionLength);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
+            entity.HasIndex(e => e.PlantId);
+            entity.HasIndex(e => new { e.PlantId, e.IsMain }).IsUnique().HasFilter("is_main").HasDatabaseName("ix_plant_photos_one_main");
+            entity.HasOne<Plant>().WithMany().HasForeignKey(e => e.PlantId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<AppUser>().WithMany().HasForeignKey(e => e.UploadedBy).OnDelete(DeleteBehavior.Restrict);
         });
-    }
 
     private static void ConfigureCatalogue(ModelBuilder modelBuilder)
     {
