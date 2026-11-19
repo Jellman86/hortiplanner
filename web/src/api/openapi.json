@@ -4018,6 +4018,45 @@
         }
       }
     },
+    "/api/assistant/read-label": {
+      "post": {
+        "tags": [
+          "AssistantEndpoints"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabelRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabelRead"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AskRefused"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/assistant/conversations": {
       "get": {
         "tags": [
@@ -9571,6 +9610,149 @@
           "Large"
         ]
       },
+      "LabelRead": {
+        "required": [
+          "readable",
+          "what",
+          "commonName",
+          "variety",
+          "botanicalName",
+          "supplierName",
+          "supplierPassportNumber",
+          "lotOrReference",
+          "sowBy",
+          "contentsAsPrinted",
+          "seedCount",
+          "unsure",
+          "plantMatches",
+          "supplierId"
+        ],
+        "type": "object",
+        "properties": {
+          "readable": {
+            "type": "boolean"
+          },
+          "what": {
+            "type": "string"
+          },
+          "commonName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "variety": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "botanicalName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "supplierName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "supplierPassportNumber": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lotOrReference": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sowBy": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "contentsAsPrinted": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "seedCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "unsure": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "plantMatches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlantMatch"
+            }
+          },
+          "supplierId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "cost": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "spentThisMonth": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "spentInAll": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "LabelRequest": {
+        "required": [
+          "kind",
+          "image"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ReadableLabel"
+          },
+          "image": {
+            "type": "string"
+          }
+        }
+      },
       "LabelStyle": {
         "required": [
           "layout",
@@ -11489,6 +11671,40 @@
           }
         }
       },
+      "PlantMatch": {
+        "required": [
+          "id",
+          "commonName",
+          "variety",
+          "botanicalName",
+          "hasPhoto"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "commonName": {
+            "type": "string"
+          },
+          "variety": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "botanicalName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hasPhoto": {
+            "type": "boolean"
+          }
+        }
+      },
       "PlantNoteResponse": {
         "required": [
           "id",
@@ -12288,6 +12504,11 @@
             "type": "string"
           }
         }
+      },
+      "ReadableLabel": {
+        "enum": [
+          "SeedPacket"
+        ]
       },
       "ReadyRequest": {
         "required": [

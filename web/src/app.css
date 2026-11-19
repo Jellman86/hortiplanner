@@ -4487,5 +4487,55 @@ button.link-button.ftree-leaf {
 
   .ftree-leaf {
     max-width: 22rem;
+/* Reading a seed packet photo: the photo beside what was read, for the person to check. */
+.read-label-card {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.read-label-photo {
+  width: 100%;
+  max-height: 18rem;
+  border-radius: 0.5rem;
+  background: var(--line);
+  object-fit: contain;
+}
+
+.read-label-facts {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  padding-inline: 0;
+}
+
+.read-label-facts dd {
+  display: grid;
+  gap: 0.2rem;
+  overflow-wrap: anywhere;
+}
+
+.read-label-unsure {
+  color: var(--warning);
+  font-size: 0.9em;
+  font-weight: 600;
+}
+
+.read-tag {
+  align-self: flex-start;
+  width: fit-content;
+  white-space: nowrap;
+}
+
+.batch-check .read-tag {
+  margin-left: 0.35rem;
+}
+
+@media (min-width: 700px) {
+  .read-label-card {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    align-items: start;
+  }
+
+  .read-label-photo {
+    position: sticky;
+    top: 1rem;
   }
 }

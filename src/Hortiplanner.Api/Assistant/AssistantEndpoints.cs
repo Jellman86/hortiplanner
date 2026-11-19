@@ -37,6 +37,7 @@ internal static partial class AssistantEndpoints
         assistant.MapGet("/status", StatusAsync);
         assistant.MapPost("/ask", AskAsync).Produces<AskAnswer>().Produces<AskRefused>(StatusCodes.Status409Conflict);
         assistant.MapConversationEndpoints();
+        assistant.MapLabelEndpoints();
 
         var settings = assistant.MapGroup("/settings").RequireAuthorization(AccountServices.OwnerPolicy);
         settings.MapGet("/", GetSettingsAsync);
@@ -505,6 +506,9 @@ internal static partial class AssistantEndpoints
         public string? Title { get; init; }
     }
 
-    /// <summary>Why a question couldn't be answered: NotSetUp, TooMany, KeyRefused, ModelUnavailable or Unavailable.</summary>
+    /// <summary>
+    /// Why a question couldn't be answered: NotSetUp, TooMany, KeyRefused, ModelUnavailable or Unavailable; for a label,
+    /// also CantReadPhotos.
+    /// </summary>
     internal sealed record AskRefused(string Problem);
 }

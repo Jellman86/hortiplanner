@@ -28,6 +28,9 @@ public sealed class AssistantTests(PostgresFixture database)
         /// "no provider" (refused as not found, as for a model with no provider to take the question).</summary>
         public string Mode { get; set; } = "normal";
 
+        /// <summary>What a label reads as, as the tool's arguments, when a label is read; with Mode "label as text", sent as text.</summary>
+        public string? Label { get; set; }
+
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var path = request.RequestUri!.AbsolutePath;
@@ -65,6 +68,13 @@ public sealed class AssistantTests(PostgresFixture database)
                     return askedForTools
                         ? Reply("""{"choices":[{"message":{"role":"assistant","content":[{"type":"text","text":"Lavender is growing."}]}}]}""")
                         : Reply("""{"choices":[{"message":{"role":"assistant","content":null,"tool_calls":[{"id":"call-1","type":"function","function":{"name":"find_plants","arguments":{"query":"lav_end%"}}}]}}]}""");
+            }
+
+            if (Label is { } label && body.Contains("\"read_seed_packet\"", StringComparison.Ordinal))
+            {
+                return string.Equals(Mode, "label as text", StringComparison.Ordinal)
+                    ? Reply(new JsonObject { ["choices"] = new JsonArray(new JsonObject { ["message"] = new JsonObject { ["role"] = "assistant", ["content"] = $"Here is what it says: {label}" } }), ["usage"] = new JsonObject { ["cost"] = 0.0005 } }.ToJsonString())
+                    : Reply(new JsonObject { ["choices"] = new JsonArray(new JsonObject { ["message"] = new JsonObject { ["role"] = "assistant", ["content"] = null, ["tool_calls"] = new JsonArray(new JsonObject { ["id"] = "call-1", ["type"] = "function", ["function"] = new JsonObject { ["name"] = "read_seed_packet", ["arguments"] = label } }) } }), ["usage"] = new JsonObject { ["cost"] = 0.0005 } }.ToJsonString());
             }
 
             // "fails after a look": the first turn looks something up and is charged; the next fails.

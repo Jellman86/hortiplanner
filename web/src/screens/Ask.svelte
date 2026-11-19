@@ -17,6 +17,7 @@
   import { api } from "../api/client";
   import {
     answerBlocks,
+    askRefusals,
     assistant,
     dollars,
     type AskAbout,
@@ -371,20 +372,6 @@
     }
   }
 
-  const refusals: Record<string, string> = {
-    NotSetUp:
-      "Ask Hortiplanner isn't set up yet. The owner adds an OpenRouter key and chooses a model under Settings, AI assistant.",
-    TooMany:
-      "That's a lot of questions this hour. Please wait a while before asking more.",
-    KeyRefused:
-      "OpenRouter turned the key away: it may be out of credit or past its limit. The owner can check it at openrouter.ai.",
-    ModelUnavailable:
-      "The chosen AI model can't answer questions here. The owner can choose another under Settings, AI assistant.",
-    Unavailable: "The AI service didn't answer. Please try again in a minute.",
-    ConversationFull:
-      "This conversation is as long as it can be. Please start a new one to carry on.",
-  };
-
   async function ask(text = question) {
     const wanted = text.trim();
 
@@ -452,7 +439,7 @@
       } else {
         const reason = (error as { problem?: string } | undefined)?.problem;
         problem =
-          (reason && refusals[reason]) ??
+          (reason && askRefusals[reason]) ??
           (response.status === 403
             ? "The owner hasn't let staff use Ask Hortiplanner."
             : response.status === 404 && conversationId
@@ -550,6 +537,11 @@
       people can sign in this way on this device.
     </p>
   {/if}
+  <p class="muted">
+    When you read a seed packet in New batch, only that photo is sent, with
+    nothing from your records. It isn't kept in your conversations, and
+    Hortiplanner keeps it only if you tick to keep it with the batch.
+  </p>
 {/snippet}
 
 <!-- What this person's questions have cost: the nursery pays for every one, so it's always in view. -->

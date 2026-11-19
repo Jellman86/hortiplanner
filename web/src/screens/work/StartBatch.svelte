@@ -24,6 +24,7 @@
   import ActionFrame from "./ActionFrame.svelte";
   import PlantSearch from "./PlantSearch.svelte";
   import PlantThumb from "./PlantThumb.svelte";
+  import ReadLabel from "./ReadLabel.svelte";
   import Stepper from "./Stepper.svelte";
   import SowByPicker from "./SowByPicker.svelte";
   import SupplierRegistrations from "./SupplierRegistrations.svelte";
@@ -215,6 +216,71 @@
   );
   let problem = $state("");
   let busy = $state(false);
+  // What was read from a seed packet photo, and which fields it filled in, until the person changes them.
+  let packet = $state<Schemas["LabelRead"] | null>(null);
+  let fromPhoto = $state<Record<string, boolean>>({});
+  let searchFor = $state("");
+  let searchSeed = $state(0);
+  const forget = (field: string) => (fromPhoto[field] = false);
+  const packetName = $derived(
+    packet ? (packet.commonName ?? packet.botanicalName ?? "") : "",
+  );
+  // The nursery's own plants that match the packet come first.
+  const recentPlants = $derived(
+    packet
+      ? [
+          ...packet.plantMatches,
+          ...plants.filter(
+            (plant) =>
+              !packet!.plantMatches.some((match) => match.id === plant.id),
+          ),
+        ]
+      : plants,
+  );
+
+  /** Fills in what was read from a seed packet: nothing is saved until Start batch. */
+  function usePacket(read: Schemas["LabelRead"], blob: Blob, keep: boolean) {
+    const marks: Record<string, boolean> = {};
+    packet = read;
+    chooseSource("SeedLot");
+
+    if (read.contentsAsPrinted) {
+      packetSays = read.contentsAsPrinted.slice(0, 200);
+      marks.packetSays = true;
+    }
+    if (read.seedCount) {
+      aboutSeeds = Number(read.seedCount);
+      marks.aboutSeeds = true;
+    }
+    if (read.supplierId) {
+      supplierId = read.supplierId;
+      marks.supplier = true;
+    } else if (read.supplierName) {
+      supplierId = "";
+      newSupplier = read.supplierName;
+      newPassport = read.supplierPassportNumber ?? "";
+      marks.supplier = true;
+    }
+    if (read.lotOrReference) {
+      sourceReference = read.lotOrReference;
+      marks.sourceReference = true;
+    }
+    if (read.sowBy) {
+      sowBy = read.sowBy;
+      marks.sowBy = true;
+    }
+    if (keep) {
+      const previous = photos.Packet;
+      if (previous) {
+        URL.revokeObjectURL(previous.url);
+      }
+      photos.Packet = { blob, url: URL.createObjectURL(blob) };
+    }
+
+    fromPhoto = marks;
+    searchFor = packetName;
+    searchSeed += 1;
+  }
 
   const setProblem = (message: string) => (problem = message);
 
@@ -266,6 +332,11 @@
     picked = choice;
     details = null;
     plantId = choice.kind === "plant" ? choice.id : "";
+
+    if (choice.kind === "species" && packet?.variety && !variety.trim()) {
+      variety = packet.variety;
+      fromPhoto.variety = true;
+    }
 
     if (choice.kind === "species") {
       void attempt(async () => {
@@ -376,7 +447,12 @@
       originCountry;
     const potSize = potSizes.find((item) => item.id === potSizeId)?.name;
     const photoCount = Object.keys(photos).length;
-    const rows: { name: string; value: string; stage: number }[] = [
+    const rows: {
+      name: string;
+      value: string;
+      stage: number;
+      field?: string;
+    }[] = [
       { name: "Plant", value: chosenName, stage: 1 },
       {
         name: counting ? "How many" : "Seed sown",
@@ -395,17 +471,24 @@
         name: "Supplier",
         value: supplier ?? "Not listed",
         stage: 3,
+        field: "supplier",
       });
       if (sourceReference.trim()) {
         rows.push({
           name: "Lot or reference",
           value: sourceReference.trim(),
           stage: 3,
+          field: "sourceReference",
         });
       }
 
       if (source === "SeedLot" && sowBy) {
-        rows.push({ name: "Sow by", value: sowByWords(sowBy), stage: 3 });
+        rows.push({
+          name: "Sow by",
+          value: sowByWords(sowBy),
+          stage: 3,
+          field: "sowBy",
+        });
       }
     }
 
@@ -654,6 +737,11 @@
     }, setProblem);
 </script>
 
+{#snippet tag(field: string)}
+  {#if fromPhoto[field]}<span class="pill read-tag">Read from the photo</span
+    >{/if}
+{/snippet}
+
 <ActionFrame title={stages[stage - 1]} {problem} onCancel={back}>
   <p class="muted">Step {stage} of {stages.length}</p>
   <div class="stage-bar" aria-hidden="true">
@@ -664,7 +752,21 @@
   {#if prefill}<p class="muted">From purchase: {prefill.description}</p>{/if}
 
   {#if stage === 1 && !confirming}
-    <PlantSearch recent={plants} onPick={pick} />
+    {#if !prefill}
+      <ReadLabel onUse={usePacket} />
+    {/if}
+    {#if packetName}
+      <p class="muted">
+        The packet says this is {packetName}. Choose the matching plant below.
+      </p>
+    {/if}
+    {#key searchSeed}
+      <PlantSearch
+        recent={recentPlants}
+        onPick={pick}
+        initialQuery={searchFor}
+      />
+    {/key}
   {:else if stage === 1 && picked?.kind === "species"}
     <div class="card">
       <div class="plant-head">
@@ -688,13 +790,19 @@
           .join(". ")}. You can change these under Plants.
       </p>
     {/if}
-    <label>Variety (if there is one) <input bind:value={variety} /></label>
+    <label
+      >Variety (if there is one) {@render tag("variety")}
+      <input bind:value={variety} oninput={() => forget("variety")} /></label
+    >
     <button onclick={next}>Next</button>
     <button class="secondary" onclick={() => (picked = null)}
       >Choose a different plant</button
     >
   {:else if stage === 2}
     <p class="muted">{chosenName}</p>
+    {#if packet?.contentsAsPrinted}
+      <p class="muted">The packet says it holds {packet.contentsAsPrinted}.</p>
+    {/if}
     {#if seed}
       <fieldset class="day-picker">
         <legend class="field-label">How much seed went in?</legend>
@@ -714,7 +822,10 @@
       <p class="muted">
         About how many seeds? Give a guess, or what the packet says.
       </p>
-      <Stepper bind:value={aboutSeeds} presets={[50, 100, 250, 500]} />
+      {@render tag("aboutSeeds")}
+      <div onclick={() => forget("aboutSeeds")} role="presentation">
+        <Stepper bind:value={aboutSeeds} presets={[50, 100, 250, 500]} />
+      </div>
     {:else if sownAs === "Grams"}
       <label
         >Grams of seed <input
@@ -733,7 +844,9 @@
         {/each}
       </div>
       <label
-        >What does the packet say? (optional) <input
+        >What does the packet say? (optional) {@render tag("packetSays")}
+        <input
+          oninput={() => forget("packetSays")}
           bind:value={packetSays}
           maxlength="200"
           placeholder="approx. 250 seeds, or 1 g"
@@ -807,8 +920,8 @@
     {/if}
     {#if source !== "Cuttings"}
       <label>
-        Supplier
-        <select bind:value={supplierId}>
+        Supplier {@render tag("supplier")}
+        <select bind:value={supplierId} onchange={() => forget("supplier")}>
           <option value="">Not listed</option>
           {#each suppliers as supplier (supplier.id)}
             <option value={supplier.id}>{supplier.name}</option>
@@ -816,7 +929,19 @@
         </select>
       </label>
       {#if !supplierId}
-        <label>New supplier <input bind:value={newSupplier} /></label>
+        <label
+          >New supplier {@render tag("supplier")}
+          <input
+            bind:value={newSupplier}
+            oninput={() => forget("supplier")}
+          /></label
+        >
+        {#if fromPhoto.supplier && newSupplier.trim()}
+          <p class="muted">
+            {newSupplier.trim()} isn't on your supplier list yet. Press Add supplier
+            to add them.
+          </p>
+        {/if}
         {#if newSupplier.trim()}
           <label
             >Their plant passport number (if known) <input
@@ -839,9 +964,18 @@
           onSaved={reloadSuppliers}
         />
       {/if}
-      <label>Lot or reference <input bind:value={sourceReference} /></label>
+      <label
+        >Lot or reference {@render tag("sourceReference")}
+        <input
+          bind:value={sourceReference}
+          oninput={() => forget("sourceReference")}
+        /></label
+      >
       {#if source === "SeedLot"}
-        <SowByPicker bind:value={sowBy} />
+        {@render tag("sowBy")}
+        <div onchange={() => forget("sowBy")} role="presentation">
+          <SowByPicker bind:value={sowBy} />
+        </div>
       {/if}
     {/if}
     <label>
@@ -924,7 +1058,10 @@
       {#each summary as row (row.name)}
         <dt>{row.name}</dt>
         <dd>
-          <span>{row.value}</span>
+          <span
+            >{row.value}
+            {#if row.field}{@render tag(row.field)}{/if}</span
+          >
           <button class="link-button" onclick={() => change(row.stage)}
             >Change<span class="visually-hidden">
               {row.name.toLowerCase()}</span

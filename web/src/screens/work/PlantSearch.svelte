@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { api } from "../../api/client";
   import type { Schemas } from "../../lib/types";
   import { plantName, type PickedPlant } from "../../lib/work";
@@ -16,12 +17,15 @@
     label = "What are you planting?",
     showRecent = true,
     speciesOnly = false,
+    initialQuery = "",
   }: {
     recent: Own[];
     onPick: (picked: PickedPlant) => void;
     label?: string;
     showRecent?: boolean;
     speciesOnly?: boolean;
+    /** Searched for straight away, such as the name read from a seed packet. */
+    initialQuery?: string;
   } = $props();
 
   const shortestSearch = 3;
@@ -77,6 +81,13 @@
       }
     }
   }
+
+  onMount(() => {
+    if (initialQuery.trim()) {
+      query = initialQuery.trim();
+      typing();
+    }
+  });
 
   function typing() {
     clearTimeout(timer);

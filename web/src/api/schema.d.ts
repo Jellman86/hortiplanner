@@ -5280,6 +5280,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/assistant/read-label": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["LabelRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LabelRead"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AskRefused"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/assistant/conversations": {
         parameters: {
             query?: never;
@@ -8906,6 +8954,35 @@ export interface components {
         LabelKind: "ContainerLabel" | "PlantLabel" | "BenchCard" | "PlaceLabel" | "PlantPassport" | "PackagePassport" | "Invoice";
         /** @enum {unknown} */
         LabelLayout: "Compact" | "Standard" | "Large";
+        LabelRead: {
+            readable: boolean;
+            what: string;
+            commonName: null | string;
+            variety: null | string;
+            botanicalName: null | string;
+            supplierName: null | string;
+            supplierPassportNumber: null | string;
+            lotOrReference: null | string;
+            /** Format: date */
+            sowBy: null | string;
+            contentsAsPrinted: null | string;
+            /** Format: int32 */
+            seedCount: null | number | string;
+            unsure: string[];
+            plantMatches: components["schemas"]["PlantMatch"][];
+            /** Format: uuid */
+            supplierId: null | string;
+            /** Format: double */
+            cost?: number | string;
+            /** Format: double */
+            spentThisMonth?: number | string;
+            /** Format: double */
+            spentInAll?: number | string;
+        };
+        LabelRequest: {
+            kind: components["schemas"]["ReadableLabel"];
+            image: string;
+        };
         LabelStyle: {
             layout: components["schemas"]["LabelLayout"];
             /** Format: int32 */
@@ -9370,6 +9447,14 @@ export interface components {
             protectedVariety: boolean;
             prices: null | components["schemas"]["PlantPriceDto"][];
         };
+        PlantMatch: {
+            /** Format: uuid */
+            id: string;
+            commonName: string;
+            variety: null | string;
+            botanicalName: null | string;
+            hasPhoto: boolean;
+        };
         PlantNoteResponse: {
             /** Format: uuid */
             id: string;
@@ -9558,6 +9643,8 @@ export interface components {
         QrRequest: {
             text: string;
         };
+        /** @enum {unknown} */
+        ReadableLabel: "SeedPacket";
         ReadyRequest: {
             /** Format: uuid */
             eventId: string;
