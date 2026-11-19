@@ -1,7 +1,7 @@
 <script lang="ts">
   import { isOn } from "../../lib/features.svelte";
   import Camera from "@lucide/svelte/icons/camera";
-  import { onDestroy, onMount } from "svelte";
+  import { onDestroy, onMount, tick } from "svelte";
   import {
     focusHeading,
     onStepChange,
@@ -221,6 +221,11 @@
   let fromPhoto = $state<Record<string, boolean>>({});
   let searchFor = $state("");
   let searchSeed = $state(0);
+  // Whether the packet photo came from reading a packet, rather than being taken by hand at Photos.
+  let packetPhotoRead = false;
+  // Whether reading a packet changed the source to Seed from something else, to say so.
+  let madeSeed = $state(false);
+  let packetNote = $state<HTMLParagraphElement>();
   const forget = (field: string) => (fromPhoto[field] = false);
   const packetName = $derived(
     packet ? (packet.commonName ?? packet.botanicalName ?? "") : "",
@@ -239,8 +244,26 @@
   );
 
   /** Fills in what was read from a seed packet: nothing is saved until Start batch. */
-  function usePacket(read: Schemas["LabelRead"], blob: Blob, keep: boolean) {
+  async function usePacket(
+    read: Schemas["LabelRead"],
+    blob: Blob,
+    keep: boolean,
+  ) {
     const marks: Record<string, boolean> = {};
+
+    // Whatever an earlier packet filled in goes, so nothing from it is left looking typed by hand.
+    if (fromPhoto.sourceReference) sourceReference = "";
+    if (fromPhoto.sowBy) sowBy = "";
+    if (fromPhoto.packetSays) packetSays = "";
+    if (fromPhoto.aboutSeeds) aboutSeeds = 200;
+    if (fromPhoto.variety) variety = "";
+    if (fromPhoto.supplier) {
+      supplierId = "";
+      newSupplier = "";
+      newPassport = "";
+    }
+
+    madeSeed = source !== "SeedLot";
     packet = read;
     chooseSource("SeedLot");
 
@@ -254,6 +277,8 @@
     }
     if (read.supplierId) {
       supplierId = read.supplierId;
+      newSupplier = "";
+      newPassport = "";
       marks.supplier = true;
     } else if (read.supplierName) {
       supplierId = "";
@@ -275,12 +300,32 @@
         URL.revokeObjectURL(previous.url);
       }
       photos.Packet = { blob, url: URL.createObjectURL(blob) };
+      packetPhotoRead = true;
+    } else if (packetPhotoRead && photos.Packet) {
+      // A photo kept from an earlier packet goes; one taken by hand stays.
+      URL.revokeObjectURL(photos.Packet.url);
+      delete photos.Packet;
+      packetPhotoRead = false;
     }
 
     fromPhoto = marks;
     searchFor = packetName;
     searchSeed += 1;
+    await tick();
+    packetNote?.focus();
   }
+
+  // A filled-in value changed by hand, however it was changed, is no longer "read from the photo".
+  $effect(() => {
+    if (packet && aboutSeeds !== Number(packet.seedCount ?? NaN)) {
+      fromPhoto.aboutSeeds = false;
+    }
+  });
+  $effect(() => {
+    if (packet && sowBy !== (packet.sowBy ?? "")) {
+      fromPhoto.sowBy = false;
+    }
+  });
 
   const setProblem = (message: string) => (problem = message);
 
@@ -417,6 +462,17 @@
       }
     }
 
+    // A supplier typed in but not added would be lost: say so rather than carry on without them.
+    if (
+      stage === 3 &&
+      source !== "Cuttings" &&
+      !supplierId &&
+      newSupplier.trim()
+    ) {
+      problem = `Press Add supplier to add ${newSupplier.trim()} to your suppliers, or clear the name to carry on without one.`;
+      return;
+    }
+
     goTo(stage + 1);
   }
 
@@ -458,6 +514,13 @@
         name: counting ? "How many" : "Seed sown",
         value: `${counting ? quantity : sowing}, in a ${containerKinds[containerKind].toLowerCase()}${potSize ? `, ${potSize}` : ""}`,
         stage: 2,
+        field: !seed
+          ? undefined
+          : sownAs === "About"
+            ? "aboutSeeds"
+            : sownAs === "Packet"
+              ? "packetSays"
+              : undefined,
       },
       {
         name: started[source],
@@ -756,7 +819,7 @@
       <ReadLabel onUse={usePacket} />
     {/if}
     {#if packetName}
-      <p class="muted">
+      <p class="muted" tabindex="-1" bind:this={packetNote}>
         The packet says this is {packetName}. Choose the matching plant below.
       </p>
     {/if}
@@ -801,7 +864,9 @@
   {:else if stage === 2}
     <p class="muted">{chosenName}</p>
     {#if packet?.contentsAsPrinted}
-      <p class="muted">The packet says it holds {packet.contentsAsPrinted}.</p>
+      <p class="muted">
+        The packet says it holds {packet.contentsAsPrinted.replace(/\.$/, "")}.
+      </p>
     {/if}
     {#if seed}
       <fieldset class="day-picker">
@@ -823,9 +888,7 @@
         About how many seeds? Give a guess, or what the packet says.
       </p>
       {@render tag("aboutSeeds")}
-      <div onclick={() => forget("aboutSeeds")} role="presentation">
-        <Stepper bind:value={aboutSeeds} presets={[50, 100, 250, 500]} />
-      </div>
+      <Stepper bind:value={aboutSeeds} presets={[50, 100, 250, 500]} />
     {:else if sownAs === "Grams"}
       <label
         >Grams of seed <input
@@ -883,10 +946,18 @@
         <button
           class={source === item.source ? "" : "secondary"}
           aria-pressed={source === item.source}
-          onclick={() => chooseSource(item.source)}>{item.label}</button
+          onclick={() => {
+            madeSeed = false;
+            chooseSource(item.source);
+          }}>{item.label}</button
         >
       {/each}
     </div>
+    {#if madeSeed && source === "SeedLot"}
+      <p class="muted">
+        This is now set to Seed, because you read a seed packet.
+      </p>
+    {/if}
     <DayPicker bind:value={startedOn} label={whenAsked[source]} />
     {#if source === "Cuttings" && plantId && isOn("MotherPlants")}
       <label
@@ -972,10 +1043,7 @@
         /></label
       >
       {#if source === "SeedLot"}
-        {@render tag("sowBy")}
-        <div onchange={() => forget("sowBy")} role="presentation">
-          <SowByPicker bind:value={sowBy} />
-        </div>
+        <SowByPicker bind:value={sowBy}>{@render tag("sowBy")}</SowByPicker>
       {/if}
     {/if}
     <label>

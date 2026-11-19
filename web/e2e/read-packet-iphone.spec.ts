@@ -143,7 +143,7 @@ test("a seed packet photo fills in New batch, to check before starting", async (
 
   await expect(
     page.getByText(
-      "Ask Hortiplanner reads the packet and fills in what it can, for you to check.",
+      "Your photo goes to Ask Hortiplanner, which reads the packet and fills in what it can, for you to check. Nothing from your records is sent with it.",
     ),
   ).toBeVisible();
   await page.locator(".read-label input[type=file]").setInputFiles({
@@ -280,4 +280,37 @@ test("the packet can't be read with a model that can't see photos", async ({
   await expect(
     page.getByRole("button", { name: "Read a photo of the seed packet" }),
   ).toHaveCount(0);
+});
+
+test("reading a second packet leaves nothing from the first behind", async ({
+  page,
+}) => {
+  let answer = reading;
+  await pretend(page, [], () => ({ status: 200, json: answer }));
+  await startNewBatch(page);
+  const file = { name: "packet.png", mimeType: "image/png", buffer: png };
+
+  await page.locator(".read-label input[type=file]").setInputFiles(file);
+  await page.getByRole("button", { name: "Use these details" }).click();
+
+  answer = {
+    ...reading,
+    lotOrReference: null,
+    sowBy: null,
+    supplierId: null,
+    supplierName: null,
+    supplierPassportNumber: null,
+    unsure: [],
+  };
+  await page.locator(".read-label input[type=file]").setInputFiles(file);
+  await page.getByRole("button", { name: "Use these details" }).click();
+  await page.locator(".plant-card", { hasText: "Sweet Pea 'Cupani'" }).click();
+  await page.getByRole("button", { name: "Next" }).click();
+
+  await expect(page.getByLabel(/Lot or reference/)).toHaveValue("");
+  await expect(page.getByRole("combobox", { name: /^Supplier/ })).toHaveValue(
+    "",
+  );
+  await expect(page.getByLabel("Month")).toHaveValue("");
+  await expect(page.locator(".read-tag")).toHaveCount(0);
 });

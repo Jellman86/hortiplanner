@@ -538,9 +538,10 @@
     </p>
   {/if}
   <p class="muted">
-    When you read a seed packet in New batch, only that photo is sent, with
-    nothing from your records. It isn't kept in your conversations, and
-    Hortiplanner keeps it only if you tick to keep it with the batch.
+    When you read a seed packet in New batch, only that photo is sent to the
+    model, with nothing from your records. It isn't kept in your conversations.
+    Hortiplanner keeps it with the batch unless you untick "Keep this photo with
+    the batch".
   </p>
 {/snippet}
 

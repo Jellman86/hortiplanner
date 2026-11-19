@@ -2,7 +2,16 @@
   import { monthEnd, sowByParts } from "../../lib/sowBy";
 
   // A seed packet's sow-by or use-by date, as packets give it: a month and a year.
-  let { value = $bindable() }: { value: string } = $props();
+  import type { Snippet } from "svelte";
+
+  let {
+    value = $bindable(),
+    children,
+  }: {
+    value: string;
+    /** Shown under the question, such as a note that it was read from a photo. */
+    children?: Snippet;
+  } = $props();
 
   const months = [
     "January",
@@ -37,6 +46,7 @@
 
 <fieldset class="day-picker">
   <legend class="field-label">Sow by or use by, from the packet</legend>
+  {@render children?.()}
   <div class="sow-by-fields">
     <label
       >Month <select

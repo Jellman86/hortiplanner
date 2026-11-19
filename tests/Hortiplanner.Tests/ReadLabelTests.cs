@@ -43,14 +43,15 @@ public sealed class ReadLabelTests(PostgresFixture database)
         var openRouter = new PretendOpenRouter
         {
             Label = $$"""
-                {"what":"seed_packet","commonName":"Sweet Pea","variety":"Cupani","botanicalName":"lathyrus odoratus","supplierName":"chiltern seeds",
+                {"what":"seed_packet","commonName":"SWEET PEA","variety":"'Cupani'","botanicalName":"lathyrus odoratus","supplierName":"chiltern seeds",
                  "supplierPassportNumber":"gb-12 345","lotOrReference":"L2291\u0007","sowByMonth":"2","sowByYear":{{year}},"contentsAsPrinted":"approx. 25 seeds",
                  "seedCount":25,"unsure":["lotOrReference","madeUp"]}
                 """,
         };
         await using var nursery = await SetUpAsync(database, openRouter);
         var supplier = await AddAsync(nursery.Owner, "/api/suppliers", new { name = "Chiltern Seeds", passportRegistrationNumber = "GB 12345" });
-        var plant = await AddAsync(nursery.Owner, "/api/plants", new { commonName = "Sweet Pea", variety = "Cupani", botanicalName = "Lathyrus odoratus", xylellaHost = false, protectedVariety = false });
+        var plant = await AddAsync(nursery.Owner, "/api/plants", new { commonName = "Sweet pea", variety = "Cupani", botanicalName = "Lathyrus odoratus", xylellaHost = false, protectedVariety = false });
+        await AddAsync(nursery.Owner, "/api/plants", new { commonName = "Sweet pea", variety = "Matucana", botanicalName = "Lathyrus odoratus", xylellaHost = false, protectedVariety = false });
         var before = await SpendsAsync(nursery);
 
         using var response = await ReadAsync(nursery.Owner);
@@ -63,7 +64,9 @@ public sealed class ReadLabelTests(PostgresFixture database)
         Assert.Equal(25, read.GetProperty("seedCount").GetInt32());
         Assert.Equal(["lotOrReference"], read.GetProperty("unsure").EnumerateArray().Select(field => field.GetString()), StringComparer.Ordinal);
         Assert.Equal(supplier, read.GetProperty("supplierId").GetGuid());
-        Assert.Equal(plant, Assert.Single(read.GetProperty("plantMatches").EnumerateArray()).GetProperty("id").GetGuid());
+        // Both sweet peas match, whatever the capitals, the variety on the packet first.
+        Assert.Equal(plant, read.GetProperty("plantMatches")[0].GetProperty("id").GetGuid());
+        Assert.Equal(2, read.GetProperty("plantMatches").GetArrayLength());
         Assert.Equal(0.0005m, read.GetProperty("cost").GetDecimal());
         Assert.Equal(before + 1, await SpendsAsync(nursery));
 
@@ -73,7 +76,7 @@ public sealed class ReadLabelTests(PostgresFixture database)
         Assert.Equal("read_seed_packet", asked["tool_choice"]!["function"]!["name"]!.GetValue<string>());
         Assert.Equal(Photo, asked["messages"]![1]!["content"]![1]!["image_url"]!["url"]!.GetValue<string>());
         Assert.DoesNotContain("Chiltern", openRouter.Questions[0].Body, StringComparison.Ordinal);
-        Assert.DoesNotContain("Cupani", openRouter.Questions[0].Body, StringComparison.Ordinal);
+        Assert.DoesNotContain("Matucana", openRouter.Questions[0].Body, StringComparison.Ordinal);
 
         // Nothing was added: an unknown supplier comes back as a name only.
         openRouter.Label = """{"what":"seed_packet","commonName":"Cosmos","supplierName":"Somewhere New Seeds","sowByYear":1999,"sowByMonth":4}""";

@@ -194,7 +194,7 @@ internal static partial class AssistantEndpoints
             Readable: false,
             What: what,
             CommonName: Text(found["commonName"], LongestName),
-            Variety: Text(found["variety"], LongestName),
+            Variety: Text(found["variety"], LongestName)?.Trim('\'', '"', '\u2018', '\u2019', '\u201C', '\u201D') is { Length: > 0 } named ? named : null,
             BotanicalName: Text(found["botanicalName"], LongestName),
             SupplierName: Text(found["supplierName"], LongestName),
             SupplierPassportNumber: Text(found["supplierPassportNumber"], LongestPassport),
@@ -225,18 +225,17 @@ internal static partial class AssistantEndpoints
             return read;
         }
 
-        // Taken literally: a backslash, % and _ in what was read mean themselves.
-        var botanical = read.BotanicalName?
-            .Replace(@"\", @"\\", StringComparison.Ordinal)
-            .Replace("%", @"\%", StringComparison.Ordinal)
-            .Replace("_", @"\_", StringComparison.Ordinal);
-        var plants = read.CommonName is null && botanical is null
+        // Packets print names in any case, so names match whatever their capitals.
+        var common = Literal(read.CommonName);
+        var botanical = Literal(read.BotanicalName);
+        var variety = Literal(read.Variety);
+        var plants = common is null && botanical is null
             ? []
             : await db.Plants.AsNoTracking()
                 .Where(plant => plant.ArchivedAt == null
-                    && ((read.CommonName != null && plant.CommonName == read.CommonName)
+                    && ((common != null && EF.Functions.ILike(plant.CommonName, common))
                         || (botanical != null && plant.BotanicalName != null && EF.Functions.ILike(plant.BotanicalName, botanical))))
-                .OrderByDescending(plant => read.Variety != null && plant.Variety == read.Variety)
+                .OrderByDescending(plant => variety != null && plant.Variety != null && EF.Functions.ILike(plant.Variety, variety))
                 .ThenBy(plant => plant.CommonName)
                 .Take(MostPlantMatches)
                 .Select(plant => new PlantMatch(plant.Id, plant.CommonName, plant.Variety, plant.BotanicalName,
@@ -248,11 +247,20 @@ internal static partial class AssistantEndpoints
             .Select(supplier => new { supplier.Id, supplier.Name, supplier.PassportRegistrationNumber })
             .ToListAsync(cancellationToken);
         var passport = Squashed(read.SupplierPassportNumber);
-        var supplier = suppliers.Find(each => read.SupplierName is { } name && string.Equals(each.Name.Trim(), name, StringComparison.OrdinalIgnoreCase))
-            ?? suppliers.Find(each => passport is not null && string.Equals(Squashed(each.PassportRegistrationNumber), passport, StringComparison.Ordinal));
+        var byName = suppliers.Find(each => read.SupplierName is { } name && string.Equals(each.Name.Trim(), name, StringComparison.OrdinalIgnoreCase));
+        var byPassport = suppliers.Find(each => passport is not null && string.Equals(Squashed(each.PassportRegistrationNumber), passport, StringComparison.Ordinal));
+
+        // Two different suppliers, one by name and one by number: the person chooses.
+        var supplier = byName is not null && byPassport is not null && byName.Id != byPassport.Id ? null : byName ?? byPassport;
 
         return read with { PlantMatches = plants, SupplierId = supplier?.Id };
     }
+
+    /// <summary>Text to match with ILIKE as it is: a backslash, % and _ mean themselves.</summary>
+    private static string? Literal(string? text) =>
+        text?.Replace(@"\", @"\\", StringComparison.Ordinal)
+            .Replace("%", @"\%", StringComparison.Ordinal)
+            .Replace("_", @"\_", StringComparison.Ordinal);
 
     /// <summary>A registration number without its spaces and hyphens, in capitals, so "GB 12-345" matches "gb12345".</summary>
     private static string? Squashed(string? number) =>
