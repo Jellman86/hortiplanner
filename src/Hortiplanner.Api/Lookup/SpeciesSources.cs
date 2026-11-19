@@ -93,6 +93,90 @@ internal sealed class SpeciesSources(HttpClient http, SpeciesThrottle throttle)
         }
     }
 
+    /// <summary>
+    /// The species' family tree from the GBIF Backbone Taxonomy, kingdom down to species, for an exact match only: a
+    /// wrong tree is worse than none. A synonym gives the accepted species' tree. Reached is false when GBIF couldn't be
+    /// asked, as opposed to not knowing the plant.
+    /// </summary>
+    public async Task<(FoundLineage? Lineage, bool Reached)> MatchLineageAsync(string name, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var match = await http.GetFromJsonAsync<JsonElement>(
+                new Uri($"{Gbif}species/match?kingdom=Plantae&name={Uri.EscapeDataString(name)}"),
+                cancellationToken);
+
+            if (!string.Equals(Text(match, "matchType"), "EXACT", StringComparison.Ordinal))
+            {
+                return (null, true);
+            }
+
+            var rungs = new List<FoundLineage.Rung>();
+
+            foreach (var rank in LineageRanks)
+            {
+                if (Text(match, rank) is { } rungName && Number(match, $"{rank}Key") is { } key)
+                {
+                    rungs.Add(new FoundLineage.Rung(rank, rungName, key));
+                }
+            }
+
+            return (rungs.Count > 0 && string.Equals(rungs[0].Rank, "kingdom", StringComparison.Ordinal) ? new FoundLineage(rungs) : null, true);
+        }
+        catch (Exception exception) when (IsUnavailable(exception) && !cancellationToken.IsCancellationRequested)
+        {
+            return (null, false);
+        }
+    }
+
+    private static readonly string[] LineageRanks = ["kingdom", "phylum", "class", "order", "family", "genus", "species"];
+
+    /// <summary>
+    /// Everyday names for a taxon and the ranks above it, from iNaturalist in UK English, keyed by rank and scientific
+    /// name, such as ("family", "Lamiaceae") → "Mint Family". Null when iNaturalist couldn't be reached.
+    /// </summary>
+    public async Task<Dictionary<(string Rank, string Name), string>?> FetchCommonNamesAsync(long taxonId, CancellationToken cancellationToken)
+    {
+        var names = new Dictionary<(string Rank, string Name), string>();
+
+        try
+        {
+            var reply = await GetFromINaturalistAsync(
+                new Uri(string.Create(CultureInfo.InvariantCulture, $"{INaturalist}taxa/{taxonId}?locale=en-GB")),
+                cancellationToken);
+            var taxon = reply.GetProperty("results").EnumerateArray().FirstOrDefault();
+
+            if (taxon.ValueKind != JsonValueKind.Object)
+            {
+                return names;
+            }
+
+            void Add(JsonElement item)
+            {
+                if (Text(item, "rank") is { } rank && Text(item, "name") is { } name && Text(item, "preferred_common_name") is { } common)
+                {
+                    names[(rank, name)] = common;
+                }
+            }
+
+            Add(taxon);
+
+            if (taxon.TryGetProperty("ancestors", out var ancestors) && ancestors.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var ancestor in ancestors.EnumerateArray())
+                {
+                    Add(ancestor);
+                }
+            }
+        }
+        catch (Exception exception) when (IsUnavailable(exception) && !cancellationToken.IsCancellationRequested)
+        {
+            return null;
+        }
+
+        return names;
+    }
+
     /// <summary>Reached is false when Wikipedia couldn't be asked, as opposed to having no article.</summary>
     public async Task<(FoundArticle? Article, bool Reached)> FetchArticleAsync(string title, CancellationToken cancellationToken)
     {

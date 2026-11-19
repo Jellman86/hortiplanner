@@ -29,6 +29,9 @@ internal static class AccountHarness
                 ("Passkeys:ServerDomain", "localhost"),
                 ("Setup:Token", setupToken),
                 ("Demo:Enabled", demo ? "true" : "false"),
+
+                // Filling in family trees in the background would make outside calls tests don't expect.
+                ("Species:LineageBackfill", "false"),
                 .. settings,
             ])
         {

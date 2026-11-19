@@ -31,6 +31,8 @@ internal sealed class HortiplannerDbContext(DbContextOptions<HortiplannerDbConte
 
     public DbSet<ExternalSignInSetting> ExternalSignInSettings => Set<ExternalSignInSetting>();
 
+    public DbSet<Taxon> Taxa => Set<Taxon>();
+
     public DbSet<Species> Species => Set<Species>();
 
     public DbSet<SpeciesPhoto> SpeciesPhotos => Set<SpeciesPhoto>();
@@ -126,6 +128,7 @@ internal sealed class HortiplannerDbContext(DbContextOptions<HortiplannerDbConte
         ConfigureCatalogue(modelBuilder);
         ConfigureSpeciesAndPhotos(modelBuilder);
         ConfigurePlantPhotos(modelBuilder);
+        ConfigureTaxa(modelBuilder);
 
         ConfigureStock(modelBuilder);
         ConfigureSettings(modelBuilder);
@@ -577,6 +580,7 @@ internal sealed class HortiplannerDbContext(DbContextOptions<HortiplannerDbConte
             entity.Property(e => e.Id).ValueGeneratedNever();
             entity.Property(e => e.ScientificName).HasColumnType("citext");
             entity.HasIndex(e => e.ScientificName).IsUnique();
+            entity.HasOne<Taxon>().WithMany().HasForeignKey(e => e.TaxonId).OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<SpeciesPhoto>(entity =>
@@ -599,6 +603,18 @@ internal sealed class HortiplannerDbContext(DbContextOptions<HortiplannerDbConte
             entity.HasOne<AppUser>().WithMany().HasForeignKey(e => e.UploadedBy).OnDelete(DeleteBehavior.Restrict);
         });
     }
+
+    private static void ConfigureTaxa(ModelBuilder modelBuilder) =>
+        modelBuilder.Entity<Taxon>(entity =>
+        {
+            entity.ToTable("taxa");
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Rank).HasMaxLength(20);
+            entity.Property(e => e.ScientificName).HasMaxLength(200);
+            entity.Property(e => e.CommonName).HasMaxLength(200);
+            entity.HasIndex(e => e.GbifKey).IsUnique();
+            entity.HasOne<Taxon>().WithMany().HasForeignKey(e => e.ParentId).OnDelete(DeleteBehavior.Restrict);
+        });
 
     private static void ConfigurePlantPhotos(ModelBuilder modelBuilder) =>
         modelBuilder.Entity<PlantPhoto>(entity =>

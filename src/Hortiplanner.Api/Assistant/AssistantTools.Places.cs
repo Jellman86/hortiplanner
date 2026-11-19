@@ -147,6 +147,7 @@ internal static partial class AssistantTools
 
         context.Saw("plant", plant.Id.ToString(), PlantName(plant.CommonName, plant.Variety));
         var rows = (await ProductionEndpoints.ListAsync(context.Db, context.Store, context.Cancellation)).Where(row => row.PlantId == id).ToList();
+        var (family, genus) = await FamilyAndGenusAsync(plant.SpeciesId, context);
 
         return new
         {
@@ -159,8 +160,40 @@ internal static partial class AssistantTools
             plant.Hardiness,
             xylellaHost = plant.XylellaHost,
             noLongerGrown = plant.ArchivedAt is not null,
+            family,
+            genus,
             growing = StockRows(rows, context, note: false),
         };
+    }
+
+    /// <summary>The plant's family and genus from its kept family tree, if it has one; never an outside call.</summary>
+    private static async Task<(object? Family, object? Genus)> FamilyAndGenusAsync(Guid? speciesId, ToolContext context)
+    {
+        var at = speciesId is { } id ? await context.Db.Species.Where(species => species.Id == id).Select(species => species.TaxonId).FirstOrDefaultAsync(context.Cancellation) : null;
+        object? family = null;
+        object? genus = null;
+
+        for (var steps = 0; at is { } current && steps < 12; steps++)
+        {
+            if (await context.Db.Taxa.AsNoTracking().FirstOrDefaultAsync(taxon => taxon.Id == current, context.Cancellation) is not { } taxon)
+            {
+                break;
+            }
+
+            if (string.Equals(taxon.Rank, "genus", StringComparison.Ordinal))
+            {
+                genus = new { scientificName = taxon.ScientificName, commonName = taxon.CommonName };
+            }
+            else if (string.Equals(taxon.Rank, "family", StringComparison.Ordinal))
+            {
+                family = new { scientificName = taxon.ScientificName, commonName = taxon.CommonName };
+                break;
+            }
+
+            at = taxon.ParentId;
+        }
+
+        return (family, genus);
     }
 
     /// <summary>

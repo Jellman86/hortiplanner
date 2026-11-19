@@ -4192,3 +4192,24 @@ button.link-button:disabled {
   margin: 0;
   overflow-wrap: anywhere;
 }
+
+/* A plant's family tree: each rank a step further in than the one above. */
+.family-ladder {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.family-ladder li {
+  display: grid;
+  gap: 0.25rem;
+  justify-items: start;
+  border-left: 2px solid var(--line);
+  padding-inline-start: calc(0.5rem + var(--depth, 0) * 0.6rem);
+}
+
+.family-plants {
+  flex-wrap: wrap;
+}

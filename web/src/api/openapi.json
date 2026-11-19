@@ -505,6 +505,36 @@
         }
       }
     },
+    "/api/plants/{id}/family-tree": {
+      "get": {
+        "tags": [
+          "FamilyTreeEndpoints"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FamilyTree"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/batches": {
       "post": {
         "tags": [
@@ -8474,6 +8504,42 @@
           }
         }
       },
+      "FamilyTree": {
+        "required": [
+          "linked",
+          "unavailable",
+          "lineage",
+          "sameGenus",
+          "sameFamily"
+        ],
+        "type": "object",
+        "properties": {
+          "linked": {
+            "type": "boolean"
+          },
+          "unavailable": {
+            "type": "boolean"
+          },
+          "lineage": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaxonRung"
+            }
+          },
+          "sameGenus": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlantName"
+            }
+          },
+          "sameFamily": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlantName"
+            }
+          }
+        }
+      },
       "FeatureChange": {
         "required": [
           "on"
@@ -11430,6 +11496,22 @@
           }
         }
       },
+      "PlantName": {
+        "required": [
+          "plantId",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "plantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "PlantNoteResponse": {
         "required": [
           "id",
@@ -13658,6 +13740,40 @@
           }
         }
       },
+      "TaxonRung": {
+        "required": [
+          "taxonId",
+          "rank",
+          "scientificName",
+          "commonName",
+          "otherPlants"
+        ],
+        "type": "object",
+        "properties": {
+          "taxonId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rank": {
+            "type": "string"
+          },
+          "scientificName": {
+            "type": "string"
+          },
+          "commonName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "otherPlants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlantName"
+            }
+          }
+        }
+      },
       "TraceBatchLink": {
         "required": [
           "id",
@@ -14371,6 +14487,9 @@
     },
     {
       "name": "PlantCardEndpoints"
+    },
+    {
+      "name": "FamilyTreeEndpoints"
     },
     {
       "name": "WorkEndpoints"

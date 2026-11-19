@@ -16,7 +16,7 @@ public sealed class SpeciesLookupTests(PostgresFixture database)
     private static readonly byte[] Jpeg = [0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3];
 
     /// <summary>Stands in for iNaturalist and GBIF, and counts what was asked of them.</summary>
-    private sealed class OutsideWorld : HttpMessageHandler
+    internal sealed class OutsideWorld : HttpMessageHandler
     {
         private readonly List<string> requests = [];
 
@@ -29,6 +29,9 @@ public sealed class SpeciesLookupTests(PostgresFixture database)
         public string GbifSearch { get; set; } = """{"results":[]}""";
 
         public string GbifMatch { get; set; } = """{"matchType":"NONE"}""";
+
+        /// <summary>GBIF matches by the name asked about, for tests with more than one species.</summary>
+        public Dictionary<string, string> GbifMatches { get; } = new(StringComparer.Ordinal);
 
         public string Wikipedia { get; set; } = """{"query":{"pages":{"-1":{"missing":""}}}}""";
 
@@ -80,6 +83,7 @@ public sealed class SpeciesLookupTests(PostgresFixture database)
                 _ when address.Contains("/taxa/", StringComparison.Ordinal) => Taxa,
                 _ when address.Contains("taxa?taxon_id=", StringComparison.Ordinal) => Children,
                 _ when address.Contains("species/search", StringComparison.Ordinal) => GbifSearch,
+                _ when GbifMatches.FirstOrDefault(match => Uri.UnescapeDataString(address).Contains(match.Key, StringComparison.Ordinal)).Value is { } matched => matched,
                 _ => GbifMatch,
             };
 
@@ -89,7 +93,7 @@ public sealed class SpeciesLookupTests(PostgresFixture database)
         private static HttpResponseMessage Reply(HttpContent content) => new(HttpStatusCode.OK) { Content = content };
     }
 
-    private static string Taxon(long id, string name, string? common, string licence, string rank = "species", string? matched = null, int observations = 0) => $$"""
+    internal static string Taxon(long id, string name, string? common, string licence, string rank = "species", string? matched = null, int observations = 0) => $$"""
         {
           "id": {{id}}, "name": "{{name}}", "rank": "{{rank}}", "observations_count": {{observations}},
           "preferred_common_name": {{(common is null ? "null" : $"\"{common}\"")}},
@@ -98,7 +102,7 @@ public sealed class SpeciesLookupTests(PostgresFixture database)
         }
         """;
 
-    private static async Task<TestApp> CreateAsync(PostgresFixture database, OutsideWorld world)
+    internal static async Task<TestApp> CreateAsync(PostgresFixture database, OutsideWorld world, bool backfill = false)
     {
         var connectionString = await database.CreateDatabaseAsync();
 
@@ -106,7 +110,8 @@ public sealed class SpeciesLookupTests(PostgresFixture database)
             ("ConnectionStrings:Hortiplanner", connectionString),
             ("Passkeys:ServerDomain", "localhost"),
             ("Setup:Token", SetupToken),
-            ("Demo:Enabled", "false"))
+            ("Demo:Enabled", "false"),
+            ("Species:LineageBackfill", backfill ? "true" : "false"))
         {
             OutsideWorld = world,
         };

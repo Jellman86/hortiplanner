@@ -49,4 +49,10 @@ internal sealed class Species
     public string? PhotoCredit { get; set; }
 
     public DateTimeOffset FetchedAt { get; set; }
+
+    /// <summary>The lowest rung of its family tree: its own species, or its genus for a plant matched only that far.</summary>
+    public Guid? TaxonId { get; set; }
+
+    /// <summary>When GBIF was last asked for its family tree and didn't know it, so it isn't asked again for a while.</summary>
+    public DateTimeOffset? LineageCheckedAt { get; set; }
 }
