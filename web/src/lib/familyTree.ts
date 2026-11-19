@@ -1,3 +1,8 @@
+import type { Schemas } from "./types";
+
+type Tree = Schemas["FamilyTree"];
+type Plant = Schemas["PlantName"];
+
 /** The words for each rank of the plant kingdom's family tree, as shown on a plant's page. */
 const ranks: Record<string, string> = {
   kingdom: "Kingdom",
@@ -12,12 +17,38 @@ const ranks: Record<string, string> = {
 export const rankLabel = (rank: string) =>
   ranks[rank] ?? rank.charAt(0).toUpperCase() + rank.slice(1);
 
-/**
- * An everyday name as it reads in a sentence. iNaturalist writes them in title case ("Mint Family"), so the groups are
- * put in lower case ("mint family"). A species keeps its capitals, which may be a place or person ("English Lavender").
- */
-export const everydayName = (rank: string, name: string) =>
-  rank === "species" ? name : name.toLocaleLowerCase("en-GB");
+/** The broad groups nearly every plant shares, folded away until asked for. */
+export const broaderRanks: ReadonlySet<string> = new Set([
+  "kingdom",
+  "phylum",
+  "class",
+]);
+
+/** The nursery's other plants, closest first, each listed once: same species, then genus, then family, then order. */
+export function relatives(tree: Tree): {
+  species: Plant[];
+  genus: Plant[];
+  family: Plant[];
+  order: Plant[];
+} {
+  const listed = new Set<string>();
+  const fresh = (plants: readonly Plant[]) => {
+    const found = plants.filter((plant) => !listed.has(plant.plantId));
+    for (const plant of found) {
+      listed.add(plant.plantId);
+    }
+    return found;
+  };
+  const at = (rank: string) =>
+    tree.lineage.find((rung) => rung.rank === rank)?.otherPlants ?? [];
+
+  const species = fresh(at("species"));
+  const genus = fresh(tree.sameGenus);
+  const family = fresh(tree.sameFamily);
+  const order = fresh(at("order"));
+
+  return { species, genus, family, order };
+}
 
 /** Names as a sentence would list them: "Rosemary", "Rosemary and Sage", "Rosemary, Sage and Catmint". */
 export function listWords(names: string[]): string {

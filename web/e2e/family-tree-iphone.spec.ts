@@ -9,6 +9,7 @@ test("a plant's family tree shows its ranks and relatives on a phone", async ({
   const lavender = "0193a6f0-0000-7000-8000-0000000000a1";
   const french = "0193a6f0-0000-7000-8000-0000000000a2";
   const rosemary = "0193a6f0-0000-7000-8000-0000000000a3";
+  const foxglove = "0193a6f0-0000-7000-8000-0000000000a4";
   const rung = (
     id: number,
     rank: string,
@@ -93,6 +94,7 @@ test("a plant's family tree shows its ranks and relatives on a phone", async ({
           rung(4, "order", "Lamiales", null, [
             { plantId: french, name: "French Lavender" },
             { plantId: rosemary, name: "Rosemary" },
+            { plantId: foxglove, name: "Foxglove" },
           ]),
           rung(5, "family", "Lamiaceae", "Mint Family", [
             { plantId: french, name: "French Lavender" },
@@ -125,23 +127,40 @@ test("a plant's family tree shows its ranks and relatives on a phone", async ({
   await page.getByRole("button", { name: "About this plant" }).click();
 
   const tree = page.getByRole("region", { name: "Family tree" });
-  await expect(tree).toContainText("Family: Lamiaceae (mint family)");
-  await expect(tree).toContainText("Genus: Lavandula (lavenders)");
-  await expect(tree).toContainText("You grow one other plant in this genus.");
+  const ladder = tree.getByRole("list", {
+    name: "Classification, from the order down to this plant",
+  });
+  await expect(ladder).toContainText("Family: Mint Family, Lamiaceae");
+  await expect(ladder).toContainText("Genus: Lavenders, Lavandula");
+  await expect(ladder).not.toContainText("Kingdom");
+  await expect(ladder.locator("[aria-current=true]")).toContainText(
+    "This plant: Lavender",
+  );
+  await expect(tree).toContainText(
+    "You grow one other plant in the same genus.",
+  );
   await expect(tree).toContainText(
     "You grow one other plant in the same family.",
   );
   await expectAccessible(page, "Plant family tree");
 
-  // The order opens to the nursery's other plants in it.
-  const order = tree.getByRole("button", {
-    name: "Show the 2 other plants in this order",
-  });
-  await order.click();
+  // The broader groups unfold above the order.
+  await tree.getByRole("button", { name: "Show the broader groups" }).click();
   await expect(
-    tree.getByRole("button", { name: "Hide the other plants in this order" }),
+    tree.getByRole("list", {
+      name: "Classification, from the kingdom down to this plant",
+    }),
+  ).toContainText("Kingdom: Plants, Plantae");
+
+  // Plants sharing only the order wait behind their own button.
+  await tree
+    .getByRole("button", { name: "Show one more distant relative" })
+    .click();
+  await expect(
+    tree.getByRole("button", { name: "Hide the more distant relatives" }),
   ).toHaveAttribute("aria-expanded", "true");
-  await expectAccessible(page, "Plant family tree, a rank open");
+  await expect(tree).toContainText("This plant is in the same order.");
+  await expectAccessible(page, "Plant family tree, opened up");
 
   // A relative opens its own page, and Back comes back.
   await tree.getByRole("button", { name: "Rosemary" }).first().click();
