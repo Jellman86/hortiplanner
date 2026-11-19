@@ -43,7 +43,9 @@
   const finePointer = matchMedia("(pointer: fine)").matches;
   const mostPhotos = 4;
 
-  let lines = $state<Line[]>(remembered());
+  // Asking about something on screen starts a new conversation, so the question goes with that alone.
+  // svelte-ignore state_referenced_locally
+  let lines = $state<Line[]>(about ? [] : remembered());
   let question = $state("");
   let photos = $state<string[]>([]);
   // What the question is about, until it's been asked once. Taken once, when the screen opens.
@@ -89,14 +91,37 @@
       ),
   );
 
+  // Questions to start with, to suit what's being asked about.
   const suggestions = $derived(
-    [
-      "What needs attention this week?",
-      "Which sown trays have waited longest without germinating?",
-      "What did we lose in the last month, and why?",
-      isOn("Climate") ? "How cold did the greenhouses get this week?" : null,
-      "How do I take lavender cuttings, and when?",
-    ].filter((item): item is string => item !== null),
+    (context?.kind === "tray"
+      ? ["How is this tray doing?", "What should I do with this tray next?"]
+      : context?.kind === "plant"
+        ? [
+            "How do I look after this plant?",
+            "When and how should I propagate this plant?",
+          ]
+        : context?.kind === "place"
+          ? [
+              "What needs doing here this week?",
+              "Has anything here been waiting too long?",
+              isOn("Climate") ? "Has it been too cold or too hot here?" : null,
+            ]
+          : context?.kind === "photo"
+            ? [
+                context.placePhotoId
+                  ? "What can you see in this photo?"
+                  : "What can you see in this photo, and is anything wrong?",
+              ]
+            : [
+                "What needs attention this week?",
+                "Which sown trays have waited longest without germinating?",
+                "What did we lose in the last month, and why?",
+                isOn("Climate")
+                  ? "How cold did the greenhouses get this week?"
+                  : null,
+                "How do I take lavender cuttings, and when?",
+              ]
+    ).filter((item): item is string => item !== null),
   );
 
   async function addPhoto(event: Event) {
@@ -160,6 +185,8 @@
                 plantId: context.plantId ?? null,
                 photoId: context.photoId ?? null,
                 plantPhotoId: context.plantPhotoId ?? null,
+                placeId: context.placeId ?? null,
+                placePhotoId: context.placePhotoId ?? null,
               }
             : null,
         },
@@ -304,6 +331,13 @@
             : ""} and jobs. It reads the records but never changes them, and it can
           be wrong, so check before acting on it.
         </p>
+        {#if context}
+          <p class="muted">
+            {context.kind === "photo"
+              ? `Hortiplanner sends this photo, and what it knows about ${context.subject ?? context.title}, with your first question.`
+              : `Hortiplanner sends what it knows about ${context.title} with your first question.`}
+          </p>
+        {/if}
         <div class="ask-suggestions mobile-only">
           {#each suggestions as suggestion (suggestion)}
             <button class="secondary" onclick={() => ask(suggestion)}
@@ -373,6 +407,13 @@
       >
         {#if context}
           <p class="ask-context">
+            {#if context.photoUrl}
+              <img
+                class="ask-context-photo"
+                src={context.photoUrl}
+                alt="Sent with your first question"
+              />
+            {/if}
             <span class="pill">About {context.title}</span>
             <button
               type="button"
@@ -419,7 +460,7 @@
               bind:value={question}
               rows="2"
               maxlength="4000"
-              placeholder={photos.length > 0
+              placeholder={photos.length > 0 || context?.photoUrl
                 ? "What would you like to know about the photo?"
                 : "Ask about plants or the nursery…"}
               onkeydown={(event) => {
@@ -468,9 +509,10 @@
           Your question goes to the model the owner chose through OpenRouter,
           asking for providers that keep nothing. With it go plants, places,
           trays, work, losses, treatments, climate, notes as they were typed,
-          and the photos you add. It is never sent customers, money or who
-          recorded the work. Hortiplanner's server keeps what each question
-          cost, who asked and when, but not what was asked.
+          and the photos you add or ask about. It is never sent customers,
+          money, where places are on the map, or who recorded the work.
+          Hortiplanner's server keeps what each question cost, who asked and
+          when, but not what was asked.
         </p>
       </div>
     </aside>

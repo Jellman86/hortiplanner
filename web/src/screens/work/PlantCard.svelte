@@ -2,7 +2,8 @@
   import type { Snippet } from "svelte";
   import { onMount } from "svelte";
   import { api } from "../../api/client";
-  import type { AskAbout } from "../../lib/assistant.svelte";
+  import { aboutPlant, type AskAbout } from "../../lib/assistant.svelte";
+  import AskAboutButton from "../AskAboutButton.svelte";
   import { attempt, type Schemas } from "../../lib/types";
   import { plantName, type PickedPlant } from "../../lib/work";
   import ArticleSection from "./ArticleSection.svelte";
@@ -221,9 +222,16 @@
           </section>
         {/if}
 
-        {#if actions}
-          <div class="plant-actions">{@render actions()}</div>
-        {/if}
+        <div class="plant-actions">
+          <AskAboutButton
+            about={aboutPlant(
+              plantId,
+              plantName(card.commonName, card.variety),
+            )}
+            {onAsk}
+          />
+          {@render actions?.()}
+        </div>
       </div>
     </div>
   {:else if problem}

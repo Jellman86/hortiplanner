@@ -3,6 +3,8 @@
   import Droplets from "@lucide/svelte/icons/droplets";
   import Thermometer from "@lucide/svelte/icons/thermometer";
   import { onMount } from "svelte";
+  import { aboutPlace, type AskAbout } from "../../lib/assistant.svelte";
+  import AskAboutButton from "../AskAboutButton.svelte";
   import { api } from "../../api/client";
   import {
     climateDays,
@@ -16,7 +18,14 @@
   import ClimateChart from "./ClimateChart.svelte";
 
   // How warm and damp each place with a sensor is, now and over the last days.
-  let { onBack }: { onBack: () => void } = $props();
+  let {
+    onBack,
+    onAsk,
+  }: {
+    onBack: () => void;
+    /** Asks Ask Hortiplanner about a place, when this person can ask. */
+    onAsk?: (about: AskAbout) => void;
+  } = $props();
 
   type Place = Schemas["PlaceClimate"];
 
@@ -174,6 +183,14 @@
           </table>
         </details>
       {/if}
+      <!-- Named as on its own page, without the places it sits in. -->
+      <AskAboutButton
+        about={aboutPlace(
+          place.locationId,
+          place.place.split(", ").at(-1) ?? place.place,
+        )}
+        {onAsk}
+      />
     {:else}
       <p class="muted">Loading…</p>
     {/if}

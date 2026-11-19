@@ -2,8 +2,8 @@
   import Pencil from "@lucide/svelte/icons/pencil";
   import Route from "@lucide/svelte/icons/route";
   import Undo2 from "@lucide/svelte/icons/undo-2";
-  import Sparkles from "@lucide/svelte/icons/sparkles";
-  import type { AskAbout } from "../../lib/assistant.svelte";
+  import { aboutTray, type AskAbout } from "../../lib/assistant.svelte";
+  import AskAboutButton from "../AskAboutButton.svelte";
   import { crumbs } from "../../lib/crumbs.svelte";
   import { isOn } from "../../lib/features.svelte";
   import PrintButton from "../PrintButton.svelte";
@@ -303,25 +303,7 @@
 {#if !container}
   <main><p class="muted">Loading…</p></main>
 {:else if cardPlant}
-  <PlantCard plantId={cardPlant} onBack={back} {onAsk}>
-    {#snippet actions()}
-      {#if onAsk}
-        {@const plant = container!.contents.find(
-          (line) => line.plantId === cardPlant,
-        )}
-        <button
-          class="secondary"
-          onclick={() =>
-            onAsk({
-              title: plant
-                ? plantName(plant.commonName, plant.variety)
-                : "this plant",
-              plantId: cardPlant,
-            })}><Sparkles size={18} /> Ask about this plant</button
-        >
-      {/if}
-    {/snippet}
-  </PlantCard>
+  <PlantCard plantId={cardPlant} onBack={back} {onAsk} />
 {:else if editing}
   <EditBatch batchId={editing} onSaved={editSaved} onCancel={back} />
 {:else if action === "lost"}
@@ -390,14 +372,9 @@
                 batchId={line.batchId}
                 containerId={container.id}
                 kinds={fromDevice ? [] : ["Growing"]}
-                onAsk={onAsk
-                  ? (photoId) =>
-                      onAsk({
-                        title: `a photo of ${plantName(line.commonName, line.variety)}`,
-                        photoId,
-                        trayLabel: container!.labelCode,
-                      })
-                  : undefined}
+                of={plantName(line.commonName, line.variety)}
+                askWith={{ trayLabel: container.labelCode }}
+                {onAsk}
               />
             {/if}
             <div class="row">
@@ -475,16 +452,7 @@
           )}"
           label="Print label"
         />
-        {#if onAsk}
-          <button
-            class="secondary"
-            onclick={() =>
-              onAsk({
-                title: `tray ${container!.labelCode}`,
-                trayLabel: container!.labelCode,
-              })}><Sparkles size={18} /> Ask about this tray</button
-          >
-        {/if}
+        <AskAboutButton about={aboutTray(container.labelCode)} {onAsk} />
       </section>
 
       {#if history.length > 0}

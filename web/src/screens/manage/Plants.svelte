@@ -1,5 +1,4 @@
 <script lang="ts">
-  import Sparkles from "@lucide/svelte/icons/sparkles";
   import PrintButton from "../PrintButton.svelte";
   import type { AskAbout } from "../../lib/assistant.svelte";
   import { onMount } from "svelte";
@@ -224,16 +223,6 @@
     }}
   >
     {#snippet actions()}
-      {#if onAsk && selected}
-        <button
-          class="secondary"
-          onclick={() =>
-            onAsk({
-              title: plantName(selected.commonName, selected.variety),
-              plantId: selected.id,
-            })}><Sparkles size={18} /> Ask about this plant</button
-        >
-      {/if}
       {#if canManage && selected}
         <div class="stack">
           <section class="stack tight" aria-labelledby="plant-print">

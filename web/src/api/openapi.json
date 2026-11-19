@@ -6417,6 +6417,20 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "placeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "placePhotoId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -6843,7 +6857,8 @@
           "takenAt",
           "day",
           "stage",
-          "canRemove"
+          "canRemove",
+          "canBeAsked"
         ],
         "type": "object",
         "properties": {
@@ -6878,6 +6893,9 @@
             ]
           },
           "canRemove": {
+            "type": "boolean"
+          },
+          "canBeAsked": {
             "type": "boolean"
           }
         }
@@ -9522,6 +9540,13 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "askablePhotoIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         }
       },

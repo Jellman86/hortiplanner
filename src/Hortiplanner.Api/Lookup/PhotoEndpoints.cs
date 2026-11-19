@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Hortiplanner.Api.Accounts;
+using Hortiplanner.Api.Assistant;
 using Hortiplanner.Api.Data;
 using Hortiplanner.Api.Production;
 using Hortiplanner.Api.Settings;
@@ -60,7 +61,7 @@ internal static class PhotoEndpoints
 
         db.BatchPhotos.Add(photo);
         await db.SaveChangesAsync(cancellationToken);
-        return TypedResults.Created($"/api/batch-photos/{photo.Id}", new BatchPhotoSummary(photo.Id, photo.Kind, DateTimeOffset.UtcNow, null, photo.Stage, CanRemove: true));
+        return TypedResults.Created($"/api/batch-photos/{photo.Id}", new BatchPhotoSummary(photo.Id, photo.Kind, DateTimeOffset.UtcNow, null, photo.Stage, CanRemove: true, photo.Content.Length <= AssistantEndpoints.LargestImage));
     }
 
     /// <summary>
@@ -74,7 +75,7 @@ internal static class PhotoEndpoints
             .Where(photo => photo.BatchId == id)
             .OrderBy(photo => photo.CreatedAt)
             .ThenBy(photo => photo.Id)
-            .Select(photo => new { photo.Id, photo.Kind, photo.CreatedAt, photo.Stage, photo.UploadedBy })
+            .Select(photo => new { photo.Id, photo.Kind, photo.CreatedAt, photo.Stage, photo.UploadedBy, Size = photo.Content.Length })
             .ToListAsync(cancellationToken);
 
         return photos.ConvertAll(photo => new BatchPhotoSummary(
@@ -83,7 +84,8 @@ internal static class PhotoEndpoints
             photo.CreatedAt,
             started is { } start ? Math.Max(1, DayOf(photo.CreatedAt, clock) - DayOf(start, clock) + 1) : null,
             photo.Stage,
-            MayRemove(user, photo.UploadedBy)));
+            MayRemove(user, photo.UploadedBy),
+            photo.Size <= AssistantEndpoints.LargestImage));
     }
 
     private static int DayOf(DateTimeOffset moment, TimeProvider clock) =>
@@ -124,5 +126,6 @@ internal static class PhotoEndpoints
             ? SpeciesEndpoints.Picture(context, photo.Content, photo.ContentType, permanent: true)
             : TypedResults.NotFound();
 
-    internal sealed record BatchPhotoSummary(Guid Id, BatchPhotoKind Kind, DateTimeOffset TakenAt, int? Day, ProductionStage? Stage, bool CanRemove);
+    /// <param name="CanBeAsked">Small enough to hand to Ask Hortiplanner.</param>
+    internal sealed record BatchPhotoSummary(Guid Id, BatchPhotoKind Kind, DateTimeOffset TakenAt, int? Day, ProductionStage? Stage, bool CanRemove, bool CanBeAsked);
 }

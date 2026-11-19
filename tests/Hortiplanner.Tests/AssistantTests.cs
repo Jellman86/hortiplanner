@@ -146,6 +146,140 @@ public sealed class AssistantTests(PostgresFixture database)
     }
 
     [Fact]
+    public async Task A_place_is_sent_with_what_grows_in_it_and_inside_it_but_never_who_did_the_work()
+    {
+        var openRouter = new PretendOpenRouter();
+        await using var nursery = await TwoPersonNursery.CreateAsync(database, outsideWorld: openRouter);
+        using (var saved = await nursery.Owner.PutAsJsonAsync(Route("/api/assistant/settings"), new { key = Key, model = "test/model", forStaff = true }, Cancellation))
+        {
+            Assert.Equal(HttpStatusCode.NoContent, saved.StatusCode);
+        }
+
+        async Task<Guid> PlaceAsync(string name, string kind, Guid? parentId) =>
+            Json(await PostForTextAsync(nursery.Owner, "/api/locations", new { name, kind, parentId })).GetProperty("id").GetGuid();
+        var site = await PlaceAsync("Croft Test", "Site", null);
+        var greenhouse = await PlaceAsync("Greenhouse Nine", "Greenhouse", site);
+        var bench = await PlaceAsync("Bench Seven", "Bench", greenhouse);
+        var plant = Json(await PostForTextAsync(nursery.Owner, "/api/plants", new { commonName = "Cornflower", xylellaHost = false, protectedVariety = false })).GetProperty("id").GetGuid();
+        var started = Json(await PostForTextAsync(nursery.Staff, "/api/batches", new { eventId = Guid.NewGuid(), occurredAt = DateTimeOffset.UtcNow.AddDays(-5), plantId = plant, quantity = 40, source = "SeedLot", originCountry = "GB", containerKind = "Tray", locationId = bench }));
+        var tray = started.GetProperty("containerId").GetGuid();
+        Assert.Equal(HttpStatusCode.Created, await PostStatusAsync(nursery.Staff, $"/api/containers/{tray}/losses", new { eventId = Guid.NewGuid(), occurredAt = DateTimeOffset.UtcNow.AddDays(-1), batchId = started.GetProperty("batchId").GetGuid(), quantity = 3, reason = "DampingOff" }));
+
+        // A tray lost altogether still counts among what was lost here.
+        var gone = Json(await PostForTextAsync(nursery.Staff, "/api/batches", new { eventId = Guid.NewGuid(), occurredAt = DateTimeOffset.UtcNow.AddDays(-5), plantId = plant, quantity = 12, source = "SeedLot", originCountry = "GB", containerKind = "Tray", locationId = bench }));
+        Assert.Equal(HttpStatusCode.Created, await PostStatusAsync(nursery.Staff, $"/api/containers/{gone.GetProperty("containerId").GetGuid()}/losses", new { eventId = Guid.NewGuid(), occurredAt = DateTimeOffset.UtcNow.AddDays(-1), batchId = gone.GetProperty("batchId").GetGuid(), quantity = 12, reason = "Frost" }));
+
+        // A job done there by someone, and the greenhouse drawn on the map: neither who nor where goes to the model.
+        var job = Json(await PostForTextAsync(nursery.Owner, "/api/jobs", new { title = "Water the benches", notes = "Rainwater only", everyDays = 2, firstDue = DateOnly.FromDateTime(DateTime.Today), locationId = bench })).GetProperty("id").GetGuid();
+        Assert.Equal(HttpStatusCode.Created, await PostStatusAsync(nursery.Staff, $"/api/jobs/{job}/done", new { }));
+        using (var outline = await nursery.Owner.PutAsJsonAsync(Route($"/api/locations/{greenhouse}/outline"), new { points = new[] { new[] { 53.0368, -1.3821 }, new[] { 53.0367, -1.3819 }, new[] { 53.0368, -1.3818 } } }, Cancellation))
+        {
+            Assert.Equal(HttpStatusCode.NoContent, outline.StatusCode);
+        }
+
+        using var asked = await nursery.Staff.PostAsJsonAsync(Route("/api/assistant/ask"), new { messages = new[] { new { role = "user", text = "What needs doing here?" } }, about = new { placeId = greenhouse } }, Cancellation);
+        Assert.Equal(HttpStatusCode.OK, asked.StatusCode);
+        var body = openRouter.Questions[0].Body;
+        Assert.Contains("Greenhouse Nine", body, StringComparison.Ordinal);
+        Assert.Contains("Bench Seven", body, StringComparison.Ordinal);
+        Assert.Contains(started.GetProperty("labelCode").GetString()!, body, StringComparison.Ordinal);
+        Assert.Contains("DampingOff", body, StringComparison.Ordinal);
+        Assert.Contains("Frost", body, StringComparison.Ordinal);
+        Assert.Contains("Rainwater only", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("53.0368", body, StringComparison.Ordinal);
+        Assert.Contains("place", AssistantToolNames(body), StringComparer.Ordinal);
+        Assert.DoesNotContain("Alex Moss", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("outline", body, StringComparison.OrdinalIgnoreCase);
+        var answer = Json(await asked.Content.ReadAsStringAsync(Cancellation));
+        Assert.Contains(answer.GetProperty("sources").EnumerateArray(), source => string.Equals(source.GetProperty("kind").GetString(), "place", StringComparison.Ordinal) && string.Equals(source.GetProperty("key").GetString(), greenhouse.ToString(), StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Asking_about_a_plant_sends_that_plant_alone_and_a_place_leaves_out_parts_turned_off()
+    {
+        var openRouter = new PretendOpenRouter();
+        await using var nursery = await TwoPersonNursery.CreateAsync(database, outsideWorld: openRouter);
+        using (var saved = await nursery.Owner.PutAsJsonAsync(Route("/api/assistant/settings"), new { key = Key, model = "test/model", forStaff = false }, Cancellation))
+        {
+            Assert.Equal(HttpStatusCode.NoContent, saved.StatusCode);
+        }
+
+        var hidcote = Json(await PostForTextAsync(nursery.Owner, "/api/plants", new { commonName = "Lavender", variety = "Hidcote", xylellaHost = true, protectedVariety = false })).GetProperty("id").GetGuid();
+        Json(await PostForTextAsync(nursery.Owner, "/api/plants", new { commonName = "Lavender", variety = "Munstead", xylellaHost = true, protectedVariety = false }));
+
+        async Task<string> AskedAsync(object about)
+        {
+            openRouter.Questions.Clear();
+            using var asked = await nursery.Owner.PostAsJsonAsync(Route("/api/assistant/ask"), new { messages = new[] { new { role = "user", text = "Tell me about it." } }, about }, Cancellation);
+            Assert.Equal(HttpStatusCode.OK, asked.StatusCode);
+            return JsonNode.Parse(openRouter.Questions[0].Body)!["messages"]![1]!["content"]!.GetValue<string>();
+        }
+
+        var aboutPlant = await AskedAsync(new { plantId = hidcote });
+        Assert.Contains("Hidcote", aboutPlant, StringComparison.Ordinal);
+        Assert.DoesNotContain("Munstead", aboutPlant, StringComparison.Ordinal);
+
+        var site = Json(await PostForTextAsync(nursery.Owner, "/api/locations", new { name = "Croft Test", kind = "Site", parentId = (Guid?)null })).GetProperty("id").GetGuid();
+        foreach (var feature in new[] { "Climate", "Jobs" })
+        {
+            using var off = await nursery.Owner.PutAsJsonAsync(Route($"/api/settings/features/{feature}"), new { on = false }, Cancellation);
+            Assert.Equal(HttpStatusCode.NoContent, off.StatusCode);
+        }
+
+        var placeText = await AskedAsync(new { placeId = site });
+        var aboutPlace = JsonNode.Parse(placeText[placeText.IndexOf('{', StringComparison.Ordinal)..])!;
+        Assert.Null(aboutPlace["climate"]);
+        Assert.Null(aboutPlace["jobs"]);
+    }
+
+    [Fact]
+    public async Task A_places_photo_goes_with_a_question_about_it_but_never_a_pot_sizes_or_another_places()
+    {
+        var openRouter = new PretendOpenRouter();
+        await using var nursery = await TwoPersonNursery.CreateAsync(database, outsideWorld: openRouter);
+        using (var saved = await nursery.Owner.PutAsJsonAsync(Route("/api/assistant/settings"), new { key = Key, model = "test/model", forStaff = true }, Cancellation))
+        {
+            Assert.Equal(HttpStatusCode.NoContent, saved.StatusCode);
+        }
+
+        var site = Json(await PostForTextAsync(nursery.Owner, "/api/locations", new { name = "Croft Test", kind = "Site", parentId = (Guid?)null })).GetProperty("id").GetGuid();
+        var greenhouse = Json(await PostForTextAsync(nursery.Owner, "/api/locations", new { name = "Greenhouse Nine", kind = "Greenhouse", parentId = site })).GetProperty("id").GetGuid();
+        var bench = Json(await PostForTextAsync(nursery.Owner, "/api/locations", new { name = "Bench Seven", kind = "Bench", parentId = greenhouse })).GetProperty("id").GetGuid();
+
+        // A place's photo goes with the question; a pot size's, or another place's, doesn't.
+        async Task<Guid> PhotoAsync(string path)
+        {
+            using var content = new ByteArrayContent([0xFF, 0xD8, 0xFF, 0xE0, 9]);
+            using var added = await nursery.Owner.PostAsync(Route(path), content, Cancellation);
+            return Json(await added.Content.ReadAsStringAsync(Cancellation)).GetProperty("id").GetGuid();
+        }
+
+        var placePhoto = await PhotoAsync($"/api/catalogue-photos/Location/{greenhouse}");
+        var potSize = Json(await PostForTextAsync(nursery.Owner, "/api/pot-sizes", new { name = "9cm" })).GetProperty("id").GetGuid();
+        var potPhoto = await PhotoAsync($"/api/catalogue-photos/PotSize/{potSize}");
+        var listed = (await nursery.Owner.GetFromJsonAsync<JsonElement>(Route("/api/locations"), Cancellation)).EnumerateArray().Single(place => place.GetProperty("id").GetGuid() == greenhouse);
+        Assert.Equal(placePhoto, Assert.Single(listed.GetProperty("askablePhotoIds").EnumerateArray()).GetGuid());
+
+        async Task<bool> SentAsync(object about)
+        {
+            openRouter.Questions.Clear();
+            using var response = await nursery.Staff.PostAsJsonAsync(Route("/api/assistant/ask"), new { messages = new[] { new { role = "user", text = "What is this?" } }, about }, Cancellation);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            return openRouter.Questions[0].Body.Contains("data:image/jpeg;base64,", StringComparison.Ordinal);
+        }
+
+        Assert.True(await SentAsync(new { placeId = greenhouse, placePhotoId = placePhoto }));
+        Assert.False(await SentAsync(new { placePhotoId = potPhoto }));
+        Assert.False(await SentAsync(new { placeId = bench, placePhotoId = placePhoto }));
+
+        // A place that isn't there is still answered, with nothing made up for it.
+        Assert.False(await SentAsync(new { placeId = Guid.CreateVersion7() }));
+    }
+
+    private static List<string> AssistantToolNames(string body) =>
+        [.. JsonNode.Parse(body)!["tools"]!.AsArray().Select(tool => tool!["function"]!["name"]!.GetValue<string>())];
+
+    [Fact]
     public async Task A_plants_own_photo_is_sent_when_asked_about_even_with_batch_photos_off()
     {
         var openRouter = new PretendOpenRouter();

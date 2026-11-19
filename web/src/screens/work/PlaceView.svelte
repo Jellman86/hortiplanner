@@ -24,6 +24,12 @@
   import AddPlaces from "../manage/AddPlaces.svelte";
   import EntryPhotos from "../manage/EntryPhotos.svelte";
   import Loading from "./Loading.svelte";
+  import {
+    aboutPhoto,
+    aboutPlace,
+    type AskAbout,
+  } from "../../lib/assistant.svelte";
+  import AskAboutButton from "../AskAboutButton.svelte";
 
   let {
     placeId,
@@ -33,8 +39,11 @@
     onOpenPlace,
     onMoveTraysHere,
     onDrawOnMap,
+    onAsk,
   }: {
     placeId: string;
+    /** Asks Ask Hortiplanner about this place or one of its photos, when this person can ask. */
+    onAsk?: (about: AskAbout) => void;
     canManage?: boolean;
     /** Opens the map to draw a place, when the places map is on. */
     onDrawOnMap?: (place: AddedPlace) => void;
@@ -386,6 +395,14 @@
             gallery
             onChanged={load}
             onProblem={setProblem}
+            askAbout={(photoId) =>
+              aboutPhoto(place!.name, {
+                placeId: place!.id,
+                placePhotoId: photoId,
+                photoUrl: `/api/catalogue-photos/${photoId}`,
+              })}
+            askable={place.askablePhotoIds as string[]}
+            {onAsk}
           />
         </section>
 
@@ -431,6 +448,7 @@
             href="/api/labels/places/{place.id}"
             label="Print place label"
           />
+          <AskAboutButton about={aboutPlace(place.id, place.name)} {onAsk} />
         </div>
 
         {#if canManage}

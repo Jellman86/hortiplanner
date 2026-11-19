@@ -8,6 +8,7 @@
   import { nestLocations } from "../../lib/locations";
   import { kindLabel, type AddedPlace, type Place } from "../../lib/places";
   import { attempt } from "../../lib/types";
+  import type { AskAbout } from "../../lib/assistant.svelte";
   import PlaceView from "../work/PlaceView.svelte";
   import AddPlaces from "./AddPlaces.svelte";
   import ArchivedEntries from "./ArchivedEntries.svelte";
@@ -17,7 +18,10 @@
     onBack,
     onOpenTray,
     onMoveTraysHere,
+    onAsk,
   }: {
+    /** Asks Ask Hortiplanner about a place or one of its photos, when this person can ask. */
+    onAsk?: (about: AskAbout) => void;
     onBack: () => void;
     onOpenTray: (label: string) => void;
     onMoveTraysHere: (id: string) => void;
@@ -91,6 +95,7 @@
       {onOpenTray}
       onOpenPlace={(id) => (openId = id)}
       {onMoveTraysHere}
+      {onAsk}
     />
   {/key}
 {:else}

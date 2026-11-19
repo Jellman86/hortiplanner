@@ -7997,6 +7997,10 @@ export interface components {
             photoId: null | string;
             /** Format: uuid */
             plantPhotoId?: null | string;
+            /** Format: uuid */
+            placeId?: null | string;
+            /** Format: uuid */
+            placePhotoId?: null | string;
         };
         AskAnswer: {
             answer: string;
@@ -8099,6 +8103,7 @@ export interface components {
             day: null | number | string;
             stage: null | components["schemas"]["ProductionStage"];
             canRemove: boolean;
+            canBeAsked: boolean;
         };
         /** @enum {unknown} */
         BatchSource: "SeedLot" | "BoughtIn" | "Cuttings";
@@ -8745,6 +8750,7 @@ export interface components {
             labelCode: string;
             /** Format: date-time */
             lastUsedAt: null | string;
+            askablePhotoIds?: string[];
         };
         LossFigures: {
             reason: string;

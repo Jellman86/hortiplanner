@@ -60,15 +60,15 @@
 {:else if open === "suppliers"}
   <Suppliers onBack={back} />
 {:else if open === "places"}
-  <Locations onBack={back} {onOpenTray} {onMoveTraysHere} />
+  <Locations onBack={back} {onOpenTray} {onMoveTraysHere} {onAsk} />
 {:else if open === "mothers"}
   <MotherPlants onBack={back} {onTrace} />
 {:else if open === "climate"}
-  <Climate onBack={back} />
+  <Climate onBack={back} {onAsk} />
 {:else if open === "jobs"}
   <Jobs onBack={back} />
 {:else if open === "trace"}
-  <Trace {batchId} onChoose={onTrace} onBack={back} {onOpenTray} />
+  <Trace {batchId} onChoose={onTrace} onBack={back} {onOpenTray} {onAsk} />
 {:else if open === "invoices"}
   <Invoices onBack={back} />
 {:else if open === "consignments"}

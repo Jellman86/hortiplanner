@@ -14,7 +14,7 @@ namespace Hortiplanner.Api.Assistant;
 /// What Ask Hortiplanner can look up in the nursery's records. Every tool only reads, and none returns customers, money or
 /// who did the work. Each records what it looked at, so the answer can link to it.
 /// </summary>
-internal static class AssistantTools
+internal static partial class AssistantTools
 {
     private const int MostRows = 80;
 
@@ -62,9 +62,10 @@ internal static class AssistantTools
             "find_plants" => await FindPlantsAsync(Text(arguments, "query") ?? string.Empty, context),
             "stock" => await StockAsync(arguments, context),
             "tray" => await TrayAsync(Text(arguments, "label") ?? string.Empty, context),
+            "place" => Id(arguments, "place_id") is { } place ? await PlaceAsync(place, context) : new { problem = "Which place? Give its id from places." },
             "losses" => await LossesAsync(Days(arguments, 30), context),
             "treatments" => await TreatmentsAsync(Days(arguments, 30), context),
-            "climate" => await ClimateAsync(Guid.TryParse(Text(arguments, "place_id"), out var place) ? place : null, Days(arguments, 7), context),
+            "climate" => await ClimateAsync(Id(arguments, "place_id"), Days(arguments, 7), context),
             "needs_a_look" => await NeedsALookAsync(context),
             "jobs" => await JobsAsync(context),
             _ => new { problem = $"There's no tool called {name}." },
@@ -297,6 +298,7 @@ internal static class AssistantTools
           {"type":"function","function":{"name":"places","description":"Every place in the nursery: sites, greenhouses, polytunnels, benches, beds, with which place each sits in.","parameters":{"type":"object","properties":{}}}},
           {"type":"function","function":{"name":"find_plants","description":"Find the nursery's plants by common name, variety or botanical name, with their care notes and how many are growing.","parameters":{"type":"object","properties":{"query":{"type":"string","description":"Part of a name, such as 'lavender'."}},"required":["query"]}}},
           {"type":"function","function":{"name":"stock","description":"What is growing now: trays with their plant, batch, quantity (null if not counted yet), stage, days at that stage, place and pot. Optionally only one stage, place or plant.","parameters":{"type":"object","properties":{"stage":{"type":"string","enum":["Sown","Cuttings","BoughtIn","Germinated","PrickedOut","PottedOn","Ready"]},"place_id":{"type":"string"},"plant_id":{"type":"string"}}}}},
+          {"type":"function","function":{"name":"place","description":"One place by its id from places: what it is, the places inside it, everything growing there and in the places inside it, its climate and jobs, and the last month's losses and treatments on trays there now.","parameters":{"type":"object","properties":{"place_id":{"type":"string"}},"required":["place_id"]}}},
           {"type":"function","function":{"name":"tray","description":"One tray by its label code, such as C000012: what it holds and everything recorded on it.","parameters":{"type":"object","properties":{"label":{"type":"string"}},"required":["label"]}}},
           {"type":"function","function":{"name":"losses","description":"Plants lost over the last so many days, with the reason, tray and plant.","parameters":{"type":"object","properties":{"days":{"type":"integer","minimum":1,"maximum":365}}}}},
           {"type":"function","function":{"name":"treatments","description":"Treatments recorded over the last so many days: product, dose, area, tray and plants.","parameters":{"type":"object","properties":{"days":{"type":"integer","minimum":1,"maximum":365}}}}},

@@ -652,6 +652,7 @@
         onOpenTray={(code) => open(code)}
         onOpenPlace={(id) => (view = { name: "place", id })}
         onMoveTraysHere={(id) => (view = { name: "moveMany", destination: id })}
+        onAsk={askAbout}
       />
     {/key}
   {:else if view.name === "moveMany"}
