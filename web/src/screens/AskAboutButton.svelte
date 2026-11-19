@@ -43,8 +43,10 @@
     class="secondary"
     aria-label={name}
     onclick={() => {
+      // Taken first: closing a photo viewer can clear the photo that "about" is worked out from.
+      const asked = about;
       before?.();
-      onAsk?.(about);
+      onAsk?.(asked);
     }}><Sparkles size={18} aria-hidden="true" /> {label}</button
   >
 {/if}
