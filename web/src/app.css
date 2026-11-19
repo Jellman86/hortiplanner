@@ -1596,6 +1596,11 @@ label.tick {
   border-top: 1px solid var(--line);
 }
 
+/* Nothing to show, such as for someone who can't ask: no rule with nothing under it. */
+.plant-actions:not(:has(*)) {
+  display: none;
+}
+
 .loading-line {
   display: flex;
   align-items: center;
@@ -4195,6 +4200,7 @@ button.link-button:disabled {
 
 /* A plant's family tree: one rail of dots from the wider groups down to this plant, marked in the accent colour. */
 .family-card {
+  container: family-tree / inline-size;
   gap: 0.85rem;
 }
 
@@ -4243,12 +4249,6 @@ button.link-button:disabled {
   display: none;
 }
 
-.family-ladder .this-plant::before {
-  border-color: var(--accent);
-  background: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-surface);
-}
-
 .rung-rank {
   color: var(--muted);
   font-size: 0.72rem;
@@ -4262,36 +4262,16 @@ button.link-button:disabled {
   overflow-wrap: anywhere;
 }
 
-.this-plant .rung-name {
-  font-weight: 700;
-}
-
 .rung-latin {
   color: var(--muted);
   font-size: 0.9em;
   overflow-wrap: anywhere;
 }
 
-.family-relatives,
-.family-credits {
-  border-top: 1px solid var(--line);
-  padding-top: 0.75rem;
-}
-
-.family-relatives [hidden] {
-  display: none;
-}
-
-.family-relatives h3 {
-  font-size: 1rem;
-}
-
-.family-relatives p {
-  margin: 0;
-}
-
 .family-credits {
   gap: 0.5rem;
+  border-top: 1px solid var(--line);
+  padding-top: 0.75rem;
 }
 
 .family-credits p {
@@ -4303,26 +4283,209 @@ button.link-button:disabled {
   gap: 0.4rem;
 }
 
-.family-plants {
-  display: grid;
-  gap: 0.4rem;
+/* The tree itself: nested lists, each group a node and each plant a leaf, with elbow lines drawn by each item.
+   On a phone it runs down the page, each level stepped in; on a wide screen it branches left to right. */
+.plant-wide {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+  margin-top: 1.25rem;
+}
+
+.ftree {
+  --gap: 0.9rem;
+  --row: 0.4rem;
+  --stub-node: 0.6rem;
+}
+
+.ftree,
+.ftree-children {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.family-plants button.link-button {
-  justify-content: space-between;
-  width: 100%;
-  min-width: 0;
+.ftree-item {
+  --stub: var(--stub-node);
+}
+
+.ftree-item:has(> .ftree-leaf, > button) {
+  --stub: 1.375rem;
+}
+
+.ftree-children {
+  display: grid;
+  gap: var(--row);
+  margin-left: 0.3rem;
+  padding-top: var(--row);
+}
+
+.ftree-children > .ftree-item {
+  position: relative;
+  padding-left: var(--gap);
+}
+
+/* The upright line: from the item above (or the group's node) down past this item. */
+.ftree-children > .ftree-item::before {
+  content: "";
+  position: absolute;
+  top: calc(var(--row) * -1);
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  background: var(--border);
+}
+
+.ftree-children > .ftree-item:last-child::before {
+  bottom: auto;
+  height: calc(var(--stub) + var(--row));
+}
+
+/* The short line across to this item. */
+.ftree-children > .ftree-item::after {
+  content: "";
+  position: absolute;
+  top: var(--stub);
+  left: 0;
+  width: calc(var(--gap) - 0.2rem);
+  height: 2px;
+  background: var(--border);
+}
+
+/* The way down to this plant, in the accent colour. */
+.ftree-children > .ftree-item.on-path::before {
+  background: linear-gradient(
+    var(--accent) calc(var(--stub) + var(--row) + 1px),
+    var(--border) 0
+  );
+}
+
+.ftree-children > .ftree-item.on-path::after {
+  background: var(--accent);
+}
+
+.ftree-node {
+  display: grid;
+  gap: 0.05rem;
+}
+
+.ftree-names {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 0.4rem;
+}
+
+.ftree-item.on-path > .ftree-node .rung-name {
+  color: var(--text);
+}
+
+.ftree-leaf {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0.3rem 0.5rem;
   text-align: left;
 }
 
-.family-plants button.link-button span {
+button.link-button.ftree-leaf {
+  justify-content: flex-start;
+  width: 100%;
+  min-width: 0;
+}
+
+.ftree-leaf .plant-thumb {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.4rem;
+  object-fit: cover;
+}
+
+.ftree-leaf .plant-thumb svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.ftree-leaf-name {
+  display: grid;
+  flex: 1;
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
-.family-plants button.link-button svg {
+.ftree-leaf > svg {
   flex: none;
+}
+
+.ftree-leaf.this-plant {
+  border: 2px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--accent-surface);
+}
+
+/* Wide enough for every level side by side: the tree branches left to right. */
+@container family-tree (min-width: 60rem) {
+  .ftree {
+    --gap: 1.1rem;
+  }
+
+  .ftree .ftree-item:has(> .ftree-node) {
+    display: flex;
+    align-items: flex-start;
+  }
+
+  .ftree .ftree-node {
+    flex: none;
+    width: 8.75rem;
+  }
+
+  .ftree .ftree-children {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    margin-left: 0;
+    padding-top: 0;
+    padding-left: var(--gap);
+  }
+
+  /* Across from the group's node to its children's upright line. */
+  .ftree .ftree-children::before {
+    content: "";
+    position: absolute;
+    top: var(--stub-node);
+    left: 0;
+    width: var(--gap);
+    height: 2px;
+    background: var(--border);
+  }
+
+  .ftree .ftree-children.on-path::before {
+    background: var(--accent);
+  }
+
+  .ftree-children > .ftree-item:first-child::before {
+    top: var(--stub-node);
+  }
+
+  .ftree-children > .ftree-item:first-child:last-child::before {
+    height: calc(var(--stub) - var(--stub-node) + 2px);
+  }
+
+  /* The way down runs straight across here, so the upright line below it is an ordinary one. */
+  .ftree-children > .ftree-item.on-path::before {
+    background: var(--border);
+  }
+
+  .ftree-children > .ftree-item.on-path:first-child::before {
+    background: linear-gradient(
+      var(--accent) calc(var(--stub) - var(--stub-node) + 2px),
+      var(--border) 0
+    );
+  }
+
+  .ftree-leaf {
+    max-width: 22rem;
+  }
 }

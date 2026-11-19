@@ -50,6 +50,7 @@ public sealed class FamilyTreeTests(PostgresFixture database)
         world.GbifMatches["Lavandula angustifolia"] = Match("Lavandula", 2927302, "Lavandula angustifolia", 2927305);
         world.GbifMatches["Lavandula stoechas"] = Match("Lavandula", 2927302, "Lavandula stoechas", 2927306);
         world.GbifMatches["Salvia rosmarinus"] = Match("Salvia", 2927303, "Salvia rosmarinus", 2927307);
+        world.GbifMatches["Digitalis purpurea"] = Match("Digitalis", 3172213, "Digitalis purpurea", 3172214, "Plantaginaceae", 2420);
         await using var app = await SpeciesLookupTests.CreateAsync(database, world);
         using var owner = Client(app);
         using var key = new TestAuthenticator();
@@ -58,6 +59,7 @@ public sealed class FamilyTreeTests(PostgresFixture database)
         var lavender = await PlantAsync(owner, world, 1, "Lavandula angustifolia", "Common Lavender");
         var french = await PlantAsync(owner, world, 2, "Lavandula stoechas", "French Lavender");
         await PlantAsync(owner, world, 3, "Salvia rosmarinus", "Rosemary");
+        var foxglove = await PlantAsync(owner, world, 5, "Digitalis purpurea", "Foxglove");
 
         var tree = await TreeAsync(owner, lavender);
         Assert.True(tree.GetProperty("linked").GetBoolean());
@@ -68,18 +70,27 @@ public sealed class FamilyTreeTests(PostgresFixture database)
 
         // The others' trees are fetched as their pages are opened, then they are each other's relatives.
         await TreeAsync(owner, french);
+        await TreeAsync(owner, foxglove);
         var rosemary = await TreeAsync(owner, (await owner.GetFromJsonAsync<JsonElement>(Route("/api/plants"), Cancellation)).EnumerateArray().Single(plant => string.Equals(plant.GetProperty("commonName").GetString(), "Rosemary", StringComparison.Ordinal)).GetProperty("id").GetGuid());
         Assert.Equal("Salvia", rosemary.GetProperty("lineage")[5].GetProperty("scientificName").GetString());
 
         tree = await TreeAsync(owner, lavender);
-        Assert.Equal("French Lavender", Assert.Single(tree.GetProperty("sameGenus").EnumerateArray()).GetProperty("name").GetString());
-        Assert.Equal("Rosemary", Assert.Single(tree.GetProperty("sameFamily").EnumerateArray()).GetProperty("name").GetString());
+        var relatives = tree.GetProperty("relatives").EnumerateArray().ToList();
+        Assert.Equal(["Foxglove", "French Lavender", "Rosemary"], relatives.Select(relative => relative.GetProperty("name").GetString()), StringComparer.Ordinal);
+        Assert.Equal("Plantaginaceae", relatives[0].GetProperty("family").GetProperty("scientificName").GetString());
+        relatives.RemoveAt(0);
+        Assert.Equal("Lavandula", relatives[0].GetProperty("genus").GetProperty("scientificName").GetString());
+        Assert.Equal("Lavandula stoechas", relatives[0].GetProperty("species").GetProperty("scientificName").GetString());
+        Assert.Equal("Salvia", relatives[1].GetProperty("genus").GetProperty("scientificName").GetString());
+        Assert.Equal("Mint Family", relatives[1].GetProperty("family").GetProperty("commonName").GetString());
+        Assert.All(relatives, relative => Assert.True(relative.GetProperty("hasPhoto").GetBoolean()));
 
-        // One row for the mint family, shared by all three.
+        // One row for the mint family, shared by the three in it, and one order for all four.
         await using var scope = app.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<HortiplannerDbContext>();
-        Assert.Equal(1, await db.Taxa.CountAsync(taxon => taxon.Rank == "family", Cancellation));
-        Assert.Equal(2, await db.Taxa.CountAsync(taxon => taxon.Rank == "genus", Cancellation));
+        Assert.Equal(1, await db.Taxa.CountAsync(taxon => taxon.Rank == "order", Cancellation));
+        Assert.Equal(2, await db.Taxa.CountAsync(taxon => taxon.Rank == "family", Cancellation));
+        Assert.Equal(3, await db.Taxa.CountAsync(taxon => taxon.Rank == "genus", Cancellation));
     }
 
     [Fact]
