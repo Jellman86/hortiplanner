@@ -8639,8 +8639,7 @@ export interface components {
             linked: boolean;
             unavailable: boolean;
             lineage: components["schemas"]["TaxonRung"][];
-            sameGenus: components["schemas"]["PlantName"][];
-            sameFamily: components["schemas"]["PlantName"][];
+            relatives: components["schemas"]["RelatedPlant"][];
         };
         FeatureChange: {
             on: boolean;
@@ -9371,11 +9370,6 @@ export interface components {
             protectedVariety: boolean;
             prices: null | components["schemas"]["PlantPriceDto"][];
         };
-        PlantName: {
-            /** Format: uuid */
-            plantId: string;
-            name: string;
-        };
         PlantNoteResponse: {
             /** Format: uuid */
             id: string;
@@ -9614,6 +9608,15 @@ export interface components {
         };
         RegisterStationRequest: {
             name: string;
+        };
+        RelatedPlant: {
+            /** Format: uuid */
+            plantId: string;
+            name: string;
+            hasPhoto: boolean;
+            family: null | components["schemas"]["TaxonName"];
+            genus: null | components["schemas"]["TaxonName"];
+            species: null | components["schemas"]["TaxonName"];
         };
         SavedMessage: {
             /** Format: uuid */
@@ -9905,13 +9908,18 @@ export interface components {
             amount: number | string;
             notes: null | string;
         };
+        TaxonName: {
+            /** Format: uuid */
+            taxonId: string;
+            scientificName: string;
+            commonName: null | string;
+        };
         TaxonRung: {
             /** Format: uuid */
             taxonId: string;
             rank: string;
             scientificName: string;
             commonName: null | string;
-            otherPlants: components["schemas"]["PlantName"][];
         };
         TraceBatchLink: {
             /** Format: uuid */

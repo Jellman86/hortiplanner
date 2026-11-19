@@ -213,39 +213,42 @@
         {#if card.growing}
           <ArticleSection title="Growing it" article={card.growing} />
         {/if}
+      </div>
+    </div>
 
-        <!-- Fetched again once the plant is matched to a species from this page. -->
-        {#key card.linkedToSpecies}
-          <FamilyTree
-            {plantId}
-            plantName={plantName(card.commonName, card.variety)}
-            {canManage}
-            {onOpenPlant}
+    <!-- Below the photos and notes, across the whole page, so the tree can branch across it. -->
+    <div class="plant-wide">
+      <!-- Fetched again once the plant is matched to a species from this page. -->
+      {#key card.linkedToSpecies}
+        <FamilyTree
+          {plantId}
+          plantName={plantName(card.commonName, card.variety)}
+          photoUrl={card.hasPhoto
+            ? `/api/plants/${plantId}/photo?v=${photoVersion}`
+            : null}
+          {canManage}
+          {onOpenPlant}
+        />
+      {/key}
+
+      {#if !card.linkedToSpecies && canManage}
+        <section class="stack">
+          <h2>Find this plant's details</h2>
+          <PlantSearch
+            recent={[]}
+            onPick={link}
+            speciesOnly
+            label="Search for this plant"
           />
-        {/key}
+        </section>
+      {/if}
 
-        {#if !card.linkedToSpecies && canManage}
-          <section class="stack">
-            <h2>Find this plant's details</h2>
-            <PlantSearch
-              recent={[]}
-              onPick={link}
-              speciesOnly
-              label="Search for this plant"
-            />
-          </section>
-        {/if}
-
-        <div class="plant-actions">
-          <AskAboutButton
-            about={aboutPlant(
-              plantId,
-              plantName(card.commonName, card.variety),
-            )}
-            {onAsk}
-          />
-          {@render actions?.()}
-        </div>
+      <div class="plant-actions">
+        <AskAboutButton
+          about={aboutPlant(plantId, plantName(card.commonName, card.variety))}
+          {onAsk}
+        />
+        {@render actions?.()}
       </div>
     </div>
   {:else if problem}

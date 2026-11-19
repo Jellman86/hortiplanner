@@ -8509,8 +8509,7 @@
           "linked",
           "unavailable",
           "lineage",
-          "sameGenus",
-          "sameFamily"
+          "relatives"
         ],
         "type": "object",
         "properties": {
@@ -8526,16 +8525,10 @@
               "$ref": "#/components/schemas/TaxonRung"
             }
           },
-          "sameGenus": {
+          "relatives": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/PlantName"
-            }
-          },
-          "sameFamily": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PlantName"
+              "$ref": "#/components/schemas/RelatedPlant"
             }
           }
         }
@@ -11496,22 +11489,6 @@
           }
         }
       },
-      "PlantName": {
-        "required": [
-          "plantId",
-          "name"
-        ],
-        "type": "object",
-        "properties": {
-          "plantId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "name": {
-            "type": "string"
-          }
-        }
-      },
       "PlantNoteResponse": {
         "required": [
           "id",
@@ -12517,6 +12494,59 @@
         "properties": {
           "name": {
             "type": "string"
+          }
+        }
+      },
+      "RelatedPlant": {
+        "required": [
+          "plantId",
+          "name",
+          "hasPhoto",
+          "family",
+          "genus",
+          "species"
+        ],
+        "type": "object",
+        "properties": {
+          "plantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "hasPhoto": {
+            "type": "boolean"
+          },
+          "family": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TaxonName"
+              }
+            ]
+          },
+          "genus": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TaxonName"
+              }
+            ]
+          },
+          "species": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TaxonName"
+              }
+            ]
           }
         }
       },
@@ -13740,13 +13770,35 @@
           }
         }
       },
+      "TaxonName": {
+        "required": [
+          "taxonId",
+          "scientificName",
+          "commonName"
+        ],
+        "type": "object",
+        "properties": {
+          "taxonId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "scientificName": {
+            "type": "string"
+          },
+          "commonName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "TaxonRung": {
         "required": [
           "taxonId",
           "rank",
           "scientificName",
-          "commonName",
-          "otherPlants"
+          "commonName"
         ],
         "type": "object",
         "properties": {
@@ -13765,12 +13817,6 @@
               "null",
               "string"
             ]
-          },
-          "otherPlants": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PlantName"
-            }
           }
         }
       },

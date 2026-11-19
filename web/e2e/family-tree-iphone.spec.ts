@@ -1,8 +1,8 @@
 import { expectAccessible } from "./accessibility";
 import { expect, test } from "./fixtures";
 
-// On a phone, a plant's page shows where it sits in the plant kingdom, and the nursery's other plants in its genus and
-// family, each a tap away.
+// On a phone, a plant's page shows where it sits in the plant kingdom as a tree, with the nursery's other plants hanging
+// from the branches they share, each a tap away.
 test("a plant's family tree shows its ranks and relatives on a phone", async ({
   page,
 }) => {
@@ -15,13 +15,16 @@ test("a plant's family tree shows its ranks and relatives on a phone", async ({
     rank: string,
     scientificName: string,
     commonName: string | null,
-    otherPlants: { plantId: string; name: string }[] = [],
   ) => ({
     taxonId: `0193a6f0-0000-7000-8000-00000000t00${id}`,
     rank,
     scientificName,
     commonName,
-    otherPlants,
+  });
+  const taxon = (id: number, scientificName: string, commonName: string) => ({
+    taxonId: `0193a6f0-0000-7000-8000-00000000t00${id}`,
+    scientificName,
+    commonName,
   });
   const card = (id: string, commonName: string) => ({
     id,
@@ -91,29 +94,43 @@ test("a plant's family tree shows its ranks and relatives on a phone", async ({
           rung(1, "kingdom", "Plantae", "Plants"),
           rung(2, "phylum", "Tracheophyta", "Vascular Plants"),
           rung(3, "class", "Magnoliopsida", "Dicots"),
-          rung(4, "order", "Lamiales", null, [
-            { plantId: french, name: "French Lavender" },
-            { plantId: rosemary, name: "Rosemary" },
-            { plantId: foxglove, name: "Foxglove" },
-          ]),
-          rung(5, "family", "Lamiaceae", "Mint Family", [
-            { plantId: french, name: "French Lavender" },
-            { plantId: rosemary, name: "Rosemary" },
-          ]),
-          rung(6, "genus", "Lavandula", "Lavenders", [
-            { plantId: french, name: "French Lavender" },
-          ]),
+          rung(4, "order", "Lamiales", null),
+          rung(5, "family", "Lamiaceae", "Mint Family"),
+          rung(6, "genus", "Lavandula", "Lavenders"),
           rung(7, "species", "Lavandula angustifolia", "Common Lavender"),
         ],
-        sameGenus: [{ plantId: french, name: "French Lavender" }],
-        sameFamily: [{ plantId: rosemary, name: "Rosemary" }],
+        relatives: [
+          {
+            plantId: foxglove,
+            name: "Foxglove",
+            hasPhoto: false,
+            family: taxon(8, "Plantaginaceae", "Plantain Family"),
+            genus: taxon(9, "Digitalis", "Foxgloves"),
+            species: null,
+          },
+          {
+            plantId: french,
+            name: "French Lavender",
+            hasPhoto: true,
+            family: taxon(5, "Lamiaceae", "Mint Family"),
+            genus: taxon(6, "Lavandula", "Lavenders"),
+            species: taxon(10, "Lavandula stoechas", "French Lavender"),
+          },
+          {
+            plantId: rosemary,
+            name: "Rosemary",
+            hasPhoto: false,
+            family: taxon(5, "Lamiaceae", "Mint Family"),
+            genus: taxon(11, "Salvia", "Sages"),
+            species: taxon(12, "Salvia rosmarinus", "Rosemary"),
+          },
+        ],
       },
       [`/api/plants/${rosemary}/family-tree`]: {
         linked: false,
         unavailable: false,
         lineage: [],
-        sameGenus: [],
-        sameFamily: [],
+        relatives: [],
       },
     };
     await route.fulfill({
@@ -127,41 +144,43 @@ test("a plant's family tree shows its ranks and relatives on a phone", async ({
   await page.getByRole("button", { name: "About this plant" }).click();
 
   const tree = page.getByRole("region", { name: "Family tree" });
-  const ladder = tree.getByRole("list", {
-    name: "Classification, from the order down to this plant",
+  const branches = tree.getByRole("list", {
+    name: "Family tree, from the order down to this plant and its relatives at the nursery",
   });
-  await expect(ladder).toContainText("Family: Mint Family, Lamiaceae");
-  await expect(ladder).toContainText("Genus: Lavenders, Lavandula");
-  await expect(ladder).not.toContainText("Kingdom");
-  await expect(ladder.locator("[aria-current=true]")).toContainText(
+  await expect(branches).toContainText("Family: Mint Family, Lamiaceae");
+  await expect(branches).toContainText("Genus: Lavenders, Lavandula");
+  await expect(branches).toContainText("Genus: Sages, Salvia");
+  await expect(branches).not.toContainText("Kingdom");
+  await expect(branches).not.toContainText("Foxglove");
+  await expect(branches.locator("[aria-current=true]")).toContainText(
     "This plant: Lavender",
   );
-  await expect(tree).toContainText(
-    "You grow one other plant in the same genus.",
-  );
-  await expect(tree).toContainText(
-    "You grow one other plant in the same family.",
-  );
+  await expect(
+    branches.getByRole("button", { name: "French Lavender" }),
+  ).toBeVisible();
   await expectAccessible(page, "Plant family tree");
 
   // The broader groups unfold above the order.
   await tree.getByRole("button", { name: "Show the broader groups" }).click();
   await expect(
     tree.getByRole("list", {
-      name: "Classification, from the kingdom down to this plant",
+      name: "The broader groups, from the kingdom down",
     }),
   ).toContainText("Kingdom: Plants, Plantae");
 
-  // Plants sharing only the order wait behind their own button.
+  // Plants in other families of the same order wait behind their own button.
   await tree
     .getByRole("button", { name: "Show one more distant relative" })
     .click();
   await expect(
     tree.getByRole("button", { name: "Hide the more distant relatives" }),
   ).toHaveAttribute("aria-expanded", "true");
-  await expect(tree).toContainText(
-    "You grow one other plant in the same order.",
+  await expect(branches).toContainText(
+    "Family: Plantain Family, Plantaginaceae",
   );
+  await expect(
+    branches.getByRole("button", { name: "Foxglove" }),
+  ).toBeVisible();
   await expectAccessible(page, "Plant family tree, opened up");
 
   // A relative opens its own page, and Back comes back.

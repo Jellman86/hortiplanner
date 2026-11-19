@@ -8,41 +8,47 @@
   import { api } from "../../api/client";
   import {
     aboveSpecies,
-    broaderRanks,
+    grow,
     rankLabel,
-    relatives,
+    relativeCount,
+    type Branch,
+    type Leaf,
   } from "../../lib/familyTree";
   import type { Schemas } from "../../lib/types";
+  import PlantThumb from "./PlantThumb.svelte";
 
-  // Where a plant sits among other plants, from the wider groups down to the plant itself, and the nursery's other
-  // plants it's related to, closest first, each a tap away.
+  // Where a plant sits among other plants, drawn as a tree from its order down to the plant itself, with the
+  // nursery's other plants hanging from the branches they share, each a tap away.
   let {
     plantId,
     plantName,
+    photoUrl = null,
     canManage = false,
     onOpenPlant,
   }: {
     plantId: string;
-    /** The nursery's own name for the plant, shown at the foot of the tree. */
+    /** The nursery's own name for the plant, on its leaf. */
     plantName: string;
+    /** The plant's own picture, for its leaf. */
+    photoUrl?: string | null;
     canManage?: boolean;
     /** Opens another of the nursery's plants. */
     onOpenPlant?: (id: string) => void;
   } = $props();
 
-  const mostNames = 6;
-
-  type Group = "species" | "genus" | "family";
+  /** Leaves shown under one group before "Show all". */
+  const mostLeaves = 6;
+  /** Plants in this plant's family before its other genera start folded. */
+  const mostOpen = 10;
 
   let tree = $state<Schemas["FamilyTree"] | null>(null);
   let failed = $state(false);
   let broader = $state(false);
   let distant = $state(false);
-  let showingAll = $state<Record<Group, boolean>>({
-    species: false,
-    genus: false,
-    family: false,
-  });
+  /** Groups opened or folded by hand, by taxon. */
+  let opened = $state<Record<string, boolean>>({});
+  /** Groups showing all their leaves, by taxon. */
+  let showingAll = $state<Record<string, boolean>>({});
 
   async function load() {
     failed = false;
@@ -60,80 +66,64 @@
 
   onMount(load);
 
-  const lineage = $derived(tree?.lineage ?? []);
-  const folds = $derived(
-    lineage.some((rung) => broaderRanks.has(rung.rank)) &&
-      lineage.some((rung) => !broaderRanks.has(rung.rank)),
+  const grown = $derived(
+    tree
+      ? grow(tree, { plantId, name: plantName, hasPhoto: !!photoUrl })
+      : null,
   );
-  const shown = $derived(
-    folds && !broader
-      ? lineage.filter((rung) => !broaderRanks.has(rung.rank))
-      : lineage,
+  const root = $derived(grown?.root ?? null);
+  /** This plant's family: the root itself when the tree grows from the family. */
+  const family = $derived(
+    root?.rank === "order"
+      ? (root.branches.find((each) => each.onPath) ?? null)
+      : root,
   );
-  const lastRank = $derived(lineage.at(-1)?.rank);
-  const kin = $derived(tree ? relatives(tree) : null);
-  const close = $derived(
-    kin ? kin.species.length + kin.genus.length + kin.family.length : 0,
+  /** Plants in other families of the same order, or matched only to the order: the more distant relatives. */
+  const distantCount = $derived(
+    root?.rank === "order"
+      ? root.branches
+          .filter((each) => !each.onPath)
+          .reduce((total, each) => total + relativeCount(each), 0) +
+          root.leaves.length
+      : 0,
   );
+  const closeCount = $derived(family ? relativeCount(family) : 0);
+  const crowded = $derived(closeCount + 1 > mostOpen);
+  const lastRank = $derived(tree?.lineage.at(-1)?.rank);
+
   const italic = (rank: string) => rank === "genus" || !aboveSpecies.has(rank);
   const rankWord = (rank: string) => rankLabel(rank).toLowerCase();
+  const nodeId = (branch: Branch) => `family-node-${branch.taxonId}`;
+  const listId = (branch: Branch) => `family-children-${branch.taxonId}`;
+  const plants = (count: number) =>
+    count === 1 ? "the one plant" : `the ${count} plants`;
 
-  const groups: {
-    key: Group;
-    one: string;
-    many: string;
-    all: string;
-  }[] = [
-    {
-      key: "species",
-      one: "You grow one other plant of the same species.",
-      many: "You grow these other plants of the same species.",
-      all: "of the same species",
-    },
-    {
-      key: "genus",
-      one: "You grow one other plant in the same genus.",
-      many: "You grow these other plants in the same genus.",
-      all: "in the same genus",
-    },
-    {
-      key: "family",
-      one: "You grow one other plant in the same family.",
-      many: "You grow these other plants in the same family.",
-      all: "in the same family",
-    },
-  ];
+  /** Another genus in a crowded family starts folded; everything else starts open. */
+  const isOpen = (branch: Branch, parent: Branch) =>
+    opened[branch.taxonId] ??
+    !(
+      crowded &&
+      parent === family &&
+      branch.rank === "genus" &&
+      !branch.onPath
+    );
+  /** Shown at the root only once the more distant relatives are opened. */
+  const shown = (branch: Branch, parent: Branch) =>
+    parent !== root || parent.rank !== "order" || branch.onPath || distant;
 </script>
-
-{#snippet plantRows(plants: readonly Schemas["PlantName"][], id?: string)}
-  <!-- role="list" because Safari drops a list's role when its bullets are hidden. -->
-  <ul class="family-plants" role="list" {id}>
-    {#each plants as plant (plant.plantId)}
-      <li>
-        <button
-          class="link-button"
-          onclick={() => onOpenPlant?.(plant.plantId)}
-          disabled={!onOpenPlant}
-          ><span>{plant.name}</span><ArrowRight
-            size={16}
-            aria-hidden="true"
-          /></button
-        >
-      </li>
-    {/each}
-  </ul>
-{/snippet}
 
 {#snippet toggle(
   open: boolean,
   controls: string,
   label: string,
   onclick: () => void,
+  describedBy?: string,
 )}
   <button
     class="link-button"
     aria-expanded={open}
     aria-controls={controls}
+    aria-describedby={describedBy}
     {onclick}
   >
     {#if open}<ChevronUp size={16} aria-hidden="true" />{:else}<ChevronDown
@@ -142,6 +132,123 @@
       />{/if}
     {label}
   </button>
+{/snippet}
+
+{#snippet names(
+  rank: string,
+  scientificName: string,
+  commonName: string | null,
+)}
+  <span class="rung-rank"
+    >{rankLabel(rank)}<span class="visually-hidden">: </span></span
+  >
+  <span class="ftree-names">
+    {#if commonName}
+      <span class="rung-name"
+        >{commonName}<span class="visually-hidden">, </span></span
+      >
+    {/if}
+    <span class={commonName ? "rung-latin" : "rung-name"} lang="la"
+      >{#if italic(rank)}<em>{scientificName}</em
+        >{:else}{scientificName}{/if}</span
+    >
+  </span>
+{/snippet}
+
+{#snippet leaf(item: Leaf)}
+  <li class="ftree-item" class:on-path={item.self}>
+    {#if item.self}
+      <div class="ftree-leaf this-plant" aria-current="true">
+        <PlantThumb url={photoUrl} />
+        <span class="ftree-leaf-name">
+          <span class="rung-rank"
+            >This plant<span class="visually-hidden">: </span></span
+          >
+          <strong>{item.name}</strong>
+        </span>
+      </div>
+    {:else}
+      <button
+        class="link-button ftree-leaf"
+        onclick={() => onOpenPlant?.(item.plantId)}
+        disabled={!onOpenPlant}
+      >
+        <PlantThumb
+          url={item.hasPhoto ? `/api/plants/${item.plantId}/photo` : null}
+        />
+        <span class="ftree-leaf-name">{item.name}</span>
+        <ArrowRight size={16} aria-hidden="true" />
+      </button>
+    {/if}
+  </li>
+{/snippet}
+
+{#snippet node(branch: Branch, parent: Branch | null)}
+  {@const open = parent ? isOpen(branch, parent) : true}
+  {@const all = showingAll[branch.taxonId] ?? false}
+  {@const leaves = all ? branch.leaves : branch.leaves.slice(0, mostLeaves)}
+  {@const word =
+    branch.rank === "species"
+      ? "of this species"
+      : `in this ${rankWord(branch.rank)}`}
+  <li class="ftree-item" class:on-path={branch.onPath}>
+    <div class="ftree-node" id={nodeId(branch)}>
+      {@render names(branch.rank, branch.scientificName, branch.commonName)}
+    </div>
+    <ul
+      class="ftree-children"
+      class:on-path={branch.onPath}
+      role="list"
+      id={listId(branch)}
+    >
+      {#if open}
+        {#each branch.branches as child (child.taxonId)}
+          {#if shown(child, branch)}
+            {@render node(child, branch)}
+          {/if}
+        {/each}
+        {#each leaves as item (item.plantId)}
+          {#if branch !== root || branch.rank !== "order" || distant}
+            {@render leaf(item)}
+          {/if}
+        {/each}
+        {#if branch.leaves.length > mostLeaves}
+          <li class="ftree-item">
+            {@render toggle(
+              all,
+              listId(branch),
+              all
+                ? `Show only the first ${mostLeaves} plants ${word}`
+                : `Show all ${branch.leaves.length} plants ${word}`,
+              () => (showingAll[branch.taxonId] = !all),
+              nodeId(branch),
+            )}
+          </li>
+        {/if}
+        {#if parent && opened[branch.taxonId] && !branch.onPath}
+          <li class="ftree-item">
+            {@render toggle(
+              true,
+              listId(branch),
+              `Hide the plants ${word}`,
+              () => (opened[branch.taxonId] = false),
+              nodeId(branch),
+            )}
+          </li>
+        {/if}
+      {:else}
+        <li class="ftree-item">
+          {@render toggle(
+            false,
+            listId(branch),
+            `Show ${plants(relativeCount(branch))} ${word}`,
+            () => (opened[branch.taxonId] = true),
+            nodeId(branch),
+          )}
+        </li>
+      {/if}
+    </ul>
+  </li>
 {/snippet}
 
 <section
@@ -177,13 +284,14 @@
       We couldn't find this plant in the online classification, so there's no
       family tree to show.
     </p>
-  {:else if tree && kin}
+  {:else if tree && grown}
     <p class="muted">
-      This is where the plant sits among other plants, from the wider groups
-      down to the plant itself.
+      {tree.relatives.length > 0
+        ? "This is where the plant sits among other plants. Its relatives at the nursery are on the branches."
+        : "This is where the plant sits among other plants, from the wider groups down to the plant itself."}
     </p>
     <div class="card family-card">
-      {#if folds}
+      {#if grown.above.length > 0 && root}
         {@render toggle(
           broader,
           "family-ladder",
@@ -192,37 +300,41 @@
         )}
       {/if}
 
-      <ol
-        id="family-ladder"
-        class="family-ladder"
+      {#if grown.above.length > 0 && (broader || !root)}
+        <ol
+          id="family-ladder"
+          class="family-ladder"
+          role="list"
+          aria-label="The broader groups, from the {rankWord(
+            grown.above[0].rank,
+          )} down"
+        >
+          {#each grown.above as rung (rung.taxonId)}
+            <li>
+              {@render names(rung.rank, rung.scientificName, rung.commonName)}
+            </li>
+          {/each}
+        </ol>
+      {/if}
+
+      <ul
+        class="ftree"
         role="list"
-        aria-label={`Classification, from the ${rankWord(shown[0]?.rank ?? "kingdom")} down to this plant`}
+        aria-label={root
+          ? `Family tree, from the ${rankWord(root.rank)} down to this plant and its relatives at the nursery`
+          : "This plant"}
       >
-        {#each shown as rung (rung.taxonId)}
-          <li>
-            <span class="rung-rank"
-              >{rankLabel(rung.rank)}<span class="visually-hidden"
-                >:
-              </span></span
-            >
-            {#if rung.commonName}
-              <span class="rung-name"
-                >{rung.commonName}<span class="visually-hidden">, </span></span
-              >
-            {/if}
-            <span class={rung.commonName ? "rung-latin" : "rung-name"} lang="la"
-              >{#if italic(rung.rank)}<em>{rung.scientificName}</em
-                >{:else}{rung.scientificName}{/if}</span
-            >
-          </li>
-        {/each}
-        <li class="this-plant" aria-current="true">
-          <span class="rung-rank"
-            >This plant<span class="visually-hidden">: </span></span
-          >
-          <span class="rung-name">{plantName}</span>
-        </li>
-      </ol>
+        {#if root}
+          {@render node(root, null)}
+        {:else}
+          {@render leaf({
+            plantId,
+            name: plantName,
+            hasPhoto: !!photoUrl,
+            self: true,
+          })}
+        {/if}
+      </ul>
 
       {#if lastRank && aboveSpecies.has(lastRank)}
         <p class="muted">
@@ -231,60 +343,26 @@
         </p>
       {/if}
 
-      <div class="family-relatives stack">
-        <h3>Its relatives at the nursery</h3>
-        {#each groups as group (group.key)}
-          {@const plants = kin[group.key]}
-          {#if plants.length > 0}
-            <p>{plants.length === 1 ? group.one : group.many}</p>
-            {@render plantRows(
-              showingAll[group.key] ? plants : plants.slice(0, mostNames),
-              `family-${group.key}`,
-            )}
-            {#if plants.length > mostNames}
-              {@render toggle(
-                showingAll[group.key],
-                `family-${group.key}`,
-                showingAll[group.key]
-                  ? `Show only the first ${mostNames} ${group.all}`
-                  : `Show all ${plants.length} ${group.all}`,
-                () => (showingAll[group.key] = !showingAll[group.key]),
-              )}
-            {/if}
-          {/if}
-        {/each}
+      {#if tree.relatives.length === 0}
+        <p class="muted">
+          Nothing else at the nursery is related to this plant yet.
+        </p>
+      {:else if closeCount === 0}
+        <p class="muted">Nothing else at the nursery is in this family yet.</p>
+      {/if}
 
-        {#if close === 0 && kin.order.length === 0}
-          <p class="muted">
-            Nothing else at the nursery is related to this plant yet.
-          </p>
-        {:else if close === 0}
-          <p class="muted">
-            Nothing else at the nursery is in this family yet.
-          </p>
-        {/if}
-
-        {#if kin.order.length > 0}
-          {@render toggle(
-            distant,
-            "family-distant",
-            distant
-              ? "Hide the more distant relatives"
-              : kin.order.length === 1
-                ? "Show one more distant relative"
-                : `Show ${kin.order.length} more distant relatives`,
-            () => (distant = !distant),
-          )}
-          <div id="family-distant" class="stack" hidden={!distant}>
-            <p>
-              {kin.order.length === 1
-                ? "You grow one other plant in the same order."
-                : "You grow these other plants in the same order."}
-            </p>
-            {@render plantRows(kin.order)}
-          </div>
-        {/if}
-      </div>
+      {#if distantCount > 0 && root}
+        {@render toggle(
+          distant,
+          listId(root),
+          distant
+            ? "Hide the more distant relatives"
+            : distantCount === 1
+              ? "Show one more distant relative"
+              : `Show ${distantCount} more distant relatives`,
+          () => (distant = !distant),
+        )}
+      {/if}
 
       <div class="family-credits stack">
         <p class="muted credit">
