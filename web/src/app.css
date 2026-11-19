@@ -4487,6 +4487,9 @@ button.link-button.ftree-leaf {
 
   .ftree-leaf {
     max-width: 22rem;
+  }
+}
+
 /* Reading a seed packet photo: the photo beside what was read, for the person to check. */
 .read-label-card {
   display: grid;
