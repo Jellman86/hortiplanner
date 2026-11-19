@@ -13,14 +13,14 @@ namespace Hortiplanner.Tests;
 /// <summary>Ask Hortiplanner against a pretend OpenRouter: the key stays on the server and only records, never people, are sent.</summary>
 public sealed class AssistantTests(PostgresFixture database)
 {
-    private const string Key = "sk-or-test-key";
+    internal const string Key = "sk-or-test-key";
 
     private static readonly string[] NotPhotos = ["https://example.com/a.jpg"];
 
     private static readonly string[] Svg = ["data:image/svg+xml;base64,PHN2Zz48L3N2Zz4="];
 
     /// <summary>Answers like OpenRouter: a model list, a key's spend, and a model that looks up stock before answering.</summary>
-    private sealed class PretendOpenRouter : HttpMessageHandler
+    internal sealed class PretendOpenRouter : HttpMessageHandler
     {
         public List<(string Authorization, string Body)> Questions { get; } = [];
 
@@ -343,7 +343,7 @@ public sealed class AssistantTests(PostgresFixture database)
         Assert.Equal(HttpStatusCode.NotFound, await GetStatusAsync(nursery.Owner, "/api/assistant/status"));
     }
 
-    private static async Task<PretendOpenRouter> SetUpAsync(TwoPersonNursery nursery, PretendOpenRouter openRouter, bool forStaff = false)
+    internal static async Task<PretendOpenRouter> SetUpAsync(TwoPersonNursery nursery, PretendOpenRouter openRouter, bool forStaff = false)
     {
         using var saved = await nursery.Owner.PutAsJsonAsync(Route("/api/assistant/settings"), new { key = Key, model = "test/model", forStaff }, Cancellation);
         Assert.Equal(HttpStatusCode.NoContent, saved.StatusCode);
@@ -356,14 +356,13 @@ public sealed class AssistantTests(PostgresFixture database)
         var openRouter = new PretendOpenRouter();
         await using var nursery = await TwoPersonNursery.CreateAsync(database, outsideWorld: openRouter);
         await SetUpAsync(nursery, openRouter);
-        var lines = Enumerable.Range(0, 41)
-            .Select(index => new { role = index % 2 == 0 ? "user" : "assistant", text = index == 1 ? new string('a', 9000) : $"Line {index}" })
-            .ToArray();
+        var conversation = await ConversationTests.KeepAsync(nursery, await nursery.OwnerIdAsync(), 40, index => index == 1 ? new string('a', 9000) : $"Line {index}");
 
-        using var answered = await nursery.Owner.PostAsJsonAsync(Route("/api/assistant/ask"), new { messages = lines }, Cancellation);
+        using var answered = await nursery.Owner.PostAsJsonAsync(Route("/api/assistant/ask"), new { messages = new[] { new { role = "user", text = "Line 40" } }, conversationId = conversation }, Cancellation);
         Assert.Equal(HttpStatusCode.OK, answered.StatusCode);
         var sent = JsonNode.Parse(openRouter.Questions[0].Body)!["messages"]!.AsArray();
         Assert.DoesNotContain(sent, message => message?["content"]?.ToString().Contains("Line 0", StringComparison.Ordinal) == true);
+        Assert.Contains(sent, message => string.Equals(message?["content"]?.ToString(), "Line 39", StringComparison.Ordinal));
         Assert.Contains(sent, message => string.Equals(message?["content"]?.ToString(), "Line 40", StringComparison.Ordinal));
     }
 

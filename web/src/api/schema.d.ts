@@ -5243,6 +5243,153 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/assistant/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ConversationSummary"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assistant/conversations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ConversationDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assistant/conversations/{id}/title": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ConversationTitle"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/assistant/settings": {
         parameters: {
             query?: never;
@@ -8011,6 +8158,9 @@ export interface components {
             spentThisMonth?: number | string;
             /** Format: double */
             spentInAll?: number | string;
+            /** Format: uuid */
+            conversationId?: null | string;
+            title?: null | string;
         };
         AskMessage: {
             role: string;
@@ -8023,6 +8173,8 @@ export interface components {
             messages: components["schemas"]["AskMessage"][];
             images: null | string[];
             about: null | components["schemas"]["AskAbout"];
+            /** Format: uuid */
+            conversationId?: null | string;
         };
         AskSource: {
             kind: string;
@@ -8051,6 +8203,7 @@ export interface components {
             setUp: boolean;
             readsImages: boolean;
             spent: null | components["schemas"]["YourSpend"];
+            savesConversations?: boolean;
         };
         BackupHealth: {
             known: boolean;
@@ -8309,6 +8462,28 @@ export interface components {
             stageSince: null | string;
             /** Format: date-time */
             startedAt?: null | string;
+        };
+        ConversationDetails: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            /** Format: date-time */
+            updatedAt: string;
+            aboutKind: null | string;
+            aboutLabel: null | string;
+            messages: components["schemas"]["SavedMessage"][];
+        };
+        ConversationSummary: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            /** Format: date-time */
+            updatedAt: string;
+            aboutKind: null | string;
+            aboutLabel: null | string;
+        };
+        ConversationTitle: {
+            title: null | string;
         };
         CorrectRequest: {
             /** Format: uuid */
@@ -9390,6 +9565,19 @@ export interface components {
         };
         RegisterStationRequest: {
             name: string;
+        };
+        SavedMessage: {
+            /** Format: uuid */
+            id: string;
+            role: string;
+            text: string;
+            /** Format: int32 */
+            photoCount: number | string;
+            sources: components["schemas"]["AskSource"][];
+            /** Format: double */
+            cost: null | number | string;
+            /** Format: date-time */
+            at: string;
         };
         SaveExternalSignIn: {
             enabled: boolean;

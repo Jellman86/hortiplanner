@@ -25,6 +25,12 @@ internal sealed class ToolContext(HortiplannerDbContext db, EventStore store, Ti
     /// <summary>What the question has cost so far, in US dollars, kept as it goes so a failed answer is still counted.</summary>
     public decimal Cost { get; set; }
 
+    /// <summary>Whose earlier conversations can be looked through: the person asking, signed in as themselves, or nobody.</summary>
+    public Guid? LooksBackFor { get; init; }
+
+    /// <summary>The kept conversation being carried on, left out when looking back.</summary>
+    public Guid? ConversationId { get; init; }
+
     /// <summary>The parts of Hortiplanner turned off, whose tools aren't offered or run.</summary>
     public IReadOnlyCollection<NurseryFeature> FeaturesOff { get; init; } = [];
 

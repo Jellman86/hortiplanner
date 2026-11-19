@@ -180,7 +180,10 @@ internal static class StaffEndpoints
         return TypedResults.NoContent();
     }
 
-    /// <summary>Lets the owner give someone a password, or replace one they have forgotten.</summary>
+    /// <summary>
+    /// Lets the owner give someone a password, or replace one they have forgotten. Never the nursery team account, which
+    /// anyone can use, so a password would make it look like one person.
+    /// </summary>
     private static async Task<IResult> SetPasswordAsync(
         Guid id,
         SetPasswordRequest request,
@@ -188,7 +191,7 @@ internal static class StaffEndpoints
         UserManager<AppUser> users,
         SignInManager<AppUser> signIn)
     {
-        if (await users.FindByIdAsync(id.ToString()) is not { ArchivedAt: null } member)
+        if (await users.FindByIdAsync(id.ToString()) is not { ArchivedAt: null, IsTeamAccount: false } member)
         {
             return TypedResults.NotFound();
         }
@@ -201,9 +204,10 @@ internal static class StaffEndpoints
         await users.SetLockoutEndDateAsync(member, lockoutEnd: null);
         await users.ResetAccessFailedCountAsync(member);
 
+        // Signed in again the same way as before, so the session still knows how they signed in.
         if (string.Equals(users.GetUserId(currentUser), id.ToString(), StringComparison.Ordinal))
         {
-            await signIn.RefreshSignInAsync(member);
+            await AccountServices.SignInAsync(signIn, member, currentUser.FindFirstValue(AccountServices.SignInMethodClaim) ?? "password");
         }
 
         return TypedResults.NoContent();

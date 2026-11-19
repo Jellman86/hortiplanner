@@ -160,6 +160,97 @@ namespace Hortiplanner.Api.Data.Migrations
                     b.ToTable("bench_stations", (string)null);
                 });
 
+            modelBuilder.Entity("Hortiplanner.Api.Data.AssistantConversation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AboutKind")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("about_kind");
+
+                    b.Property<string>("AboutLabel")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("about_label");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_id");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("title");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_assistant_conversations");
+
+                    b.HasIndex("OwnerId", "UpdatedAt")
+                        .HasDatabaseName("ix_assistant_conversations_owner_id_updated_at");
+
+                    b.ToTable("assistant_conversations", (string)null);
+                });
+
+            modelBuilder.Entity("Hortiplanner.Api.Data.AssistantMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("conversation_id");
+
+                    b.Property<decimal?>("Cost")
+                        .HasPrecision(12, 6)
+                        .HasColumnType("numeric(12,6)")
+                        .HasColumnName("cost");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("PhotoCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("photo_count");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("role");
+
+                    b.Property<string>("Sources")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("sources");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(12000)
+                        .HasColumnType("character varying(12000)")
+                        .HasColumnName("text");
+
+                    b.HasKey("Id")
+                        .HasName("pk_assistant_messages");
+
+                    b.HasIndex("ConversationId", "CreatedAt")
+                        .HasDatabaseName("ix_assistant_messages_conversation_id_created_at");
+
+                    b.ToTable("assistant_messages", (string)null);
+                });
+
             modelBuilder.Entity("Hortiplanner.Api.Data.AssistantSpend", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2682,6 +2773,26 @@ namespace Hortiplanner.Api.Data.Migrations
                         .HasName("pk_asp_net_user_tokens");
 
                     b.ToTable("AspNetUserTokens", (string)null);
+                });
+
+            modelBuilder.Entity("Hortiplanner.Api.Data.AssistantConversation", b =>
+                {
+                    b.HasOne("Hortiplanner.Api.Accounts.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_assistant_conversations_asp_net_users_owner_id");
+                });
+
+            modelBuilder.Entity("Hortiplanner.Api.Data.AssistantMessage", b =>
+                {
+                    b.HasOne("Hortiplanner.Api.Data.AssistantConversation", null)
+                        .WithMany()
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_assistant_messages_assistant_conversations_conversation_id");
                 });
 
             modelBuilder.Entity("Hortiplanner.Api.Data.AssistantSpend", b =>
