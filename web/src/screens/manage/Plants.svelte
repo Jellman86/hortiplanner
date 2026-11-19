@@ -54,6 +54,8 @@
 
   const setProblem = (message: string) => (problem = message);
 
+  // The plants opened one from another through their family trees, to go back through.
+  let trail = $state<string[]>([]);
   const selected = $derived(plants.find((plant) => plant.id === cardId));
   const suggested = $derived(
     !!details?.suggestedPosition ||
@@ -213,52 +215,67 @@
 </script>
 
 {#if cardId}
-  <PlantCard
-    plantId={cardId}
-    {canManage}
-    {onAsk}
-    onBack={() => {
-      cardId = null;
-      void attempt(load, setProblem);
-    }}
-  >
-    {#snippet actions()}
-      {#if canManage && selected}
-        <div class="stack">
-          <section class="stack tight" aria-labelledby="plant-print">
-            <h2 class="form-heading" id="plant-print">Print</h2>
-            <div class="print-list">
-              <PrintButton
-                href="/api/labels/bench-cards/{selected.id}"
-                label="Bench card"
-              />
-              {#each selected.prices as price (price.potSizeId)}
+  {#key cardId}
+    <PlantCard
+      plantId={cardId}
+      {canManage}
+      {onAsk}
+      onOpenPlant={(id) => {
+        // Back returns to the plant this one was opened from, not straight to the list.
+        if (cardId) trail = [...trail, cardId];
+        cardId = id;
+        window.scrollTo(0, 0);
+      }}
+      onBack={() => {
+        if (trail.length > 0) {
+          cardId = trail.at(-1)!;
+          trail = trail.slice(0, -1);
+          window.scrollTo(0, 0);
+          return;
+        }
+
+        cardId = null;
+        void attempt(load, setProblem);
+      }}
+    >
+      {#snippet actions()}
+        {#if canManage && selected}
+          <div class="stack">
+            <section class="stack tight" aria-labelledby="plant-print">
+              <h2 class="form-heading" id="plant-print">Print</h2>
+              <div class="print-list">
                 <PrintButton
-                  href="/api/labels/plants/{selected.id}?potSizeId={price.potSizeId}"
-                  label="{potSizes.find((size) => size.id === price.potSizeId)
-                    ?.name} plant label"
+                  href="/api/labels/bench-cards/{selected.id}"
+                  label="Bench card"
                 />
-              {:else}
-                <PrintButton
-                  href="/api/labels/plants/{selected.id}"
-                  label="Plant label"
-                />
-              {/each}
+                {#each selected.prices as price (price.potSizeId)}
+                  <PrintButton
+                    href="/api/labels/plants/{selected.id}?potSizeId={price.potSizeId}"
+                    label="{potSizes.find((size) => size.id === price.potSizeId)
+                      ?.name} plant label"
+                  />
+                {:else}
+                  <PrintButton
+                    href="/api/labels/plants/{selected.id}"
+                    label="Plant label"
+                  />
+                {/each}
+              </div>
+            </section>
+            <div class="row">
+              <button class="secondary" onclick={() => edit(selected)}
+                >Change</button
+              >
+              <button
+                class="secondary destructive"
+                onclick={() => archive(selected)}>No longer grown</button
+              >
             </div>
-          </section>
-          <div class="row">
-            <button class="secondary" onclick={() => edit(selected)}
-              >Change</button
-            >
-            <button
-              class="secondary destructive"
-              onclick={() => archive(selected)}>No longer grown</button
-            >
           </div>
-        </div>
-      {/if}
-    {/snippet}
-  </PlantCard>
+        {/if}
+      {/snippet}
+    </PlantCard>
+  {/key}
 {:else if showForm}
   <main>
     <h1>{editing ? "Change plant" : "Add a plant"}</h1>

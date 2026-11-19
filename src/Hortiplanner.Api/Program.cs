@@ -29,6 +29,8 @@ builder.Services.AddOpenApi();
 if (Assembly.GetEntryAssembly()?.GetName().Name is not "GetDocument.Insider")
 {
     builder.Services.AddHostedService<DatabaseMigrator>();
+    builder.Services.AddSingleton<LineageBackfill>();
+    builder.Services.AddHostedService(services => services.GetRequiredService<LineageBackfill>());
 }
 
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
@@ -110,6 +112,7 @@ app.MapBenchEndpoints();
 app.MapSpeciesEndpoints();
 app.MapPhotoEndpoints();
 app.MapPlantCardEndpoints();
+app.MapFamilyTreeEndpoints();
 app.MapCataloguePhotoEndpoints();
 app.MapCatalogueEndpoints();
 // A device says when it sent each request, so work from a device with a wrong clock can be put right.

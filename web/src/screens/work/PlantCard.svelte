@@ -10,6 +10,7 @@
   import Loading from "./Loading.svelte";
   import PlantHero from "./PlantHero.svelte";
   import PlantPhotos from "./PlantPhotos.svelte";
+  import FamilyTree from "./FamilyTree.svelte";
   import PlantSearch from "./PlantSearch.svelte";
 
   let {
@@ -17,6 +18,7 @@
     canManage = false,
     onBack,
     onAsk,
+    onOpenPlant,
     actions,
   }: {
     plantId: string;
@@ -24,6 +26,8 @@
     onBack: () => void;
     /** Asks Ask Hortiplanner about one of the plant's photos, when this person can ask. */
     onAsk?: (about: AskAbout) => void;
+    /** Opens another of the nursery's plants, such as a relative in its family tree. */
+    onOpenPlant?: (id: string) => void;
     actions?: Snippet;
   } = $props();
 
@@ -209,6 +213,11 @@
         {#if card.growing}
           <ArticleSection title="Growing it" article={card.growing} />
         {/if}
+
+        <!-- Fetched again once the plant is matched to a species from this page. -->
+        {#key card.linkedToSpecies}
+          <FamilyTree {plantId} {canManage} {onOpenPlant} />
+        {/key}
 
         {#if !card.linkedToSpecies && canManage}
           <section class="stack">

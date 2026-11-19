@@ -303,7 +303,17 @@
 {#if !container}
   <main><p class="muted">Loading…</p></main>
 {:else if cardPlant}
-  <PlantCard plantId={cardPlant} onBack={back} {onAsk} />
+  {#key cardPlant}
+    <PlantCard
+      plantId={cardPlant}
+      onBack={back}
+      {onAsk}
+      onOpenPlant={(id) => {
+        openCard(id);
+        window.scrollTo(0, 0);
+      }}
+    />
+  {/key}
 {:else if editing}
   <EditBatch batchId={editing} onSaved={editSaved} onCancel={back} />
 {:else if action === "lost"}

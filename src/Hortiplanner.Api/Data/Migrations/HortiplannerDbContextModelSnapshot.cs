@@ -2287,6 +2287,10 @@ namespace Hortiplanner.Api.Data.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("inaturalist_id");
 
+                    b.Property<DateTimeOffset?>("LineageCheckedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("lineage_checked_at");
+
                     b.Property<DateTimeOffset?>("NameCheckedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("name_checked_at");
@@ -2335,12 +2339,19 @@ namespace Hortiplanner.Api.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("search_text");
 
+                    b.Property<Guid?>("TaxonId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("taxon_id");
+
                     b.HasKey("Id")
                         .HasName("pk_species");
 
                     b.HasIndex("ScientificName")
                         .IsUnique()
                         .HasDatabaseName("ix_species_scientific_name");
+
+                    b.HasIndex("TaxonId")
+                        .HasDatabaseName("ix_species_taxon_id");
 
                     b.ToTable("species", (string)null);
                 });
@@ -2514,6 +2525,68 @@ namespace Hortiplanner.Api.Data.Migrations
                         .HasDatabaseName("ix_suppliers_name");
 
                     b.ToTable("suppliers", (string)null);
+                });
+
+            modelBuilder.Entity("Hortiplanner.Api.Data.Taxon", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("CommonName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("common_name");
+
+                    b.Property<string>("CommonNameSource")
+                        .HasColumnType("text")
+                        .HasColumnName("common_name_source");
+
+                    b.Property<DateTimeOffset>("FetchedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fetched_at");
+
+                    b.Property<long>("GbifKey")
+                        .HasColumnType("bigint")
+                        .HasColumnName("gbif_key");
+
+                    b.Property<string>("Licence")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("licence");
+
+                    b.Property<Guid?>("ParentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("parent_id");
+
+                    b.Property<string>("Rank")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("rank");
+
+                    b.Property<string>("ScientificName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("scientific_name");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("source");
+
+                    b.HasKey("Id")
+                        .HasName("pk_taxa");
+
+                    b.HasIndex("GbifKey")
+                        .IsUnique()
+                        .HasDatabaseName("ix_taxa_gbif_key");
+
+                    b.HasIndex("ParentId")
+                        .HasDatabaseName("ix_taxa_parent_id");
+
+                    b.ToTable("taxa", (string)null);
                 });
 
             modelBuilder.Entity("Hortiplanner.Api.Data.TillTaking", b =>
@@ -3343,6 +3416,15 @@ namespace Hortiplanner.Api.Data.Migrations
                         .HasConstraintName("fk_sign_in_tune_asp_net_users_user_id");
                 });
 
+            modelBuilder.Entity("Hortiplanner.Api.Data.Species", b =>
+                {
+                    b.HasOne("Hortiplanner.Api.Data.Taxon", null)
+                        .WithMany()
+                        .HasForeignKey("TaxonId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_species_taxa_taxon_id");
+                });
+
             modelBuilder.Entity("Hortiplanner.Api.Data.SpeciesDetails", b =>
                 {
                     b.HasOne("Hortiplanner.Api.Data.Species", null)
@@ -3361,6 +3443,15 @@ namespace Hortiplanner.Api.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_species_photos_species_species_id");
+                });
+
+            modelBuilder.Entity("Hortiplanner.Api.Data.Taxon", b =>
+                {
+                    b.HasOne("Hortiplanner.Api.Data.Taxon", null)
+                        .WithMany()
+                        .HasForeignKey("ParentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_taxa_taxa_parent_id");
                 });
 
             modelBuilder.Entity("Hortiplanner.Api.Data.TillTaking", b =>

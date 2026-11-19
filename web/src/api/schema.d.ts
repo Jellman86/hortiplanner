@@ -586,6 +586,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/plants/{id}/family-tree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FamilyTree"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/batches": {
         parameters: {
             query?: never;
@@ -8598,6 +8635,13 @@ export interface components {
             redirectUri: string;
             fromDeployment: boolean;
         };
+        FamilyTree: {
+            linked: boolean;
+            unavailable: boolean;
+            lineage: components["schemas"]["TaxonRung"][];
+            sameGenus: components["schemas"]["PlantName"][];
+            sameFamily: components["schemas"]["PlantName"][];
+        };
         FeatureChange: {
             on: boolean;
         };
@@ -9327,6 +9371,11 @@ export interface components {
             protectedVariety: boolean;
             prices: null | components["schemas"]["PlantPriceDto"][];
         };
+        PlantName: {
+            /** Format: uuid */
+            plantId: string;
+            name: string;
+        };
         PlantNoteResponse: {
             /** Format: uuid */
             id: string;
@@ -9855,6 +9904,14 @@ export interface components {
             /** Format: double */
             amount: number | string;
             notes: null | string;
+        };
+        TaxonRung: {
+            /** Format: uuid */
+            taxonId: string;
+            rank: string;
+            scientificName: string;
+            commonName: null | string;
+            otherPlants: components["schemas"]["PlantName"][];
         };
         TraceBatchLink: {
             /** Format: uuid */
