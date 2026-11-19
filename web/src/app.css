@@ -3328,6 +3328,15 @@ button.production-row.chosen:hover:not(:disabled) {
   margin: 0;
 }
 
+/* The photo being asked about, small beside what the question is about. */
+.ask-context-photo {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.4rem;
+  object-fit: cover;
+  flex: none;
+}
+
 .ask-context .icon-button {
   width: 1.75rem;
   min-width: 1.75rem;

@@ -1,12 +1,12 @@
 <script lang="ts">
   import Camera from "@lucide/svelte/icons/camera";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
-  import Sparkles from "@lucide/svelte/icons/sparkles";
   import Star from "@lucide/svelte/icons/star";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import { onMount } from "svelte";
   import { api } from "../../api/client";
-  import type { AskAbout } from "../../lib/assistant.svelte";
+  import { aboutPhoto, type AskAbout } from "../../lib/assistant.svelte";
+  import AskAboutButton from "../AskAboutButton.svelte";
   import { photoCaption } from "../../lib/batchPhotos";
   import { isOn } from "../../lib/features.svelte";
   import { shrinkPhoto } from "../../lib/photo";
@@ -262,11 +262,6 @@
     heading?.focus();
     await refresh();
   }
-
-  function ask(about: AskAbout) {
-    close();
-    onAsk?.(about);
-  }
 </script>
 
 <section class="stack plant-photos">
@@ -411,18 +406,16 @@
           ><Star size={18} aria-hidden="true" /> Use as the main picture</button
         >
       {/if}
-      {#if onAsk && photo.canBeAsked}
-        <button
-          class="secondary"
-          onclick={() =>
-            ask({
-              title: `a photo of ${plant}`,
-              plantId,
-              plantPhotoId: photo.id,
-            })}
-          ><Sparkles size={18} aria-hidden="true" /> Ask about this photo</button
-        >
-      {/if}
+      <AskAboutButton
+        about={aboutPhoto(plant, {
+          plantId,
+          plantPhotoId: photo.id,
+          photoUrl: `/api/plant-photos/${photo.id}`,
+        })}
+        askable={photo.canBeAsked}
+        {onAsk}
+        before={close}
+      />
       {#if photo.canRemove}
         <button class="secondary danger" onclick={() => remove(photo)}
           ><Trash2 size={18} aria-hidden="true" /> Remove this photo</button
@@ -440,18 +433,16 @@
     <div class="row">
       <!-- svelte-ignore a11y_autofocus -->
       <button onclick={close} autofocus>Close</button>
-      {#if onAsk && photo.canBeAsked}
-        <button
-          class="secondary"
-          onclick={() =>
-            ask({
-              title: `a photo of ${plant}`,
-              plantId,
-              photoId: photo.id,
-            })}
-          ><Sparkles size={18} aria-hidden="true" /> Ask about this photo</button
-        >
-      {/if}
+      <AskAboutButton
+        about={aboutPhoto(plant, {
+          plantId,
+          photoId: photo.id,
+          photoUrl: `/api/batch-photos/${photo.id}`,
+        })}
+        askable={photo.canBeAsked}
+        {onAsk}
+        before={close}
+      />
     </div>
   {/if}
 </dialog>

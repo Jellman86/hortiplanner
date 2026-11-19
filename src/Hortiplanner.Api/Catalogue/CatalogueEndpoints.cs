@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Hortiplanner.Api.Accounts;
+using Hortiplanner.Api.Assistant;
 using Hortiplanner.Api.Data;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
@@ -370,7 +371,10 @@ internal static class CatalogueEndpoints
                 db.CatalogueEntryPhotos.Where(photo => photo.Entry == CataloguePhotoEntry.Location && photo.EntryId == row.Location.Id).OrderBy(photo => photo.Id).Select(photo => photo.Id).ToList(),
                 row.Location.Name,
                 row.Location.LabelCode,
-                row.LastUsed))
+                row.LastUsed)
+            {
+                AskablePhotoIds = db.CatalogueEntryPhotos.Where(photo => photo.Entry == CataloguePhotoEntry.Location && photo.EntryId == row.Location.Id && photo.Content.Length <= AssistantEndpoints.LargestImage).OrderBy(photo => photo.Id).Select(photo => photo.Id).ToList(),
+            })
             .ToListAsync(cancellationToken);
 
         return places.ConvertAll(place => place with { Path = paths.GetValueOrDefault(place.Id) ?? place.Name });
@@ -513,5 +517,9 @@ internal static class CatalogueEndpoints
 
     /// <param name="Path">The name with the places it sits in, such as "Greenhouse 2, Bench A".</param>
     /// <param name="LastUsedAt">When work last named this place, so lists can put the places in use first.</param>
-    internal sealed record LocationResponse(Guid Id, string Name, LocationKind Kind, Guid? ParentId, bool Archived, IReadOnlyList<Guid> PhotoIds, string Path, string LabelCode, DateTimeOffset? LastUsedAt);
+    internal sealed record LocationResponse(Guid Id, string Name, LocationKind Kind, Guid? ParentId, bool Archived, IReadOnlyList<Guid> PhotoIds, string Path, string LabelCode, DateTimeOffset? LastUsedAt)
+    {
+        /// <summary>The place's photos small enough to hand to Ask Hortiplanner.</summary>
+        public IReadOnlyList<Guid> AskablePhotoIds { get; init; } = [];
+    }
 }

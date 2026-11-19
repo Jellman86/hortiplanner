@@ -1,6 +1,8 @@
 <script lang="ts">
   import { Trash2 } from "@lucide/svelte";
   import { shrinkPhoto } from "../../lib/photo";
+  import type { AskAbout } from "../../lib/assistant.svelte";
+  import AskAboutButton from "../AskAboutButton.svelte";
 
   let {
     entry,
@@ -9,6 +11,9 @@
     gallery = false,
     onChanged,
     onProblem,
+    askAbout,
+    askable = [],
+    onAsk,
   }: {
     entry: "PotSize" | "Location";
     id: string;
@@ -17,6 +22,12 @@
     gallery?: boolean;
     onChanged: () => Promise<void>;
     onProblem: (message: string) => void;
+    /** What a question about one of the photos is, for a place's photos; pot sizes have none. */
+    askAbout?: (photoId: string) => AskAbout;
+    /** The photos small enough to hand to Ask Hortiplanner. */
+    askable?: string[];
+    /** Asks Ask Hortiplanner about a photo, when this person can ask. */
+    onAsk?: (about: AskAbout) => void;
   } = $props();
 
   let busy = $state(false);
@@ -77,7 +88,7 @@
 </script>
 
 <div class="entry-photos" class:gallery>
-  {#each photoIds as photoId (photoId)}
+  {#each photoIds as photoId, index (photoId)}
     <span class="entry-photo">
       <a href="/api/catalogue-photos/{photoId}" target="_blank" rel="noopener">
         <img
@@ -97,6 +108,16 @@
           class={gallery ? undefined : "visually-hidden"}>Remove photo</span
         ></button
       >
+      {#if askAbout}
+        <AskAboutButton
+          about={askAbout(photoId)}
+          askable={askable.includes(photoId)}
+          {onAsk}
+          name={photoIds.length > 1
+            ? `Ask about photo ${index + 1} of ${photoIds.length}`
+            : undefined}
+        />
+      {/if}
     </span>
   {/each}
   <label class="photo-choice photo-add">

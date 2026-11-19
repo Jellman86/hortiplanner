@@ -3,15 +3,58 @@ import { isOn } from "./features.svelte";
 import type { Schemas } from "./types";
 
 // Whether this person can use Ask Hortiplanner, and whether its model reads photos, for screens to offer it.
-/** What a question is asked from: a tray, a plant, or a photo of a batch or a plant, with words to show for it. */
+/** What a question is asked from: a tray, a plant, a place, or a photo of a batch, a plant or a place, with words to show for it. */
 export type AskAbout = {
   title: string;
+  kind?: AskKind;
   trayLabel?: string | null;
   plantId?: string | null;
+  placeId?: string | null;
+  /** A batch's photo. */
   photoId?: string | null;
   /** One of the plant's own photos, rather than a batch's. */
   plantPhotoId?: string | null;
+  /** One of a place's photos. */
+  placePhotoId?: string | null;
+  /** The photo asked about, shown small beside what the question is about. */
+  photoUrl?: string | null;
+  /** For a photo, what it's of, such as the plant or place. */
+  subject?: string | null;
 };
+export type AskKind = "tray" | "plant" | "place" | "photo";
+
+/** Asking about a tray, by its label code. */
+export const aboutTray = (label: string): AskAbout => ({
+  kind: "tray",
+  title: `tray ${label}`,
+  trayLabel: label,
+});
+
+/** Asking about a plant, by name. */
+export const aboutPlant = (plantId: string, name: string): AskAbout => ({
+  kind: "plant",
+  title: name,
+  plantId,
+});
+
+/** Asking about a place, by name. */
+export const aboutPlace = (placeId: string, name: string): AskAbout => ({
+  kind: "place",
+  title: name,
+  placeId,
+});
+
+/** Asking about a photo of a plant or a place, which goes with the question. */
+export const aboutPhoto = (
+  of: string,
+  photo: Omit<AskAbout, "title" | "kind">,
+): AskAbout => ({
+  kind: "photo",
+  title: `a photo of ${of}`,
+  subject: of,
+  ...photo,
+});
+
 export type AskSource = Schemas["AskSource"];
 
 export const assistant = $state({

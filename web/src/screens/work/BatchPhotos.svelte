@@ -8,6 +8,8 @@
     type BatchPhotoKind,
   } from "../../lib/batchPhotos";
   import { shrinkPhoto } from "../../lib/photo";
+  import { aboutPhoto, type AskAbout } from "../../lib/assistant.svelte";
+  import AskAboutButton from "../AskAboutButton.svelte";
   import type { Schemas } from "../../lib/types";
 
   // A batch's photos as a strip, oldest first, each with the day of the batch and the stage it had reached.
@@ -17,6 +19,8 @@
     containerId = null,
     kinds = [],
     emptyText = null,
+    of = "this batch",
+    askWith = {},
     onAsk,
     onAdded,
     onRemoved,
@@ -26,8 +30,12 @@
     kinds?: BatchPhotoKind[];
     /** Said when the batch has no photos; without it, nothing is shown. */
     emptyText?: string | null;
+    /** What the photos are of, such as the plant's name, for "About a photo of …". */
+    of?: string;
+    /** What else goes with a question about one of the photos, such as its tray. */
+    askWith?: Omit<AskAbout, "title" | "kind">;
     /** Asks Ask Hortiplanner about a photo, when this person can ask. */
-    onAsk?: (photoId: string) => void;
+    onAsk?: (about: AskAbout) => void;
     /** A photo was just saved, with its id. */
     onAdded?: (photoId: string) => void;
     /** A photo was just removed, with its id. */
@@ -158,16 +166,16 @@
     <p><strong>{photoCaption(viewing)}</strong></p>
     <div class="row">
       <button onclick={close}>Close</button>
-      {#if onAsk}
-        <button
-          class="secondary"
-          onclick={() => {
-            const id = viewing!.id;
-            close();
-            onAsk(id);
-          }}>Ask about this photo</button
-        >
-      {/if}
+      <AskAboutButton
+        about={aboutPhoto(of, {
+          ...askWith,
+          photoId: viewing.id,
+          photoUrl: `/api/batch-photos/${viewing.id}`,
+        })}
+        askable={viewing.canBeAsked}
+        {onAsk}
+        before={close}
+      />
       {#if viewing.canRemove}
         <button class="secondary danger" onclick={() => remove(viewing!)}
           >Remove this photo</button

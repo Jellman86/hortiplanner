@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { AskAbout } from "../../lib/assistant.svelte";
   import { crumbs } from "../../lib/crumbs.svelte";
   import { isOn } from "../../lib/features.svelte";
   import Printer from "@lucide/svelte/icons/printer";
@@ -29,11 +30,14 @@
     onChoose,
     onBack,
     onOpenTray,
+    onAsk,
   }: {
     batchId: string | null;
     onChoose: (id: string | null) => void;
     onBack: () => void;
     onOpenTray: (label: string) => void;
+    /** Asks Ask Hortiplanner about one of the batch's photos, when this person can ask. */
+    onAsk?: (about: AskAbout) => void;
   } = $props();
 
   let query = $state("");
@@ -346,6 +350,9 @@
             {#key trace.id}<BatchPhotos
                 batchId={trace.id}
                 emptyText="No photos of this batch yet."
+                of={plantName(trace.plant.commonName, trace.plant.variety)}
+                askWith={{ plantId: trace.plant.id }}
+                {onAsk}
               />{/key}
           {/if}
 
