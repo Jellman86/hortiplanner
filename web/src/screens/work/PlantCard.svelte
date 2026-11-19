@@ -216,7 +216,12 @@
 
         <!-- Fetched again once the plant is matched to a species from this page. -->
         {#key card.linkedToSpecies}
-          <FamilyTree {plantId} {canManage} {onOpenPlant} />
+          <FamilyTree
+            {plantId}
+            plantName={plantName(card.commonName, card.variety)}
+            {canManage}
+            {onOpenPlant}
+          />
         {/key}
 
         {#if !card.linkedToSpecies && canManage}
