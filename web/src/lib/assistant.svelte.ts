@@ -67,6 +67,23 @@ export const assistant = $state({
   spentInAll: null as number | null,
 });
 
+/** Why Ask Hortiplanner couldn't answer, in words, by the reason the server gives. */
+export const askRefusals: Record<string, string> = {
+  NotSetUp:
+    "Ask Hortiplanner isn't set up yet. The owner adds an OpenRouter key and chooses a model under Settings, AI assistant.",
+  TooMany:
+    "That's a lot of questions this hour. Please wait a while before asking more.",
+  KeyRefused:
+    "OpenRouter turned the key away: it may be out of credit or past its limit. The owner can check it at openrouter.ai.",
+  ModelUnavailable:
+    "The chosen AI model can't answer questions here. The owner can choose another under Settings, AI assistant.",
+  Unavailable: "The AI service didn't answer. Please try again in a minute.",
+  ConversationFull:
+    "This conversation is as long as it can be. Please start a new one to carry on.",
+  CantReadPhotos:
+    "The chosen AI model can't read photos. The owner can choose one that can under Settings, AI assistant.",
+};
+
 /** A cost in US dollars, as OpenRouter charges, in words a person can take in at a glance. */
 export function dollars(amount: number): string {
   if (amount <= 0) {

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { isOn } from "../../lib/features.svelte";
   import Camera from "@lucide/svelte/icons/camera";
-  import { onDestroy, onMount } from "svelte";
+  import { onDestroy, onMount, tick } from "svelte";
   import {
     focusHeading,
     onStepChange,
@@ -24,6 +24,7 @@
   import ActionFrame from "./ActionFrame.svelte";
   import PlantSearch from "./PlantSearch.svelte";
   import PlantThumb from "./PlantThumb.svelte";
+  import ReadLabel from "./ReadLabel.svelte";
   import Stepper from "./Stepper.svelte";
   import SowByPicker from "./SowByPicker.svelte";
   import SupplierRegistrations from "./SupplierRegistrations.svelte";
@@ -215,6 +216,116 @@
   );
   let problem = $state("");
   let busy = $state(false);
+  // What was read from a seed packet photo, and which fields it filled in, until the person changes them.
+  let packet = $state<Schemas["LabelRead"] | null>(null);
+  let fromPhoto = $state<Record<string, boolean>>({});
+  let searchFor = $state("");
+  let searchSeed = $state(0);
+  // Whether the packet photo came from reading a packet, rather than being taken by hand at Photos.
+  let packetPhotoRead = false;
+  // Whether reading a packet changed the source to Seed from something else, to say so.
+  let madeSeed = $state(false);
+  let packetNote = $state<HTMLParagraphElement>();
+  const forget = (field: string) => (fromPhoto[field] = false);
+  const packetName = $derived(
+    packet ? (packet.commonName ?? packet.botanicalName ?? "") : "",
+  );
+  // The nursery's own plants that match the packet come first.
+  const recentPlants = $derived(
+    packet
+      ? [
+          ...packet.plantMatches,
+          ...plants.filter(
+            (plant) =>
+              !packet!.plantMatches.some((match) => match.id === plant.id),
+          ),
+        ]
+      : plants,
+  );
+
+  /** Fills in what was read from a seed packet: nothing is saved until Start batch. */
+  async function usePacket(
+    read: Schemas["LabelRead"],
+    blob: Blob,
+    keep: boolean,
+  ) {
+    const marks: Record<string, boolean> = {};
+
+    // Whatever an earlier packet filled in goes, so nothing from it is left looking typed by hand.
+    if (fromPhoto.sourceReference) sourceReference = "";
+    if (fromPhoto.sowBy) sowBy = "";
+    if (fromPhoto.packetSays) packetSays = "";
+    if (fromPhoto.aboutSeeds) aboutSeeds = 200;
+    if (fromPhoto.variety) variety = "";
+    if (fromPhoto.supplier) {
+      supplierId = "";
+      newSupplier = "";
+      newPassport = "";
+    }
+
+    madeSeed = source !== "SeedLot";
+    packet = read;
+    chooseSource("SeedLot");
+
+    if (read.contentsAsPrinted) {
+      packetSays = read.contentsAsPrinted.slice(0, 200);
+      marks.packetSays = true;
+    }
+    if (read.seedCount) {
+      aboutSeeds = Number(read.seedCount);
+      marks.aboutSeeds = true;
+    }
+    if (read.supplierId) {
+      supplierId = read.supplierId;
+      newSupplier = "";
+      newPassport = "";
+      marks.supplier = true;
+    } else if (read.supplierName) {
+      supplierId = "";
+      newSupplier = read.supplierName;
+      newPassport = read.supplierPassportNumber ?? "";
+      marks.supplier = true;
+    }
+    if (read.lotOrReference) {
+      sourceReference = read.lotOrReference;
+      marks.sourceReference = true;
+    }
+    if (read.sowBy) {
+      sowBy = read.sowBy;
+      marks.sowBy = true;
+    }
+    if (keep) {
+      const previous = photos.Packet;
+      if (previous) {
+        URL.revokeObjectURL(previous.url);
+      }
+      photos.Packet = { blob, url: URL.createObjectURL(blob) };
+      packetPhotoRead = true;
+    } else if (packetPhotoRead && photos.Packet) {
+      // A photo kept from an earlier packet goes; one taken by hand stays.
+      URL.revokeObjectURL(photos.Packet.url);
+      delete photos.Packet;
+      packetPhotoRead = false;
+    }
+
+    fromPhoto = marks;
+    searchFor = packetName;
+    searchSeed += 1;
+    await tick();
+    packetNote?.focus();
+  }
+
+  // A filled-in value changed by hand, however it was changed, is no longer "read from the photo".
+  $effect(() => {
+    if (packet && aboutSeeds !== Number(packet.seedCount ?? NaN)) {
+      fromPhoto.aboutSeeds = false;
+    }
+  });
+  $effect(() => {
+    if (packet && sowBy !== (packet.sowBy ?? "")) {
+      fromPhoto.sowBy = false;
+    }
+  });
 
   const setProblem = (message: string) => (problem = message);
 
@@ -266,6 +377,11 @@
     picked = choice;
     details = null;
     plantId = choice.kind === "plant" ? choice.id : "";
+
+    if (choice.kind === "species" && packet?.variety && !variety.trim()) {
+      variety = packet.variety;
+      fromPhoto.variety = true;
+    }
 
     if (choice.kind === "species") {
       void attempt(async () => {
@@ -346,6 +462,17 @@
       }
     }
 
+    // A supplier typed in but not added would be lost: say so rather than carry on without them.
+    if (
+      stage === 3 &&
+      source !== "Cuttings" &&
+      !supplierId &&
+      newSupplier.trim()
+    ) {
+      problem = `Press Add supplier to add ${newSupplier.trim()} to your suppliers, or clear the name to carry on without one.`;
+      return;
+    }
+
     goTo(stage + 1);
   }
 
@@ -376,12 +503,24 @@
       originCountry;
     const potSize = potSizes.find((item) => item.id === potSizeId)?.name;
     const photoCount = Object.keys(photos).length;
-    const rows: { name: string; value: string; stage: number }[] = [
+    const rows: {
+      name: string;
+      value: string;
+      stage: number;
+      field?: string;
+    }[] = [
       { name: "Plant", value: chosenName, stage: 1 },
       {
         name: counting ? "How many" : "Seed sown",
         value: `${counting ? quantity : sowing}, in a ${containerKinds[containerKind].toLowerCase()}${potSize ? `, ${potSize}` : ""}`,
         stage: 2,
+        field: !seed
+          ? undefined
+          : sownAs === "About"
+            ? "aboutSeeds"
+            : sownAs === "Packet"
+              ? "packetSays"
+              : undefined,
       },
       {
         name: started[source],
@@ -395,17 +534,24 @@
         name: "Supplier",
         value: supplier ?? "Not listed",
         stage: 3,
+        field: "supplier",
       });
       if (sourceReference.trim()) {
         rows.push({
           name: "Lot or reference",
           value: sourceReference.trim(),
           stage: 3,
+          field: "sourceReference",
         });
       }
 
       if (source === "SeedLot" && sowBy) {
-        rows.push({ name: "Sow by", value: sowByWords(sowBy), stage: 3 });
+        rows.push({
+          name: "Sow by",
+          value: sowByWords(sowBy),
+          stage: 3,
+          field: "sowBy",
+        });
       }
     }
 
@@ -654,6 +800,11 @@
     }, setProblem);
 </script>
 
+{#snippet tag(field: string)}
+  {#if fromPhoto[field]}<span class="pill read-tag">Read from the photo</span
+    >{/if}
+{/snippet}
+
 <ActionFrame title={stages[stage - 1]} {problem} onCancel={back}>
   <p class="muted">Step {stage} of {stages.length}</p>
   <div class="stage-bar" aria-hidden="true">
@@ -664,7 +815,21 @@
   {#if prefill}<p class="muted">From purchase: {prefill.description}</p>{/if}
 
   {#if stage === 1 && !confirming}
-    <PlantSearch recent={plants} onPick={pick} />
+    {#if !prefill}
+      <ReadLabel onUse={usePacket} />
+    {/if}
+    {#if packetName}
+      <p class="muted" tabindex="-1" bind:this={packetNote}>
+        The packet says this is {packetName}. Choose the matching plant below.
+      </p>
+    {/if}
+    {#key searchSeed}
+      <PlantSearch
+        recent={recentPlants}
+        onPick={pick}
+        initialQuery={searchFor}
+      />
+    {/key}
   {:else if stage === 1 && picked?.kind === "species"}
     <div class="card">
       <div class="plant-head">
@@ -688,13 +853,21 @@
           .join(". ")}. You can change these under Plants.
       </p>
     {/if}
-    <label>Variety (if there is one) <input bind:value={variety} /></label>
+    <label
+      >Variety (if there is one) {@render tag("variety")}
+      <input bind:value={variety} oninput={() => forget("variety")} /></label
+    >
     <button onclick={next}>Next</button>
     <button class="secondary" onclick={() => (picked = null)}
       >Choose a different plant</button
     >
   {:else if stage === 2}
     <p class="muted">{chosenName}</p>
+    {#if packet?.contentsAsPrinted}
+      <p class="muted">
+        The packet says it holds {packet.contentsAsPrinted.replace(/\.$/, "")}.
+      </p>
+    {/if}
     {#if seed}
       <fieldset class="day-picker">
         <legend class="field-label">How much seed went in?</legend>
@@ -714,6 +887,7 @@
       <p class="muted">
         About how many seeds? Give a guess, or what the packet says.
       </p>
+      {@render tag("aboutSeeds")}
       <Stepper bind:value={aboutSeeds} presets={[50, 100, 250, 500]} />
     {:else if sownAs === "Grams"}
       <label
@@ -733,7 +907,9 @@
         {/each}
       </div>
       <label
-        >What does the packet say? (optional) <input
+        >What does the packet say? (optional) {@render tag("packetSays")}
+        <input
+          oninput={() => forget("packetSays")}
           bind:value={packetSays}
           maxlength="200"
           placeholder="approx. 250 seeds, or 1 g"
@@ -770,10 +946,18 @@
         <button
           class={source === item.source ? "" : "secondary"}
           aria-pressed={source === item.source}
-          onclick={() => chooseSource(item.source)}>{item.label}</button
+          onclick={() => {
+            madeSeed = false;
+            chooseSource(item.source);
+          }}>{item.label}</button
         >
       {/each}
     </div>
+    {#if madeSeed && source === "SeedLot"}
+      <p class="muted">
+        This is now set to Seed, because you read a seed packet.
+      </p>
+    {/if}
     <DayPicker bind:value={startedOn} label={whenAsked[source]} />
     {#if source === "Cuttings" && plantId && isOn("MotherPlants")}
       <label
@@ -807,8 +991,8 @@
     {/if}
     {#if source !== "Cuttings"}
       <label>
-        Supplier
-        <select bind:value={supplierId}>
+        Supplier {@render tag("supplier")}
+        <select bind:value={supplierId} onchange={() => forget("supplier")}>
           <option value="">Not listed</option>
           {#each suppliers as supplier (supplier.id)}
             <option value={supplier.id}>{supplier.name}</option>
@@ -816,7 +1000,19 @@
         </select>
       </label>
       {#if !supplierId}
-        <label>New supplier <input bind:value={newSupplier} /></label>
+        <label
+          >New supplier {@render tag("supplier")}
+          <input
+            bind:value={newSupplier}
+            oninput={() => forget("supplier")}
+          /></label
+        >
+        {#if fromPhoto.supplier && newSupplier.trim()}
+          <p class="muted">
+            {newSupplier.trim()} isn't on your supplier list yet. Press Add supplier
+            to add them.
+          </p>
+        {/if}
         {#if newSupplier.trim()}
           <label
             >Their plant passport number (if known) <input
@@ -839,9 +1035,15 @@
           onSaved={reloadSuppliers}
         />
       {/if}
-      <label>Lot or reference <input bind:value={sourceReference} /></label>
+      <label
+        >Lot or reference {@render tag("sourceReference")}
+        <input
+          bind:value={sourceReference}
+          oninput={() => forget("sourceReference")}
+        /></label
+      >
       {#if source === "SeedLot"}
-        <SowByPicker bind:value={sowBy} />
+        <SowByPicker bind:value={sowBy}>{@render tag("sowBy")}</SowByPicker>
       {/if}
     {/if}
     <label>
@@ -924,7 +1126,10 @@
       {#each summary as row (row.name)}
         <dt>{row.name}</dt>
         <dd>
-          <span>{row.value}</span>
+          <span
+            >{row.value}
+            {#if row.field}{@render tag(row.field)}{/if}</span
+          >
           <button class="link-button" onclick={() => change(row.stage)}
             >Change<span class="visually-hidden">
               {row.name.toLowerCase()}</span
