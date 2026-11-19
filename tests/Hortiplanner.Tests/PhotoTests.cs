@@ -123,29 +123,6 @@ public sealed class PhotoTests(PostgresFixture database)
     }
 
     [Fact]
-    public async Task A_plant_has_one_picture_which_can_be_replaced()
-    {
-        await using var app = await CreateAppAsync(database);
-        using var owner = Client(app);
-        using var key = new TestAuthenticator();
-        await SetUpOwnerAsync(owner, key);
-        var plantId = await AddPlantAsync(owner);
-
-        Assert.Equal(HttpStatusCode.NotFound, await GetStatusAsync(owner, $"/api/plants/{plantId}/photo"));
-
-        using var first = await UploadAsync(owner, $"/api/plants/{plantId}/photo", Jpeg, put: true);
-        byte[] replacement = [0x89, 0x50, 0x4E, 0x47, 9];
-        using var second = await UploadAsync(owner, $"/api/plants/{plantId}/photo", replacement, put: true);
-
-        using var read = await owner.GetAsync(Route($"/api/plants/{plantId}/photo"), Cancellation);
-        Assert.Equal(replacement, await read.Content.ReadAsByteArrayAsync(Cancellation));
-        Assert.Equal("image/png", read.Content.Headers.ContentType!.MediaType);
-
-        var plant = Assert.Single((await owner.GetFromJsonAsync<JsonElement>(Route("/api/plants"), Cancellation)).EnumerateArray());
-        Assert.True(plant.GetProperty("hasPhoto").GetBoolean());
-    }
-
-    [Fact]
     public async Task Photos_need_someone_signed_in()
     {
         await using var app = await CreateAppAsync(database);

@@ -25,7 +25,7 @@ internal static partial class AssistantEndpoints
     private const int MostImages = 4;
 
     // The app shrinks photos to 1,600 pixels, a few hundred kilobytes; this is a backstop.
-    private const int LargestImage = 2 * 1024 * 1024;
+    internal const int LargestImage = 2 * 1024 * 1024;
 
     private static readonly Regex TrayLabel = new(@"^[A-Za-z]\d{1,9}$", RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
     private static readonly Regex PhotoDataUrl = new(@"^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$", RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture, TimeSpan.FromMilliseconds(500));
@@ -229,6 +229,17 @@ internal static partial class AssistantEndpoints
             images.Add($"data:{photo.ContentType};base64,{Convert.ToBase64String(photo.Content)}");
         }
 
+        // A plant's own photos are always on, whether or not batch photos are.
+        if (request.About?.PlantPhotoId is { } plantPhotoId
+            && images.Count < MostImages
+            && await context.Db.PlantPhotos.AsNoTracking()
+                .Where(photo => photo.Id == plantPhotoId && photo.Content.Length <= LargestImage)
+                .Select(photo => new { photo.ContentType, photo.Content })
+                .FirstOrDefaultAsync(context.Cancellation) is { } plantPhoto)
+        {
+            images.Add($"data:{plantPhoto.ContentType};base64,{Convert.ToBase64String(plantPhoto.Content)}");
+        }
+
         // The latest lines only, older answers shortened, so a long conversation keeps working. It starts with a
         // question, as some models require.
         var kept = request.Messages.TakeLast(KeptMessages).SkipWhile(message => !string.Equals(message.Role, "user", StringComparison.Ordinal)).ToList();
@@ -368,7 +379,7 @@ internal static partial class AssistantEndpoints
     internal sealed record AskMessage(string Role, string Text);
 
     /// <summary>What the person is asking from, if anything: a tray, a plant, or one of a batch's photos.</summary>
-    internal sealed record AskAbout(string? TrayLabel, Guid? PlantId, Guid? PhotoId);
+    internal sealed record AskAbout(string? TrayLabel, Guid? PlantId, Guid? PhotoId, Guid? PlantPhotoId = null);
 
     /// <summary>The conversation so far, the last line being the new question, with any photos as data URLs.</summary>
     internal sealed record AskRequest(List<AskMessage> Messages, List<string>? Images, AskAbout? About);

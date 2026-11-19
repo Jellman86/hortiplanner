@@ -1,25 +1,28 @@
 <script lang="ts">
-  import Camera from "@lucide/svelte/icons/camera";
   import type { Snippet } from "svelte";
   import { onMount } from "svelte";
   import { api } from "../../api/client";
-  import { shrinkPhoto } from "../../lib/photo";
+  import type { AskAbout } from "../../lib/assistant.svelte";
   import { attempt, type Schemas } from "../../lib/types";
   import { plantName, type PickedPlant } from "../../lib/work";
   import ArticleSection from "./ArticleSection.svelte";
   import Loading from "./Loading.svelte";
   import PlantHero from "./PlantHero.svelte";
+  import PlantPhotos from "./PlantPhotos.svelte";
   import PlantSearch from "./PlantSearch.svelte";
 
   let {
     plantId,
     canManage = false,
     onBack,
+    onAsk,
     actions,
   }: {
     plantId: string;
     canManage?: boolean;
     onBack: () => void;
+    /** Asks Ask Hortiplanner about one of the plant's photos, when this person can ask. */
+    onAsk?: (about: AskAbout) => void;
     actions?: Snippet;
   } = $props();
 
@@ -103,31 +106,11 @@
     }, setProblem);
   };
 
-  const choosePicture = (event: Event) => {
-    const input = event.currentTarget as HTMLInputElement;
-    const file = input.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
-    return attempt(async () => {
-      const response = await fetch(`/api/plants/${plantId}/photo`, {
-        method: "PUT",
-        body: await shrinkPhoto(file),
-      });
-
-      input.value = "";
-
-      if (response.ok) {
-        photoVersion += 1;
-        problem = "";
-        await load();
-      } else {
-        problem = "That picture couldn't be saved. Please use a photo.";
-      }
-    }, setProblem);
-  };
+  // A photo added, removed or made the main one: the hero and its credit are shown afresh.
+  async function photosChanged() {
+    photoVersion += 1;
+    await load();
+  }
 
   const link = (choice: PickedPlant) => {
     if (choice.kind !== "species") {
@@ -178,6 +161,14 @@
           />
         {/key}
 
+        <PlantPhotos
+          {plantId}
+          plant={plantName(card.commonName, card.variety)}
+          hasPicture={card.hasPhoto}
+          {onAsk}
+          onChanged={photosChanged}
+        />
+
         {#if facts.length > 0}
           <dl class="facts card">
             {#each facts as [name, value] (name)}
@@ -186,12 +177,6 @@
             {/each}
           </dl>
         {/if}
-
-        <label class="photo-choice">
-          <Camera size={20} />
-          <span>{card.hasPhoto ? "Change the picture" : "Add a picture"}</span>
-          <input type="file" accept="image/*" onchange={choosePicture} />
-        </label>
       </aside>
 
       <div class="plant-main">

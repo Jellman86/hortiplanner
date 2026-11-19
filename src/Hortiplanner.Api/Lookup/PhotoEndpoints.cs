@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Hortiplanner.Api.Lookup;
 
-/// <summary>Photos of packets, labels and the plants on a batch, and the one picture kept for each plant.</summary>
+/// <summary>Photos of packets, labels and the plants on a batch. A plant's own photos are in <see cref="PlantPhotoEndpoints"/>.</summary>
 internal static class PhotoEndpoints
 {
     public static void MapPhotoEndpoints(this IEndpointRouteBuilder app)
@@ -17,8 +17,7 @@ internal static class PhotoEndpoints
         app.MapGet("/api/batch-photos/{id:guid}", GetBatchPhotoAsync).RequireFeature(NurseryFeature.BatchPhotos);
         app.MapDelete("/api/batch-photos/{id:guid}", RemoveBatchPhotoAsync).RequireFeature(NurseryFeature.BatchPhotos);
 
-        app.MapPut("/api/plants/{id:guid}/photo", SetPlantPhotoAsync);
-        app.MapGet("/api/plants/{id:guid}/photo", GetPlantPhotoAsync);
+        app.MapPlantPhotoEndpoints();
     }
 
     private static async Task<IResult> AddBatchPhotoAsync(
@@ -99,9 +98,9 @@ internal static class PhotoEndpoints
             .MinAsync(e => (DateTimeOffset?)e.OccurredAt, cancellationToken);
 
     /// <summary>A wrong photo can be removed by whoever took it, or by the owner signed in as themselves.</summary>
-    private static bool MayRemove(ClaimsPrincipal user, Guid uploadedBy) =>
+    internal static bool MayRemove(ClaimsPrincipal user, Guid? uploadedBy) =>
         (user.IsInRole(AccountServices.OwnerRole) && user.FindFirst(AccountServices.BenchSessionClaim) is null)
-        || string.Equals(user.FindFirstValue(ClaimTypes.NameIdentifier), uploadedBy.ToString(), StringComparison.OrdinalIgnoreCase);
+        || (uploadedBy is { } by && string.Equals(user.FindFirstValue(ClaimTypes.NameIdentifier), by.ToString(), StringComparison.OrdinalIgnoreCase));
 
     private static async Task<IResult> RemoveBatchPhotoAsync(Guid id, ClaimsPrincipal user, HortiplannerDbContext db, CancellationToken cancellationToken)
     {
@@ -124,48 +123,6 @@ internal static class PhotoEndpoints
         await db.BatchPhotos.AsNoTracking().FirstOrDefaultAsync(photo => photo.Id == id, cancellationToken) is { } photo
             ? SpeciesEndpoints.Picture(context, photo.Content, photo.ContentType, permanent: true)
             : TypedResults.NotFound();
-
-    private static async Task<IResult> SetPlantPhotoAsync(Guid id, HttpRequest request, HortiplannerDbContext db, CancellationToken cancellationToken)
-    {
-        if (!await db.Plants.AnyAsync(plant => plant.Id == id, cancellationToken))
-        {
-            return TypedResults.NotFound();
-        }
-
-        var (image, refusal) = await ImageContent.ReadAsync(request.Body, cancellationToken);
-
-        if (image is null)
-        {
-            return TypedResults.StatusCode(refusal);
-        }
-
-        if (await db.PlantPhotos.FindAsync([id], cancellationToken) is { } photo)
-        {
-            photo.ContentType = image.ContentType;
-            photo.Content = image.Content;
-        }
-        else
-        {
-            db.PlantPhotos.Add(new PlantPhoto { PlantId = id, ContentType = image.ContentType, Content = image.Content });
-        }
-
-        await db.SaveChangesAsync(cancellationToken);
-        return TypedResults.NoContent();
-    }
-
-    private static async Task<IResult> GetPlantPhotoAsync(Guid id, HttpContext context, HortiplannerDbContext db, SpeciesSources sources, CancellationToken cancellationToken)
-    {
-        if (await db.PlantPhotos.AsNoTracking().FirstOrDefaultAsync(photo => photo.PlantId == id, cancellationToken) is { } own)
-        {
-            return SpeciesEndpoints.Picture(context, own.Content, own.ContentType, permanent: false);
-        }
-
-        var speciesId = await db.Plants.Where(plant => plant.Id == id).Select(plant => plant.SpeciesId).FirstOrDefaultAsync(cancellationToken);
-
-        return speciesId is { } species && await SpeciesEndpoints.FindOrFetchPhotoAsync(species, db, sources, cancellationToken) is { } photo
-            ? SpeciesEndpoints.Picture(context, photo.Content, photo.ContentType, permanent: false)
-            : TypedResults.NotFound();
-    }
 
     internal sealed record BatchPhotoSummary(Guid Id, BatchPhotoKind Kind, DateTimeOffset TakenAt, int? Day, ProductionStage? Stage, bool CanRemove);
 }

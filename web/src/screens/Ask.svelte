@@ -159,6 +159,7 @@
                 trayLabel: context.trayLabel ?? null,
                 plantId: context.plantId ?? null,
                 photoId: context.photoId ?? null,
+                plantPhotoId: context.plantPhotoId ?? null,
               }
             : null,
         },
