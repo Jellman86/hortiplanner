@@ -40,6 +40,17 @@
 
   const setProblem = (message: string) => (problem = message);
 
+  // "Bench 1" typed before ticking "several" means benches numbered from 1, not "Bench 1 1", "Bench 1 2" and so on.
+  function numberFromName() {
+    const numbered = several ? /^(.*\D)\s*(\d+)$/.exec(name.trim()) : null;
+
+    if (numbered) {
+      name = numbered[1].trim();
+      from = Number(numbered[2]);
+      to = Math.max(to, from);
+    }
+  }
+
   function explain(status: number) {
     problem =
       status === 409
@@ -113,7 +124,8 @@
   </label>
   {#if kind !== "Site"}
     <label class="tick">
-      <input type="checkbox" bind:checked={several} /> Add several, numbered
+      <input type="checkbox" bind:checked={several} onchange={numberFromName} /> Add
+      several, numbered
     </label>
   {/if}
   {#if several && kind !== "Site"}

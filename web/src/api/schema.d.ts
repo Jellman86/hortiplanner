@@ -8072,6 +8072,7 @@ export interface components {
             notCounted: boolean;
             /** @default false */
             rough: boolean;
+            sown?: null | components["schemas"]["SeedSown"];
         };
         ContainerResponse: {
             /** Format: uuid */
@@ -9047,6 +9048,7 @@ export interface components {
             /** Format: uuid */
             locationId: null | string;
             notCounted: boolean;
+            sown?: null | components["schemas"]["SeedSown"];
         };
         /** @enum {unknown} */
         ProductionStage: "Sown" | "Cuttings" | "BoughtIn" | "Germinated" | "PrickedOut" | "PottedOn" | "Ready" | null;
@@ -9160,6 +9162,13 @@ export interface components {
             forThisBatch: null | number | string;
             /** Format: int32 */
             from: number | string;
+        };
+        SeedSown: {
+            sownAs: components["schemas"]["SownMeasure"];
+            /** Format: double */
+            sownAmount: null | number | string;
+            packetShare: null | components["schemas"]["PacketShare"];
+            packetSays: null | string;
         };
         SensorKey: {
             /** Format: uuid */

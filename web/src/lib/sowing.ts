@@ -52,14 +52,51 @@ export function sowingWords(sowing: {
   }
 }
 
-/** How many of a batch are in a tray, roughly if only guessed, or that nobody has counted them yet. */
+type Sowing = Parameters<typeof sowingWords>[0];
+
+const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+/** The seed that went into a tray nobody has counted since, as it reads before a plant's name: "About 200 seeds of". */
+export function seedAmount(sown: Sowing | null | undefined): string {
+  switch (sown?.sownAs) {
+    case "About":
+      return `About ${Number(sown.sownAmount ?? 0)} seeds of`;
+    case "Grams":
+      return `${Number(sown.sownAmount ?? 0)} g of`;
+    case "Packet":
+      return sown.packetShare === "Whole"
+        ? "A packet of"
+        : sown.packetShare === "Half"
+          ? "Half a packet of"
+          : "Part of a packet of";
+    default:
+      return "Some";
+  }
+}
+
+/** Whether a tray's seed was measured at all, so there's an amount to tell people. "Don't know" isn't one. */
+export const measured = (sown: Sowing | null | undefined): sown is Sowing =>
+  !!sown?.sownAs && sown.sownAs !== "Counted" && sown.sownAs !== "Unknown";
+
+/** The seed that went into a tray nobody has counted since, on its own: "About 200 seeds", or "Not known". */
+export const seedOnly = (sown: Sowing | null | undefined) =>
+  measured(sown) ? capital(sowingWords(sown)) : "Not known";
+
+/** The same, to go in brackets after a plant's name: "about 200 seeds", or "amount not known". */
+export const seedNote = (sown: Sowing | null | undefined) =>
+  measured(sown)
+    ? sowingWords(sown).replace(/^./, (first) => first.toLowerCase())
+    : "amount not known";
+
+/** How many of a batch are in a tray, roughly if only guessed, or the seed that went in if nobody has counted them. */
 export const lineAmount = (line: {
   quantity: number | string;
   notCounted?: boolean;
   rough?: boolean;
+  sown?: Sowing | null;
 }) =>
   line.notCounted
-    ? "Not counted yet:"
+    ? seedAmount(line.sown)
     : line.rough
       ? `About ${line.quantity}`
       : String(line.quantity);

@@ -1,6 +1,11 @@
 import { originCountries } from "./countries";
 import { sowByWords } from "./sowBy";
-import { sowingWords, type PacketShare, type SownMeasure } from "./sowing";
+import {
+  seedOnly,
+  sowingWords,
+  type PacketShare,
+  type SownMeasure,
+} from "./sowing";
 import { dayLabel } from "./dates";
 import type { Schemas } from "./types";
 import { plantName } from "./work";
@@ -24,10 +29,10 @@ export interface BatchForm {
   packetSays: string;
 }
 
-/** How many it started with, in words: seed measured another way than a count has no number until it's counted. */
+/** How many it started with, in words: seed measured another way than a count gives the measure instead of a number. */
 export const startWords = (form: BatchForm) =>
   form.source === "SeedLot" && !!form.sownAs && form.sownAs !== "Counted"
-    ? "Not counted"
+    ? seedOnly(form)
     : String(form.quantity);
 
 export const sourceWords: Record<Schemas["BatchSource"], string> = {

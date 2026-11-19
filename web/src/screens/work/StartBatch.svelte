@@ -380,7 +380,7 @@
       { name: "Plant", value: chosenName, stage: 1 },
       {
         name: counting ? "How many" : "Seed sown",
-        value: `${counting ? quantity : `${sowing}, not counted yet`}, in a ${containerKinds[containerKind].toLowerCase()}${potSize ? `, ${potSize}` : ""}`,
+        value: `${counting ? quantity : sowing}, in a ${containerKinds[containerKind].toLowerCase()}${potSize ? `, ${potSize}` : ""}`,
         stage: 2,
       },
       {
@@ -644,7 +644,7 @@
           : Object.keys(photos).length;
 
         onDone(
-          `Started ${counting ? `${quantity} ` : ""}${chosenName}${counting ? "" : ", not counted yet"}. Label: ${outcome.labelCode}${failed > 0 ? `. ${failed} photo${failed === 1 ? "" : "s"} didn't save.` : ""}`,
+          `Started ${counting ? `${quantity} ${chosenName}` : `${chosenName} from ${sownAs !== "Unknown" && sowing ? sowing : "seed"}`}. Label: ${outcome.labelCode}${failed > 0 ? `. ${failed} photo${failed === 1 ? "" : "s"} didn't save.` : ""}`,
           outcome.eventId,
           outcome.labelCode,
         );
@@ -742,8 +742,8 @@
     {/if}
     {#if !counting}
       <p class="muted">
-        The tray shows "not counted yet" until someone counts what's come up,
-        either when it germinates or when it's pricked out.
+        The tray shows how much seed went in until someone counts what's come
+        up, either when it germinates or when it's pricked out.
       </p>
     {/if}
     <label>

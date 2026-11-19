@@ -305,7 +305,7 @@ export function describeRecent(action: Schemas["RecentAction"]): string {
   switch (action.type) {
     case "Sown":
       return quantity === 0
-        ? `Sowed ${plant}, not counted yet${where}`
+        ? `Sowed ${plant}${where}`
         : `Sowed ${quantity} ${plant}${where}`;
     case "Received":
       return `Received ${quantity} ${plant}${where}`;

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { lineAmount, sowingWords, startsCounted } from "./sowing";
+import {
+  lineAmount,
+  seedNote,
+  seedOnly,
+  sowingWords,
+  startsCounted,
+} from "./sowing";
 
 describe("sowing", () => {
   it("puts each measure in words", () => {
@@ -23,10 +29,42 @@ describe("sowing", () => {
     expect(startsCounted("Grams")).toBe(false);
   });
 
-  it("shows an uncounted line in words", () => {
-    expect(lineAmount({ quantity: 0, notCounted: true })).toBe(
-      "Not counted yet:",
+  it("shows the seed that went into a tray nobody has counted", () => {
+    expect(
+      lineAmount({
+        quantity: 0,
+        notCounted: true,
+        sown: { sownAs: "About", sownAmount: 200 },
+      }),
+    ).toBe("About 200 seeds of");
+    expect(
+      lineAmount({
+        quantity: 0,
+        notCounted: true,
+        sown: { sownAs: "Grams", sownAmount: "0.5" },
+      }),
+    ).toBe("0.5 g of");
+    expect(
+      lineAmount({
+        quantity: 0,
+        notCounted: true,
+        sown: { sownAs: "Packet", packetShare: "Half" },
+      }),
+    ).toBe("Half a packet of");
+    expect(lineAmount({ quantity: 0, notCounted: true })).toBe("Some");
+    expect(seedOnly({ sownAs: "About", sownAmount: 200 })).toBe(
+      "About 200 seeds",
     );
+    expect(seedOnly(null)).toBe("Not known");
+    expect(seedOnly({ sownAs: "Unknown" })).toBe("Not known");
+    expect(
+      seedNote({
+        sownAs: "Packet",
+        packetShare: "Whole",
+        packetSays: "RHS 250 Seeds",
+      }),
+    ).toBe("a whole packet (RHS 250 Seeds)");
+    expect(seedNote({ sownAs: "Unknown" })).toBe("amount not known");
     expect(lineAmount({ quantity: 40 })).toBe("40");
     expect(lineAmount({ quantity: 200, rough: true })).toBe("About 200");
   });

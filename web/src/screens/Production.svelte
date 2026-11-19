@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { lineAmount } from "../lib/sowing";
+  import { lineAmount, seedOnly } from "../lib/sowing";
   import { onMount } from "svelte";
   import { api } from "../api/client";
   import {
@@ -93,7 +93,7 @@
       label: "Plants",
       value: (row) => Number(row.quantity),
       text: (row) =>
-        row.notCounted ? "Not counted yet" : String(row.quantity),
+        row.notCounted ? seedOnly(row.sown) : String(row.quantity),
       numeric: true,
     },
     { label: "Stage", value: (row) => stageLabel(row.stage) },

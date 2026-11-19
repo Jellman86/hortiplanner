@@ -106,7 +106,7 @@ internal static class AlertEndpoints
                 "invoices");
     }
 
-    /// <summary>Trays ready for a while, which may need selling or potting on, and seed nobody has counted for weeks.</summary>
+    /// <summary>Trays ready for a while, which may need selling or potting on, and seedlings up for weeks that nobody has counted.</summary>
     private static async Task<List<Alert>> TraysAsync(HortiplannerDbContext db, EventStore store, TimeProvider clock, CancellationToken cancellationToken)
     {
         var stock = await store.GetStockAsync(cancellationToken);
@@ -127,20 +127,19 @@ internal static class AlertEndpoints
                 "production"));
         }
 
+        // Seed still waiting to come up has nothing to count yet: what was sown is its record until then.
         var uncounted = stock
             .Where(row => row.NotCounted)
             .Select(row => row.ContainerId)
             .Distinct()
-            .Count(id => stages.TryGetValue(id, out var stage) && now - stage.Since > TimeSpan.FromDays(UncountedTooLongDays));
+            .Count(id => stages.TryGetValue(id, out var stage) && stage.Stage != ProductionStage.Sown && now - stage.Since > TimeSpan.FromDays(UncountedTooLongDays));
 
         if (uncounted > 0)
         {
             alerts.Add(new Alert(
                 "NotCountedLong",
-                $"{Plural(uncounted, "tray hasn't", "trays haven't")} been counted in three weeks",
-                uncounted == 1
-                    ? "It was sown without counting the seeds, so we don't know how many plants are in it yet. Counting it when you prick it out, or now if you have a minute, keeps the figures accurate."
-                    : "They were sown without counting the seeds, so we don't know how many plants are in them yet. Counting them when you prick them out, or now if you have a minute, keeps the figures accurate.",
+                $"{Plural(uncounted, "tray of seedlings has", "trays of seedlings have")} gone three weeks without a count",
+                "We know what was sown, but not how many plants came up. Counting them when you prick them out, or now if you have a minute, keeps the figures accurate.",
                 "production"));
         }
 

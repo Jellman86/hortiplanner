@@ -241,12 +241,12 @@ internal static class WorkEndpoints
 
         var batches = await db.Batches
             .Where(batch => batchIds.Contains(batch.Id))
-            .Join(db.Plants, batch => batch.PlantId, plant => plant.Id, (batch, plant) => new { batch.Id, batch.TraceabilityCode, PlantId = plant.Id, plant.CommonName, plant.Variety, batch.Source })
+            .Join(db.Plants, batch => batch.PlantId, plant => plant.Id, (batch, plant) => new { batch.Id, batch.TraceabilityCode, PlantId = plant.Id, plant.CommonName, plant.Variety, batch.Source, batch.SownAs, batch.SownAmount, batch.PacketShare, batch.PacketSays })
             .ToListAsync(cancellationToken);
 
         var rough = await store.RoughlyCountedAsync([container.Id], cancellationToken);
         var contents = state.Contents
-            .Join(batches, count => count.BatchId, batch => batch.Id, (count, batch) => new ContainerLine(batch.Id, batch.TraceabilityCode, batch.PlantId, batch.CommonName, batch.Variety, count.Quantity, batch.Source, count.NotCounted, rough.Contains((container.Id, batch.Id))))
+            .Join(batches, count => count.BatchId, batch => batch.Id, (count, batch) => new ContainerLine(batch.Id, batch.TraceabilityCode, batch.PlantId, batch.CommonName, batch.Variety, count.Quantity, batch.Source, count.NotCounted, rough.Contains((container.Id, batch.Id)), SeedSown.For(count.NotCounted, batch.SownAs, batch.SownAmount, batch.PacketShare, batch.PacketSays)))
             .ToList();
 
         var paths = await PlacePaths.LoadAsync(db, cancellationToken);
@@ -285,7 +285,7 @@ internal static class WorkEndpoints
         var containers = await db.Containers.Where(container => containerIds.Contains(container.Id)).ToListAsync(cancellationToken);
         var batches = await db.Batches
             .Where(batch => db.EventLines.Any(line => line.BatchId == batch.Id && containerIds.Contains(line.ContainerId)))
-            .Join(db.Plants, batch => batch.PlantId, plant => plant.Id, (batch, plant) => new { batch.Id, batch.TraceabilityCode, PlantId = plant.Id, plant.CommonName, plant.Variety, batch.Source })
+            .Join(db.Plants, batch => batch.PlantId, plant => plant.Id, (batch, plant) => new { batch.Id, batch.TraceabilityCode, PlantId = plant.Id, plant.CommonName, plant.Variety, batch.Source, batch.SownAs, batch.SownAmount, batch.PacketShare, batch.PacketSays })
             .ToDictionaryAsync(batch => batch.Id, cancellationToken);
         var places = await store.GetPlacementsAsync(containerIds, cancellationToken);
         var locationNames = await PlacePaths.LoadAsync(db, cancellationToken);
@@ -300,7 +300,7 @@ internal static class WorkEndpoints
 
             var contents = stock
                 .Where(row => row.ContainerId == container.Id)
-                .Select(row => new ContainerLine(row.BatchId, batches[row.BatchId].TraceabilityCode, batches[row.BatchId].PlantId, batches[row.BatchId].CommonName, batches[row.BatchId].Variety, row.Quantity, batches[row.BatchId].Source, row.NotCounted, rough.Contains((row.ContainerId, row.BatchId))))
+                .Select(row => new ContainerLine(row.BatchId, batches[row.BatchId].TraceabilityCode, batches[row.BatchId].PlantId, batches[row.BatchId].CommonName, batches[row.BatchId].Variety, row.Quantity, batches[row.BatchId].Source, row.NotCounted, rough.Contains((row.ContainerId, row.BatchId)), SeedSown.For(row.NotCounted, batches[row.BatchId].SownAs, batches[row.BatchId].SownAmount, batches[row.BatchId].PacketShare, batches[row.BatchId].PacketSays)))
                 .ToList();
             var stage = stages.GetValueOrDefault(container.Id);
 
@@ -768,7 +768,8 @@ internal static class WorkEndpoints
 
     /// <param name="NotCounted">Sown without a count and not counted since: Quantity is 0 because nobody knows it yet.</param>
     /// <param name="Rough">The latest count was only a rough guess, so Quantity is about right.</param>
-    internal sealed record ContainerLine(Guid BatchId, string TraceabilityCode, Guid PlantId, string CommonName, string? Variety, int Quantity, BatchSource Source, bool NotCounted = false, bool Rough = false);
+    /// <param name="Sown">For a tray not counted yet, the seed that went in, if it was measured at all.</param>
+    internal sealed record ContainerLine(Guid BatchId, string TraceabilityCode, Guid PlantId, string CommonName, string? Variety, int Quantity, BatchSource Source, bool NotCounted = false, bool Rough = false, SeedSown? Sown = null);
 
     internal sealed record ContainerResponse(
         Guid Id,
