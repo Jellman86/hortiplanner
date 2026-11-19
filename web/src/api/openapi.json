@@ -3988,6 +3988,122 @@
         }
       }
     },
+    "/api/assistant/conversations": {
+      "get": {
+        "tags": [
+          "AssistantConversations"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConversationSummary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "AssistantConversations"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/assistant/conversations/{id}": {
+      "get": {
+        "tags": [
+          "AssistantConversations"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "AssistantConversations"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/assistant/conversations/{id}/title": {
+      "put": {
+        "tags": [
+          "AssistantConversations"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversationTitle"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/assistant/settings": {
       "get": {
         "tags": [
@@ -6474,6 +6590,19 @@
               "string"
             ],
             "format": "double"
+          },
+          "conversationId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -6535,6 +6664,13 @@
                 "$ref": "#/components/schemas/AskAbout"
               }
             ]
+          },
+          "conversationId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -6662,6 +6798,9 @@
                 "$ref": "#/components/schemas/YourSpend"
               }
             ]
+          },
+          "savesConversations": {
+            "type": "boolean"
           }
         }
       },
@@ -7758,6 +7897,97 @@
               "string"
             ],
             "format": "date-time"
+          }
+        }
+      },
+      "ConversationDetails": {
+        "required": [
+          "id",
+          "title",
+          "updatedAt",
+          "aboutKind",
+          "aboutLabel",
+          "messages"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "aboutKind": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "aboutLabel": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SavedMessage"
+            }
+          }
+        }
+      },
+      "ConversationSummary": {
+        "required": [
+          "id",
+          "title",
+          "updatedAt",
+          "aboutKind",
+          "aboutLabel"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "aboutKind": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "aboutLabel": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ConversationTitle": {
+        "required": [
+          "title"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -12208,6 +12438,57 @@
           }
         }
       },
+      "SavedMessage": {
+        "required": [
+          "id",
+          "role",
+          "text",
+          "photoCount",
+          "sources",
+          "cost",
+          "at"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "role": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "photoCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AskSource"
+            }
+          },
+          "cost": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "SaveExternalSignIn": {
         "required": [
           "enabled",
@@ -14177,6 +14458,9 @@
     },
     {
       "name": "AssistantEndpoints"
+    },
+    {
+      "name": "AssistantConversations"
     },
     {
       "name": "PrinterEndpoints"

@@ -81,6 +81,10 @@ internal sealed class HortiplannerDbContext(DbContextOptions<HortiplannerDbConte
 
     public DbSet<MapPicture> MapPictures => Set<MapPicture>();
 
+    public DbSet<AssistantConversation> AssistantConversations => Set<AssistantConversation>();
+
+    public DbSet<AssistantMessage> AssistantMessages => Set<AssistantMessage>();
+
     public DbSet<AssistantSpend> AssistantSpends => Set<AssistantSpend>();
 
     public DbSet<SignInTune> SignInTunes => Set<SignInTune>();
@@ -239,6 +243,32 @@ internal sealed class HortiplannerDbContext(DbContextOptions<HortiplannerDbConte
     }
 
     /// <summary>Records about the service itself: backups, bench stations and what Ask Hortiplanner's questions cost.</summary>
+    private static void ConfigureConversations(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<AssistantConversation>(entity =>
+        {
+            entity.ToTable("assistant_conversations");
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Title).HasMaxLength(AssistantConversation.TitleLength);
+            entity.Property(e => e.AboutKind).HasMaxLength(10);
+            entity.Property(e => e.AboutLabel).HasMaxLength(AssistantConversation.AboutLabelLength);
+            entity.HasIndex(e => new { e.OwnerId, e.UpdatedAt });
+            entity.HasOne<AppUser>().WithMany().HasForeignKey(e => e.OwnerId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantMessage>(entity =>
+        {
+            entity.ToTable("assistant_messages");
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Role).HasMaxLength(10);
+            entity.Property(e => e.Text).HasMaxLength(AssistantMessage.LongestText);
+            entity.Property(e => e.Sources).HasColumnType("jsonb");
+            entity.Property(e => e.Cost).HasPrecision(12, 6);
+            entity.HasIndex(e => new { e.ConversationId, e.CreatedAt });
+            entity.HasOne<AssistantConversation>().WithMany().HasForeignKey(e => e.ConversationId).OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
     private static void ConfigureAssistant(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<AssistantSpend>(entity =>
@@ -249,6 +279,8 @@ internal sealed class HortiplannerDbContext(DbContextOptions<HortiplannerDbConte
             entity.HasIndex(e => new { e.AskedBy, e.AskedAt });
             entity.HasOne<AppUser>().WithMany().HasForeignKey(e => e.AskedBy).OnDelete(DeleteBehavior.Cascade);
         });
+
+        ConfigureConversations(modelBuilder);
 
         modelBuilder.Entity<BackupStatus>(entity =>
         {

@@ -2,7 +2,8 @@ namespace Hortiplanner.Api.Data;
 
 /// <summary>
 /// What one question to Ask Hortiplanner cost, and who asked it, so each person can see what their questions cost the
-/// nursery and the owner can see it for everyone. The question itself isn't kept.
+/// nursery and the owner can see it for everyone. The question itself isn't kept here: a person's own conversations
+/// are kept apart, for them alone, in <see cref="AssistantConversation"/>.
 /// </summary>
 internal sealed class AssistantSpend
 {

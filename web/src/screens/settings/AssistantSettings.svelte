@@ -177,8 +177,10 @@
           Each person can ask up to 40 questions an hour. The real cap on
           spending is the limit you set on the key at openrouter.ai. The AI
           never sees customers, money or who recorded the work, though notes are
-          sent as typed. Hortiplanner keeps what each question cost, who asked
-          and when, but not what was asked.
+          sent as typed. Hortiplanner shows you what each person's questions
+          have cost, but never what was asked. When people sign in as
+          themselves, their conversations are kept for them alone, and you can't
+          open them. They are in the database and its backups.
         </p>
       </div>
       <button type="submit">Save</button>

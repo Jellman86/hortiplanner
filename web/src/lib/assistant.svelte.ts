@@ -60,6 +60,8 @@ export type AskSource = Schemas["AskSource"];
 export const assistant = $state({
   canAsk: false,
   readsImages: false,
+  // Whether this person's conversations are kept for them: only when signed in as themselves.
+  savesConversations: false,
   // What this person's questions have cost the nursery, in US dollars as OpenRouter charges.
   spentThisMonth: null as number | null,
   spentInAll: null as number | null,
@@ -84,6 +86,7 @@ export async function loadAssistant() {
     const { data } = await api.GET("/api/assistant/status");
     assistant.canAsk = !!data?.canAsk;
     assistant.readsImages = !!data?.readsImages;
+    assistant.savesConversations = !!data?.savesConversations;
     assistant.spentThisMonth =
       data?.spent != null ? Number(data.spent.thisMonth) : null;
     assistant.spentInAll =

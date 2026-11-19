@@ -46,6 +46,7 @@ internal static partial class AssistantTools
         "climate" => !context.FeaturesOff.Contains(NurseryFeature.Climate),
         "jobs" => !context.FeaturesOff.Contains(NurseryFeature.Jobs),
         "needs_a_look" => context.IsOwner,
+        "my_earlier_conversations" => context.LooksBackFor is not null,
         _ => true,
     };
 
@@ -68,6 +69,7 @@ internal static partial class AssistantTools
             "climate" => await ClimateAsync(Id(arguments, "place_id"), Days(arguments, 7), context),
             "needs_a_look" => await NeedsALookAsync(context),
             "jobs" => await JobsAsync(context),
+            "my_earlier_conversations" => await EarlierAsync(Text(arguments, "query") ?? string.Empty, context),
             _ => new { problem = $"There's no tool called {name}." },
         };
 
@@ -304,6 +306,7 @@ internal static partial class AssistantTools
           {"type":"function","function":{"name":"treatments","description":"Treatments recorded over the last so many days: product, dose, area, tray and plants.","parameters":{"type":"object","properties":{"days":{"type":"integer","minimum":1,"maximum":365}}}}},
           {"type":"function","function":{"name":"climate","description":"Temperature and humidity from the nursery's sensors. Without a place: every place's latest reading and today's range. With a place: each day's lowest and highest temperature and average humidity.","parameters":{"type":"object","properties":{"place_id":{"type":"string"},"days":{"type":"integer","minimum":1,"maximum":31}}}}},
           {"type":"function","function":{"name":"needs_a_look","description":"What the nursery's records say wants attention now: trays ready a long time, seed not counted, late jobs, renewals.","parameters":{"type":"object","properties":{}}}},
+          {"type":"function","function":{"name":"my_earlier_conversations","description":"Look through this person's own earlier conversations with you for some words, when they refer to something from before that isn't in this conversation. Returns short parts of what was said, with the conversation's title and date.","parameters":{"type":"object","properties":{"query":{"type":"string","description":"A few words to look for, such as 'vine weevil lavender'."}},"required":["query"]}}},
           {"type":"function","function":{"name":"jobs","description":"The nursery's repeating jobs, such as watering and spraying rotas, with when each is next due.","parameters":{"type":"object","properties":{}}}}
         ]
         """;
