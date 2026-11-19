@@ -16,7 +16,7 @@
     type BatchTrace,
   } from "../../lib/trace";
   import { sowByPassed, sowByWords } from "../../lib/sowBy";
-  import { sowingWords } from "../../lib/sowing";
+  import { measured, seedOnly, sowingWords } from "../../lib/sowing";
   import { attempt, type Schemas } from "../../lib/types";
   import PrintButton from "../PrintButton.svelte";
   import BatchPhotos from "../work/BatchPhotos.svelte";
@@ -280,7 +280,9 @@
               <span class="plant-names">
                 <strong
                   >{container.notCounted
-                    ? `Not counted yet in ${container.labelCode}`
+                    ? measured(trace)
+                      ? `${seedOnly(trace)} sown in ${container.labelCode}`
+                      : `Sown in ${container.labelCode}, amount not known`
                     : `${container.now} in ${container.labelCode}`}</strong
                 >
                 <em>{container.place ?? "No place recorded"}</em>

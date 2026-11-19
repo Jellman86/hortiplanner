@@ -58,7 +58,8 @@ internal static class ProductionEndpoints
                 batch.SupplierName,
                 batch.HasPhoto,
                 place?.LocationId,
-                row.NotCounted);
+                row.NotCounted,
+                SeedSown.For(row.NotCounted, batch.SownAs, batch.SownAmount, batch.PacketShare, batch.PacketSays));
         })];
     }
 
@@ -73,7 +74,11 @@ internal static class ProductionEndpoints
                 plant.Variety,
                 plant.BotanicalName,
                 db.Suppliers.Where(supplier => supplier.Id == batch.SupplierId).Select(supplier => supplier.Name).FirstOrDefault(),
-                db.PlantPhotos.Any(photo => photo.PlantId == plant.Id) || db.Species.Any(species => species.Id == plant.SpeciesId && species.PhotoUrl != null)))
+                db.PlantPhotos.Any(photo => photo.PlantId == plant.Id) || db.Species.Any(species => species.Id == plant.SpeciesId && species.PhotoUrl != null),
+                batch.SownAs,
+                batch.SownAmount,
+                batch.PacketShare,
+                batch.PacketSays))
             .ToDictionaryAsync(batch => batch.Id, cancellationToken);
 
     /// <summary>The latest stage for each container that hasn't been undone. A correction that replaces work stands in for it.</summary>
@@ -131,7 +136,7 @@ internal static class ProductionEndpoints
 
     internal sealed record StageReached(ProductionStage Stage, DateTimeOffset Since);
 
-    private sealed record BatchFacts(Guid Id, string TraceabilityCode, Guid PlantId, string CommonName, string? Variety, string? BotanicalName, string? SupplierName, bool HasPhoto);
+    private sealed record BatchFacts(Guid Id, string TraceabilityCode, Guid PlantId, string CommonName, string? Variety, string? BotanicalName, string? SupplierName, bool HasPhoto, SownMeasure? SownAs, decimal? SownAmount, PacketShare? PacketShare, string? PacketSays);
 
     internal sealed record ProductionRow(
         Guid ContainerId,
@@ -150,5 +155,6 @@ internal static class ProductionEndpoints
         string? SupplierName,
         bool HasPhoto,
         Guid? LocationId,
-        bool NotCounted);
+        bool NotCounted,
+        SeedSown? Sown = null);
 }

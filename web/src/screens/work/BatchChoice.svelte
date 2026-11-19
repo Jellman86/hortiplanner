@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Schemas } from "../../lib/types";
   import { plantName } from "../../lib/work";
+  import { seedNote } from "../../lib/sowing";
 
   // Only shown for a mixed tray: a single batch needs no choosing.
   let {
@@ -23,7 +24,7 @@
         onclick={() => (selected = line.batchId)}
       >
         {plantName(line.commonName, line.variety)} ({line.notCounted
-          ? "not counted yet"
+          ? seedNote(line.sown)
           : line.quantity})
       </button>
     {/each}

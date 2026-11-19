@@ -7434,6 +7434,16 @@
           "rough": {
             "type": "boolean",
             "default": false
+          },
+          "sown": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SeedSown"
+              }
+            ]
           }
         }
       },
@@ -11455,6 +11465,16 @@
           },
           "notCounted": {
             "type": "boolean"
+          },
+          "sown": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SeedSown"
+              }
+            ]
           }
         }
       },
@@ -11932,6 +11952,45 @@
               "string"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "SeedSown": {
+        "required": [
+          "sownAs",
+          "sownAmount",
+          "packetShare",
+          "packetSays"
+        ],
+        "type": "object",
+        "properties": {
+          "sownAs": {
+            "$ref": "#/components/schemas/SownMeasure"
+          },
+          "sownAmount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "packetShare": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PacketShare"
+              }
+            ]
+          },
+          "packetSays": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

@@ -71,7 +71,7 @@ export function totalPlants(rows: ProductionRow[]): number {
   return rows.reduce((total, row) => total + Number(row.quantity), 0);
 }
 
-/** Trays nobody has counted yet, in all and at each stage: their plants aren't in the totals, so they're counted apart. */
+/** Trays of seed nobody has counted yet, in all and at each stage: their plants aren't in the totals, so they're shown apart. */
 export function uncountedTrays(rows: ProductionRow[]): {
   all: number;
   byStage: Map<Stage, number>;
@@ -88,13 +88,13 @@ export function uncountedTrays(rows: ProductionRow[]): {
   return { all: uncounted.length, byStage };
 }
 
-/** A stage's total for its chip: the plants counted, and any trays not counted yet. */
+/** A stage's total for its chip: the plants counted, and any trays of seed with only a measure of what went in. */
 export function chipTotal(plants: number, uncounted: number): string {
   if (uncounted === 0) {
     return String(plants);
   }
 
-  const trays = `${uncounted} uncounted`;
+  const trays = `${uncounted} tray${uncounted === 1 ? "" : "s"}`;
   return plants > 0 ? `${plants} + ${trays}` : trays;
 }
 

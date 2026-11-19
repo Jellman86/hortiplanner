@@ -13,10 +13,10 @@ public sealed class SeedCountingTests(PostgresFixture database)
     private static async Task<Guid> AddAsync(HttpClient client, string path, object body) =>
         Json(await PostForTextAsync(client, path, body)).GetProperty("id").GetGuid();
 
-    private static async Task<(Guid Plant, Guid Batch, Guid Tray, string Label)> SowAsync(TwoPersonNursery nursery, string sownAs = "About", decimal? amount = 200)
+    private static async Task<(Guid Plant, Guid Batch, Guid Tray, string Label)> SowAsync(TwoPersonNursery nursery, string sownAs = "About", decimal? amount = 200, DateTimeOffset? at = null)
     {
         var plant = await AddAsync(nursery.Owner, "/api/plants", new { commonName = $"Primula {Guid.NewGuid():N}", xylellaHost = false, protectedVariety = false });
-        var started = Json(await PostForTextAsync(nursery.Staff, "/api/batches", new { eventId = Guid.NewGuid(), occurredAt = Sown, plantId = plant, quantity = 0, source = "SeedLot", originCountry = "GB", containerKind = "Tray", sownAs, sownAmount = amount }));
+        var started = Json(await PostForTextAsync(nursery.Staff, "/api/batches", new { eventId = Guid.NewGuid(), occurredAt = at ?? Sown, plantId = plant, quantity = 0, source = "SeedLot", originCountry = "GB", containerKind = "Tray", sownAs, sownAmount = amount }));
         return (plant, started.GetProperty("batchId").GetGuid(), started.GetProperty("containerId").GetGuid(), started.GetProperty("labelCode").GetString()!);
     }
 
@@ -42,10 +42,17 @@ public sealed class SeedCountingTests(PostgresFixture database)
         Assert.True(line.GetProperty("notCounted").GetBoolean());
         Assert.Equal(0, line.GetProperty("quantity").GetInt32());
 
+        // What went in is shown instead: about 200 seeds.
+        Assert.Equal("About", line.GetProperty("sown").GetProperty("sownAs").GetString());
+        Assert.Equal(200, line.GetProperty("sown").GetProperty("sownAmount").GetDecimal());
+
         var active = await nursery.Staff.GetFromJsonAsync<JsonElement>(Route("/api/containers/active"), Cancellation);
-        Assert.Contains(active.EnumerateArray(), container => container.GetProperty("id").GetGuid() == tray);
+        var activeLine = active.EnumerateArray().Single(container => container.GetProperty("id").GetGuid() == tray).GetProperty("contents")[0];
+        Assert.Equal("About", activeLine.GetProperty("sown").GetProperty("sownAs").GetString());
         var production = await nursery.Staff.GetFromJsonAsync<JsonElement>(Route("/api/production"), Cancellation);
-        Assert.True(production.EnumerateArray().Single(row => row.GetProperty("containerId").GetGuid() == tray).GetProperty("notCounted").GetBoolean());
+        var row = production.EnumerateArray().Single(row => row.GetProperty("containerId").GetGuid() == tray);
+        Assert.True(row.GetProperty("notCounted").GetBoolean());
+        Assert.Equal(200, row.GetProperty("sown").GetProperty("sownAmount").GetDecimal());
 
         // Germinated, then roughly how many are up.
         Assert.Equal(HttpStatusCode.Created, await PostStatusAsync(nursery.Staff, $"/api/containers/{tray}/germinated", new { eventId = Guid.NewGuid(), occurredAt = Sown.AddDays(5) }));
@@ -54,6 +61,7 @@ public sealed class SeedCountingTests(PostgresFixture database)
         line = await LineAsync(nursery.Staff, label);
         Assert.False(line.GetProperty("notCounted").GetBoolean());
         Assert.Equal(150, line.GetProperty("quantity").GetInt32());
+        Assert.Equal(JsonValueKind.Null, line.GetProperty("sown").ValueKind);
 
         // The first count is where it starts, and germination is about 150 of about 200.
         var figures = await PlantFiguresAsync(nursery.Owner, plant);
@@ -61,6 +69,22 @@ public sealed class SeedCountingTests(PostgresFixture database)
         Assert.Equal(0, figures.GetProperty("adjusted").GetInt32());
         Assert.Equal(0.75, figures.GetProperty("germinationRate").GetDouble(), 3);
         Assert.True(figures.GetProperty("germinationApproximate").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Seed_waiting_to_come_up_is_not_called_uncounted_but_seedlings_up_for_weeks_are()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        async Task<bool> RemindedAsync() =>
+            (await nursery.Owner.GetFromJsonAsync<JsonElement>(Route("/api/alerts"), Cancellation)).EnumerateArray().Any(alert => string.Equals(alert.GetProperty("kind").GetString(), "NotCountedLong", StringComparison.Ordinal));
+
+        // Sown a month ago and not up yet: there's nothing to count.
+        var (_, _, tray, _) = await SowAsync(nursery, at: DateTimeOffset.UtcNow.AddDays(-30));
+        Assert.False(await RemindedAsync());
+
+        // Up for over three weeks with nobody counting them: now it's worth a count.
+        Assert.Equal(HttpStatusCode.Created, await PostStatusAsync(nursery.Staff, $"/api/containers/{tray}/germinated", new { eventId = Guid.NewGuid(), occurredAt = DateTimeOffset.UtcNow.AddDays(-22) }));
+        Assert.True(await RemindedAsync());
     }
 
     [Fact]

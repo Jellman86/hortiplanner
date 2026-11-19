@@ -99,7 +99,7 @@ describe("seed measured another way", () => {
     expect(howMany).toEqual({
       name: "How many",
       before: "26",
-      after: "Not counted",
+      after: "2.5 g",
     });
   });
 });

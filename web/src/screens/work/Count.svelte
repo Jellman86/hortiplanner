@@ -1,5 +1,6 @@
 <script lang="ts">
   import { recordWork } from "../../lib/queue";
+  import { measured, seedOnly } from "../../lib/sowing";
   import type { Schemas } from "../../lib/types";
   import { isRecorded, outcomeProblem, plantName, work } from "../../lib/work";
   import ActionFrame from "./ActionFrame.svelte";
@@ -56,7 +57,11 @@
 <ActionFrame title="Count" {problem} {onCancel} {container}>
   <BatchChoice lines={container.contents} bind:selected={chosen} />
   {#if line.notCounted}
-    <p>Nobody has counted these yet. How many are there?</p>
+    <p>
+      {measured(line.sown)
+        ? `${seedOnly(line.sown)} went in, and nobody has counted what's come up yet.`
+        : "Nobody has counted these yet."} How many are there now?
+    </p>
   {:else}
     <p>How many are there?</p>
   {/if}

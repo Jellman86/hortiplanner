@@ -31,9 +31,7 @@ export function describeStep(step: TraceStep): string {
 
   switch (step.type) {
     case "Sown":
-      return quantity === 0
-        ? `Sown${into}, not counted yet`
-        : `${quantity} sown${into}`;
+      return quantity === 0 ? `Sown${into}` : `${quantity} sown${into}`;
     case "Received":
       return `${quantity} arrived${into}`;
     case "CuttingsTaken":

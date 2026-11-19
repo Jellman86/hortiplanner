@@ -138,8 +138,8 @@ describe("labels and choices", () => {
     const uncounted = uncountedTrays(rows);
     expect(uncounted.all).toBe(2);
     expect(uncounted.byStage.get("Sown")).toBe(1);
-    expect(chipTotal(40, 1)).toBe("40 + 1 uncounted");
-    expect(chipTotal(0, 2)).toBe("2 uncounted");
+    expect(chipTotal(40, 1)).toBe("40 + 1 tray");
+    expect(chipTotal(0, 2)).toBe("2 trays");
     expect(chipTotal(12, 0)).toBe("12");
   });
 });

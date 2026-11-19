@@ -28,6 +28,7 @@
   import { rememberedContainer } from "../../lib/offline";
   import { recordWork } from "../../lib/queue";
   import { stageLabel, timeAtStage } from "../../lib/production";
+  import { seedAmount } from "../../lib/sowing";
   import {
     actionLabels,
     describeHistory,
@@ -373,7 +374,7 @@
           <div class="card tray-line">
             <p>
               {#if line.notCounted}
-                <strong>Not counted yet:</strong>
+                <strong>{seedAmount(line.sown)}</strong>
               {:else}
                 <strong class="tray-quantity"
                   >{line.rough

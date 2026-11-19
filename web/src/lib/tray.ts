@@ -119,7 +119,7 @@ export function describeHistory(entry: HistoryEntry): string {
 
   switch (entry.type) {
     case "Sown":
-      return quantity === 0 ? "Sown, not counted yet" : `Sown: ${quantity}`;
+      return quantity === 0 ? "Sown" : `Sown: ${quantity}`;
     case "Received":
       return `Arrived: ${quantity}`;
     case "CuttingsTaken":

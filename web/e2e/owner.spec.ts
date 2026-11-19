@@ -217,9 +217,11 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await button(page, "Add a place").click();
   await page.getByLabel("Type").selectOption("Bench");
   await page.getByLabel("Inside").selectOption({ label: "Greenhouse 2" });
+  // "Bench 1" typed first, as people do, still numbers them Bench 1, Bench 2 and so on.
+  await page.getByLabel("Name", { exact: true }).fill("Bench 1");
   await page.getByLabel("Add several, numbered").check();
-  await page.getByLabel("Name before the number").fill("Bench");
-  await page.getByLabel("From", { exact: true }).fill("1");
+  await expect(page.getByLabel("Name before the number")).toHaveValue("Bench");
+  await expect(page.getByLabel("From", { exact: true })).toHaveValue("1");
   await page.getByLabel("To", { exact: true }).fill("3");
   await button(page, "Add them").click();
   await expect(
