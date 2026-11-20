@@ -59,7 +59,7 @@ public sealed class JobTests(PostgresFixture database)
     }
 
     [Fact]
-    public async Task Alerts_say_why_they_are_there_and_only_the_owner_sees_them()
+    public async Task Alerts_say_why_they_are_there_and_staff_see_only_their_own()
     {
         await using var nursery = await TwoPersonNursery.CreateAsync(database);
         using var settings = await nursery.Owner.PutAsJsonAsync(Route("/api/settings/nursery"), new { name = "Croft View", hasLogo = false, vatRegistered = false, paymentTermsDays = 30, authorisationRenewsOn = Today.AddDays(10), setsRenewal = true }, Cancellation);
@@ -76,6 +76,9 @@ public sealed class JobTests(PostgresFixture database)
         Assert.Contains("JobsLate", kinds);
         Assert.All(alerts, alert => Assert.False(string.IsNullOrWhiteSpace(alert.GetProperty("why").GetString())));
 
-        Assert.Equal(HttpStatusCode.Forbidden, await GetStatusAsync(nursery.Staff, "/api/alerts"));
+        // Staff get their own list: the jobs due, but not the renewal or which jobs are running late.
+        var staffKinds = (await nursery.Staff.GetFromJsonAsync<JsonElement>(Route("/api/alerts"), Cancellation)).EnumerateArray()
+            .Select(alert => alert.GetProperty("kind").GetString()).ToList();
+        Assert.Equal(["JobsDue"], staffKinds);
     }
 }

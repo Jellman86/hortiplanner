@@ -19,7 +19,7 @@ internal sealed class ToolContext(HortiplannerDbContext db, EventStore store, Ti
 
     public IReadOnlyList<AskSource> Sources => seen;
 
-    /// <summary>Whether the owner is asking: some of the records, such as "Needs a look", are only theirs.</summary>
+    /// <summary>Whether the owner is asking: "Needs a look" then gives the whole nursery's list, and staff their own.</summary>
     public bool IsOwner { get; init; }
 
     /// <summary>What the question has cost so far, in US dollars, kept as it goes so a failed answer is still counted.</summary>

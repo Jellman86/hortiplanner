@@ -8215,6 +8215,9 @@ export interface components {
             title: string;
             why: string;
             where: string;
+            /** Format: int32 */
+            count: number | string;
+            level: string;
         };
         ArchiveRefused: {
             problem: string;

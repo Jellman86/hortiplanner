@@ -20,6 +20,10 @@ internal static class AccountServices
 
     /// <summary>Marks a session started with a PIN at a bench station, which never carries the owner's powers.</summary>
     public const string BenchSessionClaim = "hortiplanner:bench_session";
+
+    /// <summary>Whether this is the owner signed in as themselves: at a bench, by PIN, they act as staff.</summary>
+    public static bool IsOwner(System.Security.Claims.ClaimsPrincipal user) =>
+        user.IsInRole(OwnerRole) && user.FindFirst(BenchSessionClaim) is null;
     public const string SignInMethodClaim = "hortiplanner:sign_in_method";
 
     public static Task SignInAsync(SignInManager<AppUser> signIn, AppUser person, string method) =>

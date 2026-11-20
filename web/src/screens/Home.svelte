@@ -136,6 +136,24 @@
         batchId?: string | null;
       };
 
+  /** Where an item that needs a look is dealt with. */
+  function needsView(where: string): View {
+    switch (where) {
+      case "data":
+        return { name: "settings", page: "data" };
+      case "nursery":
+        return { name: "settings", page: "nursery" };
+      case "production":
+        return { name: "production" };
+      case "jobs":
+        return { name: "manage", section: "jobs" };
+      case "invoices":
+        return { name: "manage", section: "invoices" };
+      default:
+        return { name: "home" };
+    }
+  }
+
   // Bumped to show a screen afresh, from the top, when its breadcrumb is tapped.
   let fresh = $state(0);
 
@@ -723,7 +741,7 @@
           <span
             >{backupNeverReported
               ? "Hortiplanner has never heard from the backups. Please check that the nursery's records are being backed up."
-              : "The backups may have stopped. The nursery's records aren't being protected until this is fixed."}</span
+              : "The backups may have stopped. The nursery's records aren't being protected until this is put right."}</span
           >
           <button
             class="secondary"
@@ -851,19 +869,7 @@
 
         <section>
           {#if !atBench}
-            <JobsDue
-              isOwner={me.isOwner}
-              onGo={(where) =>
-                (view =
-                  where === "nursery"
-                    ? { name: "settings", page: "nursery" }
-                    : where === "production"
-                      ? { name: "production" }
-                      : {
-                          name: "manage",
-                          section: where === "jobs" ? "jobs" : "invoices",
-                        })}
-            />
+            <JobsDue onGo={(where) => (view = needsView(where))} />
           {/if}
           {#if recent.length > 0}
             <h2>Recent</h2>

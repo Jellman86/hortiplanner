@@ -40,12 +40,11 @@ internal static partial class AssistantTools
         return keep;
     }
 
-    /// <summary>Climate and jobs only while they're on; "Needs a look" only for the owner, as on Record.</summary>
+    /// <summary>Climate and jobs only while they're on; "Needs a look" gives each asker their own, as on Record.</summary>
     private static bool Allowed(string name, ToolContext context) => name switch
     {
         "climate" => !context.FeaturesOff.Contains(NurseryFeature.Climate),
         "jobs" => !context.FeaturesOff.Contains(NurseryFeature.Jobs),
-        "needs_a_look" => context.IsOwner,
         "my_earlier_conversations" => context.LooksBackFor is not null,
         _ => true,
     };
@@ -284,8 +283,9 @@ internal static partial class AssistantTools
             });
     }
 
+    // The asker's own list, less anything about money, which the assistant is never given.
     private static async Task<object> NeedsALookAsync(ToolContext context) =>
-        (await AlertEndpoints.ListAsync(context.Db, context.Store, context.Clock, context.Cancellation))
+        (await AlertEndpoints.ListAsync(context.Db, context.Store, context.Clock, context.IsOwner, context.Cancellation))
             .Where(alert => !string.Equals(alert.Kind, "InvoicesOverdue", StringComparison.Ordinal))
             .Select(alert => new { alert.Title, alert.Why });
 
@@ -305,7 +305,7 @@ internal static partial class AssistantTools
           {"type":"function","function":{"name":"losses","description":"Plants lost over the last so many days, with the reason, tray and plant.","parameters":{"type":"object","properties":{"days":{"type":"integer","minimum":1,"maximum":365}}}}},
           {"type":"function","function":{"name":"treatments","description":"Treatments recorded over the last so many days: product, dose, area, tray and plants.","parameters":{"type":"object","properties":{"days":{"type":"integer","minimum":1,"maximum":365}}}}},
           {"type":"function","function":{"name":"climate","description":"Temperature and humidity from the nursery's sensors. Without a place: every place's latest reading and today's range. With a place: each day's lowest and highest temperature and average humidity.","parameters":{"type":"object","properties":{"place_id":{"type":"string"},"days":{"type":"integer","minimum":1,"maximum":31}}}}},
-          {"type":"function","function":{"name":"needs_a_look","description":"What the nursery's records say wants attention now: trays ready a long time, seed not counted, late jobs, renewals.","parameters":{"type":"object","properties":{}}}},
+          {"type":"function","function":{"name":"needs_a_look","description":"What the records say wants this person's attention now: jobs due, seedlings not counted, and for the owner trays ready a long time, late jobs, renewals and the backups.","parameters":{"type":"object","properties":{}}}},
           {"type":"function","function":{"name":"my_earlier_conversations","description":"Look through this person's own earlier conversations with you for some words, when they refer to something from before that isn't in this conversation. Returns short parts of what was said, with the conversation's title and date.","parameters":{"type":"object","properties":{"query":{"type":"string","description":"A few words to look for, such as 'vine weevil lavender'."}},"required":["query"]}}},
           {"type":"function","function":{"name":"jobs","description":"The nursery's repeating jobs, such as watering and spraying rotas, with when each is next due.","parameters":{"type":"object","properties":{}}}}
         ]

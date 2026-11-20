@@ -12,7 +12,7 @@ internal static class BackupStatusEndpoints
     public static void MapBackupStatusEndpoints(this IEndpointRouteBuilder app) =>
         app.MapGet("/api/backups/status", GetStatusAsync).RequireAuthorization(AccountServices.OwnerPolicy);
 
-    private static async Task<BackupHealth> GetStatusAsync(HortiplannerDbContext db, TimeProvider clock, CancellationToken cancellationToken)
+    internal static async Task<BackupHealth> GetStatusAsync(HortiplannerDbContext db, TimeProvider clock, CancellationToken cancellationToken)
     {
         var status = await db.BackupStatus.AsNoTracking().FirstOrDefaultAsync(cancellationToken);
 

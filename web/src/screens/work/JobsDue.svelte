@@ -5,14 +5,14 @@
   import { api } from "../../api/client";
   import { dayLabel } from "../../lib/dates";
   import { isOn } from "../../lib/features.svelte";
+  import { forRecordWork, levelClass, placeNames } from "../../lib/needs";
   import type { Schemas } from "../../lib/types";
 
-  // Jobs due today or late, to tick off; and for the owner, anything in the records that wants a look, with why.
+  // Jobs due today or late, to tick off; and anything in the records that wants this person's look, with why. Each
+  // person gets their own list from the server: staff what is theirs to do, the owner the whole nursery's.
   let {
-    isOwner,
     onGo,
   }: {
-    isOwner: boolean;
     onGo: (where: string) => void;
   } = $props();
 
@@ -27,12 +27,10 @@
 
   async function load() {
     try {
-      // With jobs turned off only the owner's reminders show here.
+      // With jobs turned off only the reminders show here.
       jobs = isOn("Jobs") ? ((await api.GET("/api/jobs")).data ?? []) : [];
 
-      if (isOwner) {
-        alerts = (await api.GET("/api/alerts")).data ?? [];
-      }
+      alerts = forRecordWork((await api.GET("/api/alerts")).data ?? []);
     } catch {
       // No signal: the jobs show again when there is one.
     }
@@ -83,23 +81,16 @@
       busyId = null;
     }
   }
-
-  const where: Record<string, string> = {
-    nursery: "Nursery details",
-    invoices: "Invoices",
-    production: "Production",
-    jobs: "Jobs",
-  };
 </script>
 
 {#if alerts.length > 0}
   <h2>Needs a look</h2>
   {#each alerts as alert (alert.kind)}
-    <div class="card alert-card">
+    <div class="card alert-card {levelClass(alert)}">
       <strong>{alert.title}</strong>
       <span class="muted">{alert.why}</span>
       <button class="secondary" onclick={() => onGo(alert.where)}
-        >Go to {where[alert.where] ?? alert.where}
+        >Go to {placeNames[alert.where] ?? alert.where}
         <ArrowRight size={16} aria-hidden="true" /></button
       >
     </div>

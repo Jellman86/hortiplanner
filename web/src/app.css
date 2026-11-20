@@ -411,6 +411,19 @@ a {
   background: var(--accent-surface);
 }
 
+/* Something that needs a look: amber when it has a date coming or gone, red when it's a problem. */
+.alert-card.level-soon {
+  border-color: color-mix(in srgb, var(--warning) 35%, var(--line));
+  border-left-color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 9%, var(--surface));
+}
+
+.alert-card.level-problem {
+  border-color: color-mix(in srgb, var(--problem) 35%, var(--line));
+  border-left-color: var(--problem);
+  background: color-mix(in srgb, var(--problem) 8%, var(--surface));
+}
+
 .done-heading {
   display: flex;
   align-items: center;
