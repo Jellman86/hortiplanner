@@ -74,6 +74,11 @@
   import StartBatch from "./work/StartBatch.svelte";
   import Ask from "./Ask.svelte";
   import Sparkles from "@lucide/svelte/icons/sparkles";
+  import CameraIcon from "@lucide/svelte/icons/camera";
+  import Move from "@lucide/svelte/icons/move";
+  import Printer from "@lucide/svelte/icons/printer";
+  import Repeat from "@lucide/svelte/icons/repeat";
+  import Undo2 from "@lucide/svelte/icons/undo-2";
   import {
     assistant,
     loadAssistant,
@@ -781,8 +786,8 @@
       {/each}
       {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
 
-      <div class="split">
-        <section>
+      <div class="split home">
+        <section class="fill">
           {#if assistant.canAsk && !atBench}
             <button class="ask-card" onclick={() => (view = { name: "ask" })}>
               <Sparkles size={22} aria-hidden="true" />
@@ -813,26 +818,21 @@
           {#if cameraAvailable}
             <button
               class="secondary"
-              onclick={() => (view = { name: "camera" })}>Use camera</button
+              onclick={() => (view = { name: "camera" })}
+              ><CameraIcon size={18} aria-hidden="true" /> Use camera</button
             >
           {/if}
           <button
             class="secondary"
             onclick={() => (view = { name: "moveMany" })}
-            >Move several trays</button
+            ><Move size={18} aria-hidden="true" /> Move several trays</button
           >
           {#if !atBench}
             <button
               class="secondary"
               onclick={() => (view = { name: "labelSheets" })}
-              >Print labels on A4</button
+              ><Printer size={18} aria-hidden="true" /> Print labels on A4</button
             >
-          {/if}
-
-          {#if me.isOwner && !atBench}
-            <div class="desktop-only">
-              <Overview onOpen={(code) => open(code)} />
-            </div>
           {/if}
 
           {#if atBench}
@@ -872,13 +872,15 @@
                 <span>{describeRecent(action)}</span>
                 <div class="row">
                   {#if repeatOf(action)}
-                    <button class="secondary" onclick={() => repeat(action)}
-                      >Do it again</button
+                    <button class="link-button" onclick={() => repeat(action)}
+                      ><Repeat size={16} aria-hidden="true" /> Do it again</button
                     >
                   {/if}
                   {#if action.type !== "Sold" && !(action.details as { forPassport?: boolean } | null)?.forPassport}
-                    <button class="secondary" onclick={() => undoRecent(action)}
-                      >Undo</button
+                    <button
+                      class="link-button"
+                      onclick={() => undoRecent(action)}
+                      ><Undo2 size={16} aria-hidden="true" /> Undo</button
                     >
                   {/if}
                 </div>
@@ -891,6 +893,13 @@
             </p>
           {/if}
         </section>
+
+        <!-- The owner's view of the whole nursery: beneath on a smaller desk, a column of its own on a wide one. -->
+        {#if me.isOwner && !atBench}
+          <div class="desktop-only home-glance">
+            <Overview onOpen={(code) => open(code)} />
+          </div>
+        {/if}
       </div>
 
       {#if atBench}

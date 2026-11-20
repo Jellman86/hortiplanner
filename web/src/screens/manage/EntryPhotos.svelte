@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Camera from "@lucide/svelte/icons/camera";
   import { Trash2 } from "@lucide/svelte";
   import { shrinkPhoto } from "../../lib/photo";
   import type { AskAbout } from "../../lib/assistant.svelte";
@@ -120,8 +121,9 @@
       {/if}
     </span>
   {/each}
-  <label class="photo-choice photo-add">
-    <span>{busy ? "Saving…" : "Add photo"}</span>
+  <label class="file-link photo-add">
+    <Camera size={16} aria-hidden="true" />
+    <span>{busy ? "Saving…" : "Add a photo"}</span>
     <input type="file" accept="image/*" disabled={busy} onchange={add} />
   </label>
 </div>

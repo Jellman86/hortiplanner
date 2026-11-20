@@ -364,8 +364,108 @@
       </div>
     {/if}
 
-    <div class="plant-layout">
-      <aside class="plant-side">
+    <!-- On a phone: what you do here, the facts, what's inside and growing here, then the map and photos, then
+         changing the place. On a desk the actions, facts, map and photos sit beside what's here, and on a wide
+         desk the map and photos take a column of their own. -->
+    <div class="place-page">
+      <div class="stack fill place-page-actions">
+        {#if place.kind !== "Site"}
+          <button onclick={() => onMoveTraysHere(place!.id)}
+            >Move trays here</button
+          >
+        {/if}
+        {#if trays.length > 0}
+          <button
+            class="secondary"
+            onclick={() => (task = task === "moveAll" ? null : "moveAll")}
+            >Move all of this somewhere else…</button
+          >
+        {/if}
+        {#if task === "moveAll"}
+          <div class="card stack">
+            <label>
+              Move all {trays.length} to
+              <select bind:value={destination}>
+                <option value="">Choose…</option>
+                {#each destinations as option (option.id)}
+                  <option value={option.id}>{option.label}</option>
+                {/each}
+              </select>
+            </label>
+            <button disabled={busy || !destination} onclick={moveEverything}
+              >Move them</button
+            >
+          </div>
+        {/if}
+        <PrintButton
+          href="/api/labels/places/{place.id}"
+          label="Print place label"
+        />
+        <AskAboutButton about={aboutPlace(place.id, place.name)} {onAsk} />
+      </div>
+      <dl class="facts card place-page-facts">
+        <dt>Trays and pots</dt>
+        <dd>{trays.length}</dd>
+        <dt>Plants</dt>
+        <dd>{plantCount}</dd>
+        <dt>Places inside</dt>
+        <dd>{inside.length}</dd>
+      </dl>
+      <div class="place-page-main">
+        {#if inside.length > 0}
+          <section class="stack">
+            <h2>Inside</h2>
+            <div class="card-grid">
+              {#each inside as child (child.id)}
+                <button
+                  class="plant-card"
+                  onclick={() => onOpenPlace(child.id)}
+                >
+                  <span class="plant-names">
+                    <strong>{child.name}</strong>
+                    <em>{kindLabel(child.kind)}</em>
+                  </span>
+                </button>
+              {/each}
+            </div>
+          </section>
+        {/if}
+
+        <section class="stack">
+          <h2>What's here</h2>
+          {#if trays.length > 0}
+            <div class="card-grid place-trays">
+              {#each trays as lines (lines[0].containerId)}
+                <button
+                  class="plant-card"
+                  onclick={() => onOpenTray(lines[0].labelCode)}
+                >
+                  <span class="plant-names">
+                    <strong>{lines[0].labelCode}</strong>
+                    {#each lines as line (line.batchId)}
+                      <span
+                        >{lineAmount(line)}
+                        {plantName(line.commonName, line.variety)} · {stageLabel(
+                          line.stage,
+                        )}</span
+                      >
+                    {/each}
+                    {#if lines[0].locationId !== place.id}
+                      <em>{lines[0].locationName}</em>
+                    {/if}
+                  </span>
+                </button>
+              {/each}
+            </div>
+          {:else}
+            <p class="note-empty muted">
+              Nothing is growing here at the moment.
+            </p>
+          {/if}
+        </section>
+      </div>
+
+      <div class="place-page-media">
         {#if canManage && isOn("PlacesMap")}
           {#key place.id}
             <PlaceMiniMap
@@ -383,7 +483,6 @@
             />
           {/key}
         {/if}
-
         <section class="stack tight" aria-label="Photos">
           {#if place.photoIds.length > 0}
             <h2 class="form-heading">Photos</h2>
@@ -405,52 +504,8 @@
             {onAsk}
           />
         </section>
-
-        <dl class="facts card">
-          <dt>Trays and pots</dt>
-          <dd>{trays.length}</dd>
-          <dt>Plants</dt>
-          <dd>{plantCount}</dd>
-          <dt>Places inside</dt>
-          <dd>{inside.length}</dd>
-        </dl>
-
-        <div class="stack">
-          {#if place.kind !== "Site"}
-            <button onclick={() => onMoveTraysHere(place!.id)}
-              >Move trays here</button
-            >
-          {/if}
-          {#if trays.length > 0}
-            <button
-              class="secondary"
-              onclick={() => (task = task === "moveAll" ? null : "moveAll")}
-              >Move all of this somewhere else…</button
-            >
-          {/if}
-          {#if task === "moveAll"}
-            <div class="card stack">
-              <label>
-                Move all {trays.length} to
-                <select bind:value={destination}>
-                  <option value="">Choose…</option>
-                  {#each destinations as option (option.id)}
-                    <option value={option.id}>{option.label}</option>
-                  {/each}
-                </select>
-              </label>
-              <button disabled={busy || !destination} onclick={moveEverything}
-                >Move them</button
-              >
-            </div>
-          {/if}
-          <PrintButton
-            href="/api/labels/places/{place.id}"
-            label="Print place label"
-          />
-          <AskAboutButton about={aboutPlace(place.id, place.name)} {onAsk} />
-        </div>
-
+      </div>
+      <div class="place-page-manage stack">
         {#if canManage}
           <div class="row plant-actions">
             <button
@@ -586,56 +641,6 @@
             </div>
           {/if}
         {/if}
-      </aside>
-
-      <div class="plant-main">
-        {#if inside.length > 0}
-          <section class="stack">
-            <h2>Inside</h2>
-            <div class="card-grid">
-              {#each inside as child (child.id)}
-                <button
-                  class="plant-card"
-                  onclick={() => onOpenPlace(child.id)}
-                >
-                  <span class="plant-names">
-                    <strong>{child.name}</strong>
-                    <em>{kindLabel(child.kind)}</em>
-                  </span>
-                </button>
-              {/each}
-            </div>
-          </section>
-        {/if}
-
-        <section class="stack">
-          <h2>What's here</h2>
-          {#each trays as lines (lines[0].containerId)}
-            <button
-              class="plant-card"
-              onclick={() => onOpenTray(lines[0].labelCode)}
-            >
-              <span class="plant-names">
-                <strong>{lines[0].labelCode}</strong>
-                {#each lines as line (line.batchId)}
-                  <span
-                    >{lineAmount(line)}
-                    {plantName(line.commonName, line.variety)} · {stageLabel(
-                      line.stage,
-                    )}</span
-                  >
-                {/each}
-                {#if lines[0].locationId !== place.id}
-                  <em>{lines[0].locationName}</em>
-                {/if}
-              </span>
-            </button>
-          {:else}
-            <p class="note-empty muted">
-              Nothing is growing here at the moment.
-            </p>
-          {/each}
-        </section>
       </div>
     </div>
   {/if}

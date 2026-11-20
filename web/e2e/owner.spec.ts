@@ -88,6 +88,10 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(
     page.getByRole("heading", { name: "Hello, Sam Fielding" }),
   ).toBeVisible();
+  // The owner's view of the whole nursery is for a desk, not a phone.
+  await expect(
+    page.getByRole("region", { name: "The nursery at a glance" }),
+  ).toBeHidden();
   await expectAccessible(page, "Record work");
 
   // Signing out and back in uses the passkey just made.
@@ -111,7 +115,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await button(page, "Add").click();
   await expect(page.getByText("9cm", { exact: true })).toBeVisible();
   await expect(page.getByText("Not counted yet")).toBeVisible();
-  await page.getByLabel("Add photo").setInputFiles({
+  await page.getByLabel("Add a photo").setInputFiles({
     name: "pot.png",
     mimeType: "image/png",
     buffer: Buffer.from(
