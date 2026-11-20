@@ -790,6 +790,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(check).toContainText("Lavender 'Munstead'");
   await expect(check).toContainText("Hillside Plants");
   await expect(check).toContainText("yesterday");
+  await expect(check).toContainText(/Seed cost\s*Not added yet/);
   await expectAccessible(page, "New batch: check");
   await page.getByRole("button", { name: "Change how many" }).click();
   await button(page, "+10").click();

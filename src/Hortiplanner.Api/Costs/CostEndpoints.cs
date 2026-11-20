@@ -88,6 +88,26 @@ internal static class CostEndpoints
         return TypedResults.Created($"/api/batches/{id}/costs/{cost.Id}", new CostRecorded(cost.Id));
     }
 
+    /// <summary>A cost given at New batch: an amount, that it cost nothing, or neither. Saying it isn't known is the owner's, later.</summary>
+    internal static bool IsValidStartingCost(decimal? amount, bool nothing) =>
+        amount is null || (!nothing && amount is > 0 and <= MostPaid && decimal.Round(amount.Value, 2) == amount);
+
+    /// <summary>The cost given at New batch, as the batch's first answer for its seed or plants.</summary>
+    internal static async Task<BatchCost> StartingCostAsync(
+        Batch batch,
+        CostAnswer answer,
+        decimal? amount,
+        DateTimeOffset occurredAt,
+        Guid person,
+        DeviceClock device,
+        HortiplannerDbContext db,
+        TimeProvider clock,
+        CancellationToken cancellationToken)
+    {
+        var request = new CostRequest(Guid.CreateVersion7(), occurredAt, CostKind.Material, answer, amount);
+        return await BuildAsync(batch.Id, batch.PlantId, request, person, OnServerClock(occurredAt, device, clock), null, device, db, clock, cancellationToken);
+    }
+
     private static bool IsValid(CostRequest request) =>
         request.EventId != Guid.Empty
         && Enum.IsDefined(request.Kind)

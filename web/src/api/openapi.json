@@ -14277,6 +14277,19 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "costAmount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "costNothing": {
+            "type": "boolean",
+            "default": false
           }
         }
       },

@@ -198,6 +198,23 @@ test("a seed packet photo fills in New batch, to check before starting", async (
   await expectAccessible(page, "New batch, where from, read from a packet");
   await page.getByLabel(/Lot or reference/).fill("L2292");
   await expect(page.locator(".read-tag")).toHaveCount(2);
+
+  // What the seed cost is asked, and optional. Something that isn't money is pointed out when Next is pressed.
+  const costBox = page.getByLabel("What did this seed cost? (£, optional)");
+  await expect(costBox).toHaveAccessibleDescription(/with any VAT included/);
+  await costBox.fill("2.");
+  await expect(costBox).not.toHaveAttribute("aria-invalid", "true");
+  await costBox.fill("two pounds");
+  await page.getByRole("button", { name: "Next" }).click();
+  await expect(costBox).toHaveAttribute("aria-invalid", "true");
+  await expect(costBox).toBeFocused();
+  await expect(costBox).toHaveAccessibleDescription(
+    /^Please put the cost in as pounds and pence, such as 2\.99\./,
+  );
+  await expectAccessible(page, "New batch, a cost that isn't money");
+
+  // Nought is taken as nothing.
+  await costBox.fill("0");
   await page.getByRole("button", { name: "Next" }).click();
   await page.getByRole("button", { name: "Next" }).click();
   await page.getByRole("button", { name: "Next" }).click();
@@ -206,6 +223,16 @@ test("a seed packet photo fills in New batch, to check before starting", async (
   await expect(check).toContainText("Chiltern Seeds");
   await expect(check).toContainText("Dec 2027");
   await expect(check).toContainText("L2292");
+  await expect(check).toContainText(/Seed cost\s*Nothing/);
+
+  // Change from the check page keeps what was typed.
+  await page.getByRole("button", { name: "Change seed cost" }).click();
+  await expect(costBox).toHaveValue("0");
+  await costBox.fill("£1.80");
+  await page.getByRole("button", { name: "Next" }).click();
+  await page.getByRole("button", { name: "Next" }).click();
+  await page.getByRole("button", { name: "Next" }).click();
+  await expect(check).toContainText(/Seed cost\s*£1\.80/);
   await page.getByRole("button", { name: "Start batch" }).click();
   await expect(page.getByRole("status")).toContainText("Started");
 
@@ -217,6 +244,8 @@ test("a seed packet photo fills in New batch, to check before starting", async (
     sourceReference: "L2292",
     sowBy: "2027-12-31",
     source: "SeedLot",
+    costAmount: 1.8,
+    costNothing: false,
   });
   await expect
     .poll(() => sent.some((item) => item.url.includes("kind=Packet")))
@@ -313,4 +342,32 @@ test("reading a second packet leaves nothing from the first behind", async ({
   );
   await expect(page.getByLabel("Month")).toHaveValue("");
   await expect(page.locator(".read-tag")).toHaveCount(0);
+});
+
+test("the cost question follows where the plants came from", async ({
+  page,
+}) => {
+  await pretend(page, [], () => ({ status: 200, json: reading }));
+  await startNewBatch(page);
+  await page.getByLabel("What are you planting?").fill("Sweet");
+  await page.locator(".plant-card", { hasText: "Sweet Pea 'Cupani'" }).click();
+  await page.getByRole("button", { name: "Next" }).click();
+
+  // One bought-in plant is "it".
+  await page.getByRole("button", { name: "Bought in", exact: true }).click();
+  const plantBox = page.getByLabel("What did this plant cost? (£, optional)");
+  await expect(plantBox).toHaveAccessibleDescription(
+    "Put in what was paid for it, with any VAT included. You can leave this empty and add it later.",
+  );
+  await plantBox.fill("3");
+
+  // A cost given for plants isn't carried over to seed.
+  await page.getByRole("button", { name: "Seed", exact: true }).click();
+  await expect(
+    page.getByLabel("What did this seed cost? (£, optional)"),
+  ).toHaveValue("");
+
+  // Cuttings taken here cost nothing to buy, so nothing is asked.
+  await page.getByRole("button", { name: "Cuttings", exact: true }).click();
+  await expect(page.getByLabel(/cost\? \(£, optional\)/)).toHaveCount(0);
 });
