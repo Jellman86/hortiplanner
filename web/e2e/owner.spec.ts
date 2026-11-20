@@ -227,7 +227,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(page.getByLabel("Name before the number")).toHaveValue("Bench");
   await expect(page.getByLabel("From", { exact: true })).toHaveValue("1");
   await page.getByLabel("To", { exact: true }).fill("3");
-  await button(page, "Add them").click();
+  await button(page, "Add these places").click();
   await expect(
     page.locator(".place-row strong", { hasText: "Bench 3" }),
   ).toBeVisible();
@@ -533,7 +533,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await page.getByLabel("Name", { exact: true }).fill("Potting shed");
   await page.getByLabel("IP address or network name").fill("127.0.0.1");
   await page.getByLabel("Place labels").check();
-  await button(page, "Add printer").click();
+  await button(page, "Add this printer").click();
   await expect(page.getByText("Potting shed saved.")).toBeVisible();
   await button(page, "Test print").click();
   await expect(page.getByText("belongs to the server itself")).toBeVisible();

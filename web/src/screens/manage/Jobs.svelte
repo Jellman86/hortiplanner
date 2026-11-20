@@ -145,7 +145,10 @@
 
   <div class="split">
     <section>
-      <FormPanel bind:open={formOpen} label="Add a job">
+      <FormPanel
+        bind:open={formOpen}
+        label={editing ? "Change the job" : "Add a job"}
+      >
         <form class="form-card stack" onsubmit={save} data-edit-form>
           <h2 class="form-heading">
             {editing ? "Change the job" : "Add a job"}

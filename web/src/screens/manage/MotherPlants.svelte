@@ -134,7 +134,10 @@
 
   <div class="split">
     <section>
-      <FormPanel bind:open={formOpen} label="Add a mother plant">
+      <FormPanel
+        bind:open={formOpen}
+        label={editing ? "Change the mother plant" : "Add a mother plant"}
+      >
         <form class="form-card stack" onsubmit={save} data-edit-form>
           <h2 class="form-heading">
             {editing ? "Change the mother plant" : "Add a mother plant"}

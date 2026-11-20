@@ -5040,3 +5040,7 @@ button.link-button.ftree-leaf {
 .with-sidebar .row.card-actions > button.link-button {
   min-width: 0;
 }
+
+.row.card-actions > .link-button + .link-button {
+  margin-left: 0;
+}

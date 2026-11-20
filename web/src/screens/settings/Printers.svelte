@@ -232,7 +232,9 @@
           </div>
         </fieldset>
         <div class="row">
-          <button type="submit">{editingId ? "Save" : "Add printer"}</button>
+          <button type="submit"
+            >{editingId ? "Save" : "Add this printer"}</button
+          >
           {#if editingId}
             <button type="button" class="secondary" onclick={stopEditing}
               >Cancel</button

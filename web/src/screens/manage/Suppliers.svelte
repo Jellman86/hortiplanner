@@ -2,6 +2,7 @@
   import Archive from "@lucide/svelte/icons/archive";
   import Pencil from "@lucide/svelte/icons/pencil";
   import FormPanel from "../FormPanel.svelte";
+  import { showForm } from "../../lib/showForm";
   import { onMount } from "svelte";
   import { api } from "../../api/client";
   import { stopUsing } from "../../lib/archive";
@@ -48,6 +49,7 @@
   function edit(supplier: Supplier) {
     editing = supplier.id;
     panelOpen = true;
+    void showForm();
     form = {
       name: supplier.name,
       contactName: supplier.contactName ?? "",
@@ -115,8 +117,11 @@
 
   <div class="split">
     <section>
-      <FormPanel label="Add a supplier" bind:open={panelOpen}>
-        <form class="form-card stack" onsubmit={save}>
+      <FormPanel
+        label={editing ? "Change the supplier" : "Add a supplier"}
+        bind:open={panelOpen}
+      >
+        <form class="form-card stack" onsubmit={save} data-edit-form>
           <h2 class="form-heading">
             {editing ? "Change the supplier" : "Add a supplier"}
           </h2>

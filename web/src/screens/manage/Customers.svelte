@@ -96,7 +96,7 @@
     <section>
       <FormPanel
         bind:open={formOpen}
-        label={editing ? "Change customer" : "Add a customer"}
+        label={editing ? "Change the customer" : "Add a customer"}
       >
         <form class="form-card stack" onsubmit={save} data-edit-form>
           <h2 class="form-heading">

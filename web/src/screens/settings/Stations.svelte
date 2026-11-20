@@ -69,7 +69,7 @@
   <div class="split">
     <section>
       <form class="form-card stack" onsubmit={register}>
-        <h2 class="form-heading">Make this device a bench station</h2>
+        <h2 class="form-heading">Set up this device</h2>
         <label>Name for this device <input bind:value={name} required /></label>
         <button type="submit">Make this device a bench station</button>
       </form>

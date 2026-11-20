@@ -138,7 +138,7 @@
                 {size.quantityInStock === null ||
                 size.quantityInStock === undefined
                   ? "These haven't been counted yet."
-                  : `${size.quantityInStock} in stock`}
+                  : `There are ${size.quantityInStock} in stock.`}
               </span>
               <EntryPhotos
                 entry="PotSize"

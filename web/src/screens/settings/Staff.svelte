@@ -22,7 +22,7 @@
   let level = $state<Schemas["SignInLevel"]>("Personal");
   const allowNameOnly = $derived(level !== "Strict");
   const levels: Record<Schemas["SignInLevel"], string> = {
-    Open: "No signing in: devices go straight in as the nursery team.",
+    Open: "Nobody signs in, so every device goes straight in as the nursery team.",
     Names: "Everyone signs in by tapping their name.",
     Personal: "Each person signs in the way you set for them here.",
     Strict: "Everyone needs a password, passkey or staff login.",
@@ -114,7 +114,7 @@
     ].filter((item) => item !== null);
 
     return ways.length > 0
-      ? `They sign in with ${ways.join(" or ")}.`
+      ? `They sign in with ${new Intl.ListFormat("en-GB", { type: "disjunction" }).format(ways)}.`
       : member.hasPin
         ? "They sign in with a bench PIN only."
         : "They can't sign in yet.";
@@ -332,7 +332,9 @@
 
 <main>
   <h1>Staff</h1>
-  <p class="muted">{levels[level]}</p>
+  <p class="muted">
+    {levels[level]} You can change this for the whole nursery under Signing in.
+  </p>
   <button class="link-button" onclick={onSigningIn}
     ><ArrowRight size={16} aria-hidden="true" />Go to Signing in</button
   >
