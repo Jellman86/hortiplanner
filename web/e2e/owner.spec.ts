@@ -290,9 +290,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(page.getByRole("link", { name: "Receipt 1" })).toBeVisible();
   await expectAccessible(page, "Purchases");
   await button(page, "Mark paid").click();
-  await expect(
-    page.getByText("£0.00 is still owed to suppliers."),
-  ).toBeVisible();
+  await expect(page.getByText("Nothing is owed to suppliers.")).toBeVisible();
   await leaveManage(page);
 
   // Money in: a day's takings show in the month's figures, with the purchase.
@@ -405,6 +403,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(button(page, "Back")).toHaveCount(0);
   await sidebar.getByRole("button", { name: "Figures" }).click();
   await expect(page.getByRole("heading", { name: "Figures" })).toBeVisible();
+  await expectAccessible(page, "Figures, with plants");
 
   // Settings keep their own list beside the page, and say which Hortiplanner this is.
   await button(page, "Settings").click();

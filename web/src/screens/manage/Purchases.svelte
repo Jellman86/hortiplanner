@@ -289,7 +289,13 @@
 
     <section>
       {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
-      <p><strong>{money(owed)} is still owed to suppliers.</strong></p>
+      <p>
+        <strong
+          >{owed > 0
+            ? `${money(owed)} is still owed to suppliers.`
+            : "Nothing is owed to suppliers."}</strong
+        >
+      </p>
 
       <div class="narrow-only stack">
         {#each purchases as purchase (purchase.id)}
@@ -336,6 +342,19 @@
               </div>
             {/each}
             <div class="purchase-actions">
+              {#if purchase.paidOn}
+                <button
+                  class="link-button"
+                  onclick={() => setPaid(purchase.id, null)}
+                  ><Coins size={16} aria-hidden="true" />Mark as not paid</button
+                >
+              {:else}
+                <button
+                  class="link-button"
+                  onclick={() => setPaid(purchase.id, today())}
+                  ><Coins size={16} aria-hidden="true" />Mark paid</button
+                >
+              {/if}
               {#each purchase.receiptIds as receipt, index (receipt)}
                 <a
                   class="small-button"
@@ -355,19 +374,6 @@
                   onchange={(event) => addReceipt(purchase.id, event)}
                 />
               </label>
-              {#if purchase.paidOn}
-                <button
-                  class="link-button"
-                  onclick={() => setPaid(purchase.id, null)}
-                  ><Coins size={16} aria-hidden="true" />Mark as not paid</button
-                >
-              {:else}
-                <button
-                  class="link-button"
-                  onclick={() => setPaid(purchase.id, today())}
-                  ><Coins size={16} aria-hidden="true" />Mark paid</button
-                >
-              {/if}
               <button
                 class="link-button danger-link"
                 onclick={() => voidPurchase(purchase)}
@@ -444,7 +450,7 @@
                         Number(purchase.netTotal) + Number(purchase.vatTotal),
                       )}</td
                     >
-                    <td
+                    <td class="nowrap"
                       >{purchase.paidOn
                         ? dayLabel(purchase.paidOn)
                         : "Not paid"}</td

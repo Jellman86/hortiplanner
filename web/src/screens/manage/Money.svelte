@@ -6,6 +6,7 @@
   import { onMount } from "svelte";
   import DataTable from "../DataTable.svelte";
   import DayPicker from "../DayPicker.svelte";
+  import FormPanel from "../FormPanel.svelte";
   import type { Column } from "../../lib/table";
   import { api } from "../../api/client";
   import { dayLabel } from "../../lib/dates";
@@ -129,18 +130,20 @@
 
   <div class="split wide-list">
     <section>
-      <form class="stack" onsubmit={save}>
-        <DayPicker bind:value={takenOn} label="Date" />
-        <label
-          >Amount taken (£) <input
-            bind:value={amount}
-            inputmode="decimal"
-            required
-          /></label
-        >
-        <label>Notes <input bind:value={notes} /></label>
-        <button type="submit">Save takings</button>
-      </form>
+      <FormPanel label="Add a day's takings">
+        <form class="stack" onsubmit={save}>
+          <DayPicker bind:value={takenOn} label="Date" />
+          <label
+            >Amount taken (£) <input
+              bind:value={amount}
+              inputmode="decimal"
+              required
+            /></label
+          >
+          <label>Notes <input bind:value={notes} /></label>
+          <button type="submit">Save takings</button>
+        </form>
+      </FormPanel>
     </section>
 
     <section>
@@ -163,16 +166,19 @@
             </div>
           {/if}
         </div>
-        <div class="narrow-only stack">
-          {#each summary.months as month (month.month)}
-            <div class="card">
-              <strong>{monthName(month.month)}</strong>
-              <span>Income: {money(Number(month.income))}</span>
-              <span>Spending: {money(Number(month.spending))}</span>
-            </div>
-          {/each}
-        </div>
+        <!-- On a phone, one card with a row for each month. -->
         {#if summary.months.length > 0}
+          <ul class="narrow-only card takings-list" role="list">
+            {#each summary.months as month (month.month)}
+              <li>
+                <strong>{monthName(month.month)}</strong>
+                <span class="stack-tight month-figures">
+                  <span>Income: {money(Number(month.income))}</span>
+                  <span>Spending: {money(Number(month.spending))}</span>
+                </span>
+              </li>
+            {/each}
+          </ul>
           <div class="wide-only">
             <DataTable
               rows={summary.months}
@@ -193,7 +199,7 @@
       <h2 class="table-heading">Recent takings</h2>
       {#if takings.length > 0}
         <!-- On a phone, one card with a row for each day's takings. -->
-        <ul class="narrow-only card takings-list">
+        <ul class="narrow-only card takings-list" role="list">
           {#each takings as taking (taking.id)}
             <li>
               <span class="stack-tight">

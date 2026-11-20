@@ -194,7 +194,7 @@
       </div>
 
       <!-- On a phone the charts come first, then each plant's figures. -->
-      <div class="narrow-only">
+      <div class="narrow-only stack">
         <h2>Each plant</h2>
         <div class="card-grid">
           {#each figures.plants as plant (plant.plantId)}

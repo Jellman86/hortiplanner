@@ -264,9 +264,11 @@
               </span>
             </span>
             <span class="muted production-where">
-              {[row.labelCode, row.locationName, row.potSizeName]
-                .filter(Boolean)
-                .join(" · ")}
+              <span>{row.labelCode}</span>
+              {#if row.locationName}<span class="production-place"
+                  >{row.locationName}</span
+                >{/if}
+              {#if row.potSizeName}<span>{row.potSizeName}</span>{/if}
             </span>
           </span>
         </button>
