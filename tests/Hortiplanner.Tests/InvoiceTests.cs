@@ -103,6 +103,15 @@ public sealed class InvoiceTests(PostgresFixture database)
         Assert.Equal(HttpStatusCode.BadRequest, old.StatusCode);
         Assert.Equal("VatRate", Json(await old.Content.ReadAsStringAsync(Cancellation)).GetProperty("problem").GetString());
 
+        // An invoice dated before the change is checked against the rate of its own day.
+        using var backdated = await PostAsync(nursery.Owner, "/api/invoices", new { customerId = customer, notes = "", issuedOn = DateOnly.FromDateTime(DateTime.Now).AddDays(-3), lines = new[] { Line("Lavender 9cm", 1, 3m, vatRate: 20) } });
+        Assert.Equal(HttpStatusCode.Created, backdated.StatusCode);
+
+        // The accountant's CSV still has the earlier invoice's VAT at 20%: £6.00 on £30.00.
+        using var csv = await nursery.Owner.GetAsync(Route("/api/money/export.csv"), Cancellation);
+        Assert.Equal(HttpStatusCode.OK, csv.StatusCode);
+        Assert.Contains(",30.00,6.00,36.00,", await csv.Content.ReadAsStringAsync(Cancellation), StringComparison.Ordinal);
+
         // The invoice from before keeps 20%, and so does its credit note.
         Assert.Equal(36m, (await InvoiceAsync(nursery.Owner, before.GetProperty("id").GetGuid())).GetProperty("total").GetDecimal());
         Assert.Equal(35.25m, (await InvoiceAsync(nursery.Owner, after.GetProperty("id").GetGuid())).GetProperty("total").GetDecimal());

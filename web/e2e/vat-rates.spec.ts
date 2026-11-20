@@ -57,6 +57,13 @@ test("a new VAT rate is confirmed, kept, and offered on invoices", async ({
       return;
     }
 
+    // The rates change again while the invoice is being written, so issuing it is refused.
+    if (path === "/api/invoices" && request.method() === "POST") {
+      rates = { ...rates, standard: 18 };
+      await route.fulfill({ status: 400, json: { problem: "VatRate" } });
+      return;
+    }
+
     const data: Record<string, unknown> = {
       "/api/account/me": {
         id: "owner",
@@ -66,6 +73,17 @@ test("a new VAT rate is confirmed, kept, and offered on invoices", async ({
       },
       "/api/bench/people": null,
       "/api/backups/status": { known: true, healthy: true },
+      "/api/customers": [
+        {
+          id: "0193a6f0-0000-7000-8000-0000000000c9",
+          name: "Hilltop",
+          address: "1 High Street",
+          email: null,
+          phone: null,
+          vatNumber: null,
+          archived: false,
+        },
+      ],
       "/api/settings/nursery": {
         name: "Croft View",
         address: null,
@@ -99,19 +117,33 @@ test("a new VAT rate is confirmed, kept, and offered on invoices", async ({
   await expect(card.getByLabel("Standard rate (%)")).toHaveValue("20");
   await expectAccessible(page, "Nursery details, VAT rates");
 
+  // Asked first: the question takes the focus, and "Keep it" puts the focus back on Save.
   await card.getByLabel("Standard rate (%)").fill("17.5");
   await card.getByRole("button", { name: "Save the VAT rates" }).click();
-  await expect(card.getByRole("alert")).toHaveText(
-    /Change the standard rate from 20% to 17.5%\? It will be used from today, and nothing already recorded changes\./,
-  );
+  const asked = card.getByRole("group", {
+    name: "Change the standard rate from 20% to 17.5%? It will be used from today, and nothing already recorded changes.",
+  });
+  await expect(asked).toBeFocused();
+  await expectAccessible(page, "Nursery details, asked about a new VAT rate");
+  await card.getByRole("button", { name: "Keep it at 20%" }).click();
+  await expect(
+    card.getByRole("button", { name: "Save the VAT rates" }),
+  ).toBeFocused();
+  await expect(card.getByLabel("Standard rate (%)")).toHaveValue("20");
+
+  await card.getByLabel("Standard rate (%)").fill("17.5");
+  await card.getByRole("button", { name: "Save the VAT rates" }).click();
   await card.getByRole("button", { name: "Change the rate" }).click();
+  await expect(
+    card.getByRole("button", { name: "Save the VAT rates" }),
+  ).toBeFocused();
   await expect(
     card.getByText("The standard rate is 17.5% from today."),
   ).toBeVisible();
   expect(sent).toEqual([{ standard: 17.5, reduced: 5 }]);
   await expect(
     card.getByText(
-      /The standard rate was 20% until .* Sam Fielding changed it to 17\.5% on/,
+      "The standard rate was 20% until 31 March 2027. Sam Fielding changed it to 17.5% on 1 April 2027.",
     ),
   ).toBeVisible();
 
@@ -131,4 +163,19 @@ test("a new VAT rate is confirmed, kept, and offered on invoices", async ({
   await page.getByRole("button", { name: "New invoice" }).click();
   const vat = page.locator("label.line-vat select").first();
   await expect(vat.locator("option:checked")).toHaveText("Standard, 17.5%");
+
+  // Refused because the rates changed meanwhile: it says so, and the line moves to the new standard rate.
+  await page
+    .getByRole("combobox", { name: "Customer" })
+    .selectOption({ label: "Hilltop" });
+  await page.getByLabel("Description").fill("Mixed perennials");
+  await page.getByLabel("Price each (£)").fill("4.50");
+  page.once("dialog", (dialog) => void dialog.accept());
+  await page.getByRole("button", { name: "Issue invoice" }).click();
+  await expect(
+    page.getByText(
+      "The VAT rates changed while you were writing this invoice. Please check the VAT on each line and issue it again.",
+    ),
+  ).toBeVisible();
+  await expect(vat.locator("option:checked")).toHaveText("Standard, 18%");
 });

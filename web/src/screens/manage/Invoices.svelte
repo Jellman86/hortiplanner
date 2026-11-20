@@ -96,6 +96,30 @@
 
   onMount(() => void attempt(load, setProblem));
 
+  /**
+   * The rates changed, or the nursery stopped being registered for VAT, while this invoice was being written. The
+   * rates are fetched again and each line moved to the matching new rate, so what's shown is what would be charged.
+   */
+  async function ratesChanged(): Promise<string> {
+    const oldStandard = standardRate;
+    const oldReduced = reducedRate;
+    await load();
+
+    if (!vatRegistered) {
+      lines = lines.map((line) => changeRate(line, 0, false));
+      return "The nursery is no longer registered for VAT, so the VAT has been taken off each line. Please check the invoice and issue it again.";
+    }
+
+    lines = lines.map((line) =>
+      line.vatRate === oldStandard
+        ? changeRate(line, standardRate, true)
+        : line.vatRate === oldReduced
+          ? changeRate(line, reducedRate, true)
+          : line,
+    );
+    return "The VAT rates changed while you were writing this invoice. Please check the VAT on each line and issue it again.";
+  }
+
   const emptyLine = (): DraftLine => ({
     description: "",
     quantity: 1,
@@ -219,16 +243,14 @@
           const refused = (error as { problem?: string } | undefined)?.problem;
 
           if (refused === "VatRate") {
-            // The rates changed while this was being written: fetch them again, for the person to check.
-            await load();
+            problem = await ratesChanged();
+            return;
           }
 
           problem =
             response.status === 409
               ? "One of the trays doesn't have that many plants. Check the numbers."
-              : refused === "VatRate"
-                ? "The VAT rates changed while you were writing this invoice. Please check the VAT on each line and issue it again."
-                : "Please check every line has a description, a quantity and a price.";
+              : "Please check every line has a description, a quantity and a price.";
         }
       } finally {
         busy = false;

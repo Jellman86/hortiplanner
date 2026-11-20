@@ -44,12 +44,13 @@ internal static class VatRateEndpoints
 
     private static async Task<IResult> SaveAsync(VatRatesRequest request, ClaimsPrincipal user, HortiplannerDbContext db, TimeProvider clock, CancellationToken cancellationToken)
     {
-        if (!IsRate(request.Standard) || !IsRate(request.Reduced))
+        // Both rates every time: a missing one is refused, never taken as nought.
+        if (request.Standard is not { } standard || request.Reduced is not { } reduced || !IsRate(standard) || !IsRate(reduced))
         {
             return TypedResults.BadRequest(new VatRatesRefused("Rate"));
         }
 
-        if (request.Reduced > request.Standard)
+        if (reduced > standard)
         {
             return TypedResults.BadRequest(new VatRatesRefused("ReducedAboveStandard"));
         }
@@ -58,7 +59,7 @@ internal static class VatRateEndpoints
         var setBy = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
         var changed = new List<VatBand>();
 
-        foreach (var (band, percent) in new[] { (VatBand.Standard, request.Standard), (VatBand.Reduced, request.Reduced) })
+        foreach (var (band, percent) in new[] { (VatBand.Standard, standard), (VatBand.Reduced, reduced) })
         {
             if (await VatRates.PercentAsync(db, band, today, cancellationToken) != percent)
             {
@@ -71,7 +72,7 @@ internal static class VatRateEndpoints
         return TypedResults.Ok(new VatRatesSaved(changed));
     }
 
-    internal sealed record VatRatesRequest(decimal Standard, decimal Reduced);
+    internal sealed record VatRatesRequest(decimal? Standard, decimal? Reduced);
 
     /// <param name="Changed">Which rates changed, so the screen can say so: none when they were already in use.</param>
     internal sealed record VatRatesSaved(IReadOnlyList<VatBand> Changed);

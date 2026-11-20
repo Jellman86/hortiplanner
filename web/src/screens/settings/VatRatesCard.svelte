@@ -1,16 +1,15 @@
 <script lang="ts">
   import Check from "@lucide/svelte/icons/check";
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import { api } from "../../api/client";
-  import { addDays, longDay } from "../../lib/days";
   import { attempt, type Schemas } from "../../lib/types";
+  import { rateHistory } from "../../lib/vatRates";
 
   // The VAT rates, under Settings, Nursery details. A change is used from today: invoices already issued keep the
   // rate they were worked out with.
   let { vatRegistered }: { vatRegistered: boolean } = $props();
 
   type Rates = Schemas["VatRatesSummary"];
-  type Change = Schemas["VatRateHistory"];
 
   let rates = $state<Rates | null>(null);
   let standard = $state("");
@@ -19,16 +18,27 @@
   let busy = $state(false);
   let problem = $state("");
   let saved = $state("");
+  let saveButton = $state<HTMLButtonElement>();
+  let question = $state<HTMLDivElement>();
 
-  const bandName = (band: string) =>
-    band === "Standard" ? "standard" : "reduced";
+  const notFetched =
+    "The VAT rates couldn't be fetched just now. Please try again in a minute.";
+
   async function load() {
-    rates = (await api.GET("/api/settings/vat-rates")).data ?? null;
-    standard = String(Number(rates?.standard ?? 20));
-    reduced = String(Number(rates?.reduced ?? 5));
+    const { data } = await api.GET("/api/settings/vat-rates");
+
+    if (!data) {
+      // Nothing is guessed: without the rates, the card says so rather than showing 20 and 5.
+      problem = notFetched;
+      return;
+    }
+
+    rates = data;
+    standard = String(Number(data.standard));
+    reduced = String(Number(data.reduced));
   }
 
-  onMount(() => void attempt(load, (message) => (problem = message)));
+  onMount(() => attempt(load, () => (problem = notFetched)));
 
   const isRate = (text: string) =>
     /^\d{1,3}(\.\d{1,2})?$/.test(text.trim()) && Number(text) <= 100;
@@ -45,39 +55,30 @@
     ].filter((change) => change.from !== change.to);
   });
 
-  const question = $derived(
+  const asked = $derived(
     changes.length === 1
       ? `Change the ${changes[0].band} rate from ${changes[0].from}% to ${changes[0].to}%? It will be used from today, and nothing already recorded changes.`
       : `Change the standard rate from ${changes[0]?.from}% to ${changes[0]?.to}% and the reduced rate from ${changes[1]?.from}% to ${changes[1]?.to}%? They will be used from today, and nothing already recorded changes.`,
   );
 
-  // Each change after the starting rates, as a sentence: what it was until when, and who changed it to what.
-  const history = $derived.by(() => {
-    if (!rates) {
-      return [];
-    }
+  const history = $derived(rates ? rateHistory(rates.changes) : []);
 
-    const all = rates.changes as Change[];
-    return all
-      .map((change, index) => ({ change, index }))
-      .filter(({ change }) => change.setBy)
-      .map(({ change, index }) => {
-        const before = all
-          .slice(0, index)
-          .filter((earlier) => earlier.band === change.band)
-          .at(-1);
-        const name = bandName(change.band);
-        return before
-          ? `The ${name} rate was ${Number(before.percent)}% until ${longDay(addDays(change.from, -1))}. ${change.setBy} changed it to ${Number(change.percent)}% on ${longDay(change.from)}.`
-          : `${change.setBy} set the ${name} rate to ${Number(change.percent)}% on ${longDay(change.from)}.`;
-      })
-      .reverse();
-  });
+  // Back to the Save button once the question has gone, so the keyboard isn't sent to the top of the page.
+  async function backToSave() {
+    confirming = false;
+    await tick();
+    saveButton?.focus();
+  }
 
-  function ask(event: SubmitEvent) {
+  async function ask(event: SubmitEvent) {
     event.preventDefault();
     problem = "";
     saved = "";
+
+    if (!rates) {
+      problem = notFetched;
+      return;
+    }
 
     if (!isRate(standard) || !isRate(reduced)) {
       problem =
@@ -96,12 +97,14 @@
     }
 
     confirming = true;
+    await tick();
+    question?.focus();
   }
 
-  function keep() {
-    confirming = false;
-    standard = String(Number(rates?.standard ?? 20));
-    reduced = String(Number(rates?.reduced ?? 5));
+  async function keep() {
+    standard = String(Number(rates?.standard));
+    reduced = String(Number(rates?.reduced));
+    await backToSave();
   }
 
   const save = () =>
@@ -117,16 +120,16 @@
 
           if (!response.ok) {
             problem =
-              "Please put the rate in as a percentage between 0 and 100, such as 20 or 17.5.";
+              "The VAT rates couldn't be saved. Please check them and try again.";
             return;
           }
 
-          confirming = false;
           saved =
             said.length === 1
               ? `The ${said[0].band} rate is ${said[0].to}% from today.`
               : "The new VAT rates are used from today.";
           await load();
+          await backToSave();
         } finally {
           busy = false;
         }
@@ -137,17 +140,16 @@
 
 <form class="form-card stack" onsubmit={ask}>
   <h2 class="form-heading">VAT rates</h2>
-  <p class="muted">These are used to work out the VAT on invoices.</p>
-  {#if !vatRegistered}
-    <p class="muted">
-      The nursery isn't registered for VAT, so invoices don't charge it.
-    </p>
-  {/if}
+  <p class="muted">
+    {vatRegistered
+      ? "These are used to work out the VAT on invoices."
+      : "The nursery isn't registered for VAT, so invoices don't charge it. These rates are kept ready for when it is."}
+  </p>
   <label
     >Standard rate (%) <input
       bind:value={standard}
       inputmode="decimal"
-      disabled={confirming}
+      disabled={confirming || !rates}
       required
     /></label
   >
@@ -155,7 +157,7 @@
     >Reduced rate (%) <input
       bind:value={reduced}
       inputmode="decimal"
-      disabled={confirming}
+      disabled={confirming || !rates}
       required
     /></label
   >
@@ -164,8 +166,15 @@
   </p>
 
   {#if confirming}
-    <div class="card caution stack tight" role="alert">
-      <span>{question}</span>
+    <!-- A question with its two answers: the question is read when it appears, and Tab reaches the answers. -->
+    <div
+      class="card caution stack tight"
+      role="group"
+      aria-labelledby="vat-rates-question"
+      tabindex="-1"
+      bind:this={question}
+    >
+      <span id="vat-rates-question">{asked}</span>
       <div class="row">
         <button type="button" disabled={busy} onclick={save}
           ><Check size={18} aria-hidden="true" />
@@ -181,7 +190,7 @@
       </div>
     </div>
   {:else}
-    <button type="submit"
+    <button type="submit" bind:this={saveButton} disabled={!rates}
       ><Check size={18} aria-hidden="true" /> Save the VAT rates</button
     >
   {/if}
@@ -195,7 +204,7 @@
   {#if history.length > 0}
     <h3 class="form-heading">Earlier rates</h3>
     <ul class="plain-list stack tight">
-      {#each history as sentence (sentence)}
+      {#each history as sentence, index (index)}
         <li class="muted">{sentence}</li>
       {/each}
     </ul>

@@ -59,6 +59,8 @@ public sealed class VatRateTests(PostgresFixture database)
         Assert.Equal("Rate", (await SaveAsync(nursery.Owner, 20m, -1m)).Body.GetProperty("problem").GetString());
         Assert.Equal("Rate", (await SaveAsync(nursery.Owner, 20.125m, 5m)).Body.GetProperty("problem").GetString());
         Assert.Equal("ReducedAboveStandard", (await SaveAsync(nursery.Owner, 5m, 20m)).Body.GetProperty("problem").GetString());
+        using var missing = await nursery.Owner.PutAsJsonAsync(Route(Path), new { standard = 20m }, Cancellation);
+        Assert.Equal(HttpStatusCode.BadRequest, missing.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, await GetStatusAsync(nursery.Staff, Path));
         using var staffSave = await nursery.Staff.PutAsJsonAsync(Route(Path), new { standard = 10m, reduced = 5m }, Cancellation);
         Assert.Equal(HttpStatusCode.Forbidden, staffSave.StatusCode);
@@ -71,6 +73,7 @@ public sealed class VatRateTests(PostgresFixture database)
         var clock = new TestClock();
         await using var nursery = await TwoPersonNursery.CreateAsync(database, clock: clock);
         await SaveAsync(nursery.Owner, 18m, 5m);
+        clock.Advance(TimeSpan.FromMinutes(5));
         await SaveAsync(nursery.Owner, 19m, 5m);
         clock.Advance(TimeSpan.FromDays(3));
         await SaveAsync(nursery.Owner, 21m, 5m);
@@ -81,6 +84,7 @@ public sealed class VatRateTests(PostgresFixture database)
         Assert.Equal(21m, await Api.Settings.VatRates.PercentAsync(db, VatBand.Standard, today, Cancellation));
         Assert.Equal(19m, await Api.Settings.VatRates.PercentAsync(db, VatBand.Standard, today.AddDays(-1), Cancellation));
         Assert.Equal(20m, await Api.Settings.VatRates.PercentAsync(db, VatBand.Standard, today.AddDays(-30), Cancellation));
+        Assert.Equal(20m, await Api.Settings.VatRates.PercentAsync(db, VatBand.Standard, new DateOnly(1990, 1, 1), Cancellation));
         Assert.Equal(0m, await Api.Settings.VatRates.PercentAsync(db, VatBand.Zero, today, Cancellation));
     }
 
@@ -95,6 +99,8 @@ public sealed class VatRateTests(PostgresFixture database)
         Assert.Contains("append-only", update.MessageText, StringComparison.Ordinal);
         var delete = await Assert.ThrowsAsync<PostgresException>(() => db.VatRateChanges.ExecuteDeleteAsync(Cancellation));
         Assert.Contains("append-only", delete.MessageText, StringComparison.Ordinal);
+        var truncate = await Assert.ThrowsAsync<PostgresException>(() => db.Database.ExecuteSqlRawAsync("TRUNCATE vat_rate_changes", Cancellation));
+        Assert.Contains("append-only", truncate.MessageText, StringComparison.Ordinal);
     }
 
     [Fact]

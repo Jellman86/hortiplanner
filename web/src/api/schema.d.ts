@@ -10258,9 +10258,9 @@ export interface components {
         };
         VatRatesRequest: {
             /** Format: double */
-            standard: number | string;
+            standard: null | number | string;
             /** Format: double */
-            reduced: number | string;
+            reduced: null | number | string;
         };
         VatRatesSummary: {
             /** Format: double */
