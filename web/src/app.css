@@ -1113,7 +1113,7 @@ button.place-row:hover:not(:disabled) {
 }
 
 /* With room to spare, the sample stays in view beside the choices while they change. */
-@media (min-width: 1500px) {
+@container page (min-width: 56rem) {
   .with-sidebar .label-editor {
     display: grid;
     grid-template-columns: minmax(22rem, 28rem) minmax(0, 1fr);
@@ -3692,6 +3692,14 @@ button.ask-card:hover:not(:disabled) {
   gap: 0.5rem;
 }
 
+/* A tablet has room for the menus' buttons two to a row. */
+@media (min-width: 640px) and (max-width: 899.98px) {
+  .with-sidebar .menu-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .menu-group .settings-heading {
   margin-top: 0.25rem;
 }
@@ -3876,6 +3884,16 @@ button.ask-card:hover:not(:disabled) {
   position: relative;
   flex-direction: row;
   cursor: pointer;
+}
+
+/* A file chooser that can't be used just now, such as while a picture uploads, looks it. */
+label.file-link:has(input:disabled),
+label.file-link:has(input:disabled):hover {
+  border-color: var(--line);
+  background: color-mix(in srgb, var(--line) 60%, var(--surface));
+  color: var(--muted);
+  box-shadow: none;
+  cursor: default;
 }
 
 .file-link:has(input:focus-visible) {
@@ -5043,4 +5061,51 @@ button.link-button.ftree-leaf {
 
 .row.card-actions > .link-button + .link-button {
   margin-left: 0;
+}
+
+/* The kinds of label, never one left alone: two to a row on a phone, where a fifth runs the width; then four on one
+   row, or five as three and two; then all five on one row. */
+.segmented.label-kinds {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.segmented.label-kinds > :last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+@container page (min-width: 30rem) {
+  .segmented.label-kinds {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .segmented.label-kinds > :last-child:nth-child(odd) {
+    grid-column: auto;
+  }
+
+  .segmented.label-kinds:has(> :nth-child(5)) {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .segmented.label-kinds:has(> :nth-child(5)) > * {
+    grid-column: span 2;
+  }
+
+  .segmented.label-kinds:has(> :nth-child(5)) > :nth-child(n + 4) {
+    grid-column: span 3;
+  }
+}
+
+@container page (min-width: 43rem) {
+  .segmented.label-kinds:has(> :nth-child(5)) {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .segmented.label-kinds:has(> :nth-child(5)) > :nth-child(n) {
+    grid-column: auto;
+  }
+}
+
+/* Features: a card for each part of Hortiplanner, side by side where there's room. */
+.feature-list {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 26rem), 1fr));
 }

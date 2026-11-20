@@ -448,8 +448,8 @@
                 It's shown beside their name when they sign in, at a bench and
                 here. They can change it themselves under My account.
               </p>
-              <label class="photo-choice">
-                <Camera size={20} />
+              <label class="file-link">
+                <Camera size={16} aria-hidden="true" />
                 <span
                   >{member.pictureAt
                     ? "Change the picture"
@@ -474,8 +474,8 @@
                 they can turn it off. It can be an MP3, M4A or WAV file of up to
                 4 MB.
               </p>
-              <label class="photo-choice">
-                <Music size={20} />
+              <label class="file-link">
+                <Music size={16} aria-hidden="true" />
                 <span
                   >{member.hasTune ? "Change the tune" : "Choose a tune"}</span
                 >

@@ -78,66 +78,77 @@ export async function setFeature(feature: Feature, on: boolean) {
   return response.ok;
 }
 
-export type FeatureInfo = { feature: Feature; label: string; hides: string };
+/**
+ * What each switch is called and what turning it off hides, in the order shown under Settings, Features. "hides"
+ * finishes "Turning it off hides …" and "Turning it on brings back …"; "note" is a sentence of its own, if any.
+ */
+export type FeatureInfo = {
+  feature: Feature;
+  label: string;
+  hides: string;
+  note?: string;
+};
 
-/** What each switch is called and what turning it off hides, in the order shown under Settings, Features. */
 export const featureInfo: FeatureInfo[] = [
   {
     feature: "Climate",
     label: "Sensors and climate",
-    hides:
-      "Manage, Climate and Settings, Sensors. Readings that sensors send in are turned away while it's off.",
+    hides: "Climate under Manage and Sensors under Settings",
+    note: "While it's off, readings that sensors send in are turned away.",
   },
   {
     feature: "PlacesMap",
     label: "Places map",
     hides:
-      "The map step when adding a place, On the map on each place, and Settings, Map, with its satellite pictures.",
+      "the map step when adding a place, the map on each place's page and Map under Settings with its satellite pictures",
   },
   {
     feature: "Passports",
     label: "Plant passports",
     hides:
-      "Passports on trays, issuing them, received passports, consignments and the authorisation renewal reminder.",
+      "passports on trays, issuing them, received passports, Consignments under Manage and the authorisation renewal reminder",
   },
   {
     feature: "MotherPlants",
     label: "Mother plants",
     hides:
-      "Manage, Mother plants and choosing a mother for cuttings in New batch. Mothers already recorded still show on their batches.",
+      "Mother plants under Manage and choosing a mother for cuttings in New batch",
+    note: "Mothers already recorded still show on their batches.",
   },
   {
     feature: "Jobs",
     label: "Jobs",
     hides:
-      "Manage, Jobs, the jobs due on Record work and the late jobs reminder.",
+      "Jobs under Manage, the jobs due on Record work and the late jobs reminder",
   },
   {
     feature: "Invoices",
     label: "Trade invoices",
     hides:
-      "Invoices, the overdue invoices reminder and invoiced orders in Consignments.",
+      "Invoices under Manage, the overdue invoices reminder and invoiced plants in Consignments",
   },
   {
     feature: "Purchases",
     label: "Purchases",
-    hides: "Manage, Purchases and what's owed to suppliers.",
+    hides: "Purchases under Manage and what's owed to suppliers",
   },
   {
     feature: "BatchPhotos",
     label: "Batch photos",
-    hides: "The strip of photos on trays, Edit batch and the trace report.",
+    hides:
+      "the strip of photos on trays, in Edit batch and on the trace report",
   },
   {
     feature: "Assistant",
     label: "Ask Hortiplanner (AI)",
-    hides:
-      "Ask Hortiplanner everywhere and Settings, AI assistant. It also needs an OpenRouter key there before anyone can ask.",
+    hides: "Ask Hortiplanner everywhere and AI assistant under Settings",
+    note: "It also needs an OpenRouter key there before anyone can ask.",
   },
   {
     feature: "BenchStations",
     label: "Bench stations",
     hides:
-      "Settings, Bench stations and the bench PINs in My account and Staff. A device already made a bench station shows the ordinary sign-in instead.",
+      "Bench stations under Settings and the bench PINs in My account and Staff",
+    note: "While it's off, a device already made a bench station shows the ordinary sign-in instead.",
   },
 ];

@@ -221,8 +221,8 @@
             </select>
           </label>
           <DayPicker bind:value={purchasedOn} label="Date" />
-          <label class="photo-choice">
-            <FileUp size={20} />
+          <label class="file-link">
+            <FileUp size={16} aria-hidden="true" />
             <span
               >{reading
                 ? "Reading the invoice…"

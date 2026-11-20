@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ImageUp from "@lucide/svelte/icons/image-up";
   import ExternalLink from "@lucide/svelte/icons/external-link";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import { onMount } from "svelte";
@@ -220,8 +221,9 @@
           </div>
         </fieldset>
       {/if}
-      <label
-        >{pictureChangedAt ? "Replace the picture" : "Upload a picture"}
+      <label class="file-link">
+        <ImageUp size={16} aria-hidden="true" />
+        {pictureChangedAt ? "Replace the picture" : "Upload a picture"}
         <input
           type="file"
           accept="image/jpeg,image/png,image/webp"

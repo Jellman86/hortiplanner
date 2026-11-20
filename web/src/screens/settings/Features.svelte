@@ -62,9 +62,9 @@
             <strong>{item.label}</strong>
             <span class="muted" id="feature-{item.feature}"
               >{on
-                ? "It's on. Turning it off hides:"
-                : "It's off, so these are hidden:"}
-              {item.hides}</span
+                ? `It's on. Turning it off hides ${item.hides}.`
+                : `It's off. Turning it on brings back ${item.hides}.`}
+              {item.note ?? ""}</span
             >
           </span>
         </label>

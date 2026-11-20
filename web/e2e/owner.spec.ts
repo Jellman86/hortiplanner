@@ -148,7 +148,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
     .fill("Lavandula angustifolia");
   await button(page, "Next").click();
   await page.getByLabel("Price for 9cm (£)").fill("4.50");
-  await button(page, "Add").click();
+  await button(page, "Add this plant").click();
   await expect(page.getByText("Lavender 'Hidcote'")).toBeVisible();
 
   // The plant's card holds what we know, and growing notes anyone can add to.
@@ -553,7 +553,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
 
   // Plants come in from a spreadsheet: problem rows are named first, and everything comes out in one download.
   await openSettings(page, "Data and backups");
-  await page.getByLabel("Spreadsheet (CSV)").setInputFiles({
+  await page.getByLabel("Choose the spreadsheet (CSV)").setInputFiles({
     name: "plants.csv",
     mimeType: "text/csv",
     buffer: Buffer.from(
@@ -684,7 +684,11 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(climateSwitch).toBeChecked();
   await climateSwitch.click();
   await expect(climateSwitch).not.toBeChecked();
-  await expect(page.getByText("It's off, so these are hidden:")).toBeVisible();
+  await expect(
+    page.getByText(
+      "It's off. Turning it on brings back Climate under Manage and Sensors under Settings.",
+    ),
+  ).toBeVisible();
   await expectAccessible(page, "Features");
   await leaveManage(page);
   await button(page, "Manage").click();
