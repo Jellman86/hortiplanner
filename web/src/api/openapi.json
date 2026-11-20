@@ -6530,7 +6530,9 @@
           "kind",
           "title",
           "why",
-          "where"
+          "where",
+          "count",
+          "level"
         ],
         "type": "object",
         "properties": {
@@ -6544,6 +6546,17 @@
             "type": "string"
           },
           "where": {
+            "type": "string"
+          },
+          "count": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "level": {
             "type": "string"
           }
         }

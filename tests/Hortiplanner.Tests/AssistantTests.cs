@@ -28,6 +28,9 @@ public sealed class AssistantTests(PostgresFixture database)
         /// "no provider" (refused as not found, as for a model with no provider to take the question).</summary>
         public string Mode { get; set; } = "normal";
 
+        /// <summary>The tool the pretend model looks something up with first.</summary>
+        public string Tool { get; set; } = "stock";
+
         /// <summary>What a label reads as, as the tool's arguments, when a label is read; with Mode "label as text", sent as text.</summary>
         public string? Label { get; set; }
 
@@ -85,7 +88,7 @@ public sealed class AssistantTests(PostgresFixture database)
 
             return askedForTools
                 ? Reply("""{"choices":[{"message":{"role":"assistant","content":"You have 40 Lavender growing."}}],"usage":{"cost":0.002}}""")
-                : Reply("""{"choices":[{"message":{"role":"assistant","content":null,"tool_calls":[{"id":"call-1","type":"function","function":{"name":"stock","arguments":"{}"}}]}}],"usage":{"cost":0.001}}""");
+                : Reply(new JsonObject { ["choices"] = new JsonArray(new JsonObject { ["message"] = new JsonObject { ["role"] = "assistant", ["content"] = null, ["tool_calls"] = new JsonArray(new JsonObject { ["id"] = "call-1", ["type"] = "function", ["function"] = new JsonObject { ["name"] = Tool, ["arguments"] = "{}" } }) } }), ["usage"] = new JsonObject { ["cost"] = 0.001 } }.ToJsonString());
         }
 
         private static HttpResponseMessage Reply(string json) =>
@@ -400,9 +403,9 @@ public sealed class AssistantTests(PostgresFixture database)
     }
 
     [Fact]
-    public async Task Odd_requests_are_turned_away_and_staff_are_not_offered_the_owners_reminders()
+    public async Task Odd_requests_are_turned_away_and_staff_get_only_their_own_reminders()
     {
-        var openRouter = new PretendOpenRouter();
+        var openRouter = new PretendOpenRouter { Tool = "needs_a_look" };
         await using var nursery = await TwoPersonNursery.CreateAsync(database, outsideWorld: openRouter);
         await SetUpAsync(nursery, openRouter, forStaff: true);
 
@@ -417,9 +420,17 @@ public sealed class AssistantTests(PostgresFixture database)
         Assert.Equal(HttpStatusCode.BadRequest, await SendAsync(new { messages = new[] { new { role = "user", text = "Tray?" } }, about = new { trayLabel = new string('C', 5000) } }));
         Assert.Equal(HttpStatusCode.BadRequest, await SendAsync(new { messages = new[] { new { role = "user", text = "This?" } }, images = Svg }));
 
+        // The owner's renewal is overdue and a job is due: staff are told about the job only.
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        using var settings = await nursery.Owner.PutAsJsonAsync(Route("/api/settings/nursery"), new { name = "Croft View", hasLogo = false, vatRegistered = false, paymentTermsDays = 30, authorisationRenewsOn = today.AddDays(-1), setsRenewal = true }, Cancellation);
+        settings.EnsureSuccessStatusCode();
+        await PostForTextAsync(nursery.Owner, "/api/jobs", new { title = "Water house 1", everyDays = 7, firstDue = today });
+
         using var asked = await AskAsync(nursery.Staff, "What needs a look?");
         Assert.Equal(HttpStatusCode.OK, asked.StatusCode);
-        Assert.DoesNotContain("needs_a_look", openRouter.Questions[0].Body, StringComparison.Ordinal);
+        var lookedUp = openRouter.Questions[^1].Body;
+        Assert.Contains("1 job is due today", lookedUp, StringComparison.Ordinal);
+        Assert.DoesNotContain("authorisation", lookedUp, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

@@ -261,6 +261,12 @@ public sealed class BenchStationTests(PostgresFixture database)
         Assert.False(me.GetProperty("isOwner").GetBoolean());
         Assert.Equal(HttpStatusCode.Forbidden, await GetStatusAsync(nursery.Bench, "/api/staff"));
         Assert.Equal(HttpStatusCode.OK, await GetStatusAsync(nursery.Bench, "/api/containers/active"));
+
+        // What needs a look is the staff's list there: a job due, but not that it's running late.
+        Assert.Equal(HttpStatusCode.Created, await PostStatusAsync(nursery.Owner, "/api/jobs", new { title = "Water the tunnel", everyDays = 7, firstDue = DateOnly.FromDateTime(DateTime.Now).AddDays(-10) }));
+        var kinds = (await nursery.Bench.GetFromJsonAsync<JsonElement>(Route("/api/alerts"), Cancellation)).EnumerateArray()
+            .Select(alert => alert.GetProperty("kind").GetString()).ToList();
+        Assert.Equal(["JobsDue"], kinds);
     }
 
     [Fact]

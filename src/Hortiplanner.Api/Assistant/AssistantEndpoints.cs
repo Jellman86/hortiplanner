@@ -48,8 +48,7 @@ internal static partial class AssistantEndpoints
     private static Guid UserId(ClaimsPrincipal user) => Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
     /// <summary>The owner, signed in as themselves rather than at a bench by PIN, as the owner policy has it.</summary>
-    private static bool IsOwner(ClaimsPrincipal user) =>
-        user.IsInRole(AccountServices.OwnerRole) && user.FindFirst(AccountServices.BenchSessionClaim) is null;
+    private static bool IsOwner(ClaimsPrincipal user) => AccountServices.IsOwner(user);
 
     private static bool MayAsk(ClaimsPrincipal user, NurserySettings settings) => IsOwner(user) || settings.AssistantForStaff;
 

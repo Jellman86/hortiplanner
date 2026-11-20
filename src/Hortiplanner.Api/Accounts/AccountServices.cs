@@ -14,6 +14,10 @@ namespace Hortiplanner.Api.Accounts;
 internal static class AccountServices
 {
     public const string OwnerRole = "Owner";
+
+    /// <summary>Whether this is the owner signed in as themselves: at a bench, by PIN, they act as staff.</summary>
+    public static bool IsOwner(System.Security.Claims.ClaimsPrincipal user) =>
+        user.IsInRole(OwnerRole) && user.FindFirst(BenchSessionClaim) is null;
     public const string OwnerPolicy = "Owner";
     public const string BenchPolicy = "BenchStation";
     public const string BenchScheme = "BenchStation";

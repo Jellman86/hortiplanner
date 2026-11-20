@@ -105,6 +105,7 @@ public sealed class FeatureTests(PostgresFixture database)
         Assert.Contains("JobsLate", await KindsAsync(), StringComparer.Ordinal);
         Assert.Equal(HttpStatusCode.NoContent, await SetAsync(nursery.Owner, "Jobs", on: false));
         Assert.DoesNotContain("JobsLate", await KindsAsync(), StringComparer.Ordinal);
+        Assert.DoesNotContain("JobsDue", await KindsAsync(), StringComparer.Ordinal);
     }
 
     [Fact]
