@@ -58,7 +58,7 @@ Everything people read in Hortiplanner is written as a person would say it to a 
 
 - **No bare text links for actions.** Every action is a styled button: `button` (primary), `button.secondary`, or `button.link-button` / `a.small-button` for smaller ones. Each has a border, the surface colour and a drop shadow (`--shadow`).
 - **Use an icon where it helps you recognise the action at a glance:** an arrow to go somewhere, external-link for a page outside Hortiplanner, a download icon for a PDF, undo for Undo, a bin for removing or voiding, a pencil for changing. Icons come from `@lucide/svelte`, at size 16 in small buttons, with `aria-hidden="true"`, and never replace the words.
-- **The exceptions:** breadcrumbs stay text links, and the sidebar, bottom bar, Back and icon-only buttons stay flat.
+- **The exceptions:** breadcrumbs stay text links, and the sidebar, bottom bar, Settings' menu, Back and icon-only buttons stay flat.
 
 ## Before opening a pull request
 

@@ -497,14 +497,20 @@ a {
   gap: 1rem;
 }
 
-/* Cards side by side wherever there's room for two, from a tablet up; one column on a phone. */
 .card-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Signed in on a personal device, cards sit side by side wherever there's room for two, from a tablet up; one
+   column on a phone. Bench stations keep their own layout. */
+.with-sidebar .card-grid {
   display: grid;
   grid-template-columns: repeat(
     auto-fill,
     minmax(min(100%, var(--card-min)), 1fr)
   );
-  gap: 0.75rem;
 }
 
 .actions {
@@ -1290,6 +1296,13 @@ label.tick {
 .bottom-nav span {
   font-size: 0.8125rem;
   white-space: nowrap;
+}
+
+/* The smallest phones, or a small one zoomed in: labels may wrap rather than push the bar off the screen. */
+@media (max-width: 339px) {
+  .bottom-nav span {
+    white-space: normal;
+  }
 }
 
 /* What was just done, then its buttons, which wrap beneath it on the right when the card is narrow. */
@@ -2457,7 +2470,7 @@ button.danger:hover:not(:disabled) {
 }
 
 @media print {
-  .split.trace {
+  .with-sidebar .split.trace {
     display: block;
   }
 
@@ -3997,40 +4010,37 @@ select:not([multiple]) {
   container: page / inline-size;
 }
 
-@media (min-width: 640px) {
+/* A tablet gets a wider column than a phone; from 900px the desk rules above take over unchanged. */
+@media (min-width: 640px) and (max-width: 899.98px) {
   .with-sidebar main,
   .with-sidebar .breadcrumbs {
     max-width: 46rem;
   }
 
-  .with-sidebar main:is(.action-frame, .page-form) {
+  .with-sidebar main:is(.action-frame, .page-form),
+  .with-sidebar .breadcrumbs:has(+ main:is(.action-frame, .page-form)) {
     max-width: 36rem;
+  }
+
+  .with-sidebar main.action-frame:has(.action-columns),
+  .with-sidebar .breadcrumbs:has(+ main.action-frame .action-columns) {
+    max-width: 46rem;
   }
 }
 
 @media (min-width: 900px) {
-  .with-sidebar main,
-  .with-sidebar .breadcrumbs,
   .with-sidebar .settings-layout {
     max-width: var(--page-max);
-  }
-
-  .with-sidebar main.page-form {
-    max-width: var(--measure);
-  }
-
-  .with-sidebar main.action-frame {
-    max-width: 40rem;
-  }
-
-  .with-sidebar main.action-frame:has(.action-columns) {
-    max-width: 56rem;
   }
 }
 
 /* A form or summary beside a list: one column, the form at a comfortable width, until the page has room for both. */
 .with-sidebar .split > :first-child {
   max-width: 30rem;
+}
+
+.with-sidebar .split.even > * {
+  max-width: 34rem;
 }
 
 @container page (min-width: 56rem) {

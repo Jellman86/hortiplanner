@@ -2,7 +2,8 @@ import { type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { expect, test } from "./fixtures";
 
-// Every screen, with the example data, at a phone, a tablet, a small laptop and two desks: none may scroll sideways.
+// The everyday screens and every Settings page, with the example data, at a phone, a tablet, a small laptop and two
+// desks: none may scroll sideways, and nothing may stick out past the page's edge.
 // It needs example data switched on, so it runs on its own with `npm run e2e:layout`. With LAYOUT_SHOTS set to a
 // folder, it also saves a picture of each screen at each width, for checking a layout change by eye.
 const shots = process.env.LAYOUT_SHOTS;
@@ -28,22 +29,76 @@ const sidebar = (page: Page, name: string) =>
 
 test.use({ actionTimeout: 10_000 });
 
-test("every screen fits the width of a phone, a tablet and a desk", async ({
+test("the screens fit the width of a phone, a tablet and a desk", async ({
   page,
 }) => {
   test.setTimeout(600_000);
   const overflowing: string[] = [];
 
   async function check(name: string) {
+    // Lists fill in after the heading, and the app may keep asking for things, so idle is waited for only so long.
+    await page
+      .waitForLoadState("networkidle", { timeout: 5_000 })
+      .catch(() => {});
+    await page.waitForTimeout(300);
     for (const width of widths) {
       await page.setViewportSize({ width, height: width < 900 ? 844 : 1000 });
       // Container queries and grids settle after the resize.
       await page.waitForTimeout(150);
       const wide = await page.evaluate(
-        () => document.documentElement.scrollWidth - window.innerWidth,
+        () =>
+          document.documentElement.scrollWidth -
+          document.documentElement.clientWidth,
       );
       if (wide > 0) {
         overflowing.push(`${name} at ${width}px is ${wide}px too wide`);
+      }
+      // Something can stick out of its page without the page scrolling, such as a form's row too wide for it.
+      const sticking = await page.evaluate(() => {
+        const main = document.querySelector("main");
+        if (!main) {
+          return [];
+        }
+        const edge = main.getBoundingClientRect().right;
+        const found: string[] = [];
+        for (const element of main.querySelectorAll<HTMLElement>("*")) {
+          const box = element.getBoundingClientRect();
+          if (box.width === 0 || box.right <= edge + 1) {
+            continue;
+          }
+          // Inside something that scrolls or clips on purpose, such as a wide table's frame.
+          let clipped = false;
+          for (
+            let parent = element.parentElement;
+            parent && parent !== main;
+            parent = parent.parentElement
+          ) {
+            if (getComputedStyle(parent).overflowX !== "visible") {
+              clipped = true;
+              break;
+            }
+          }
+          if (!clipped) {
+            found.push(
+              `${element.tagName.toLowerCase()}.${[...element.classList].join(".")}`,
+            );
+          }
+        }
+        return found.slice(0, 3);
+      });
+      if (sticking.length > 0) {
+        overflowing.push(
+          `${name} at ${width}px has ${sticking.join(", ")} past the page's edge`,
+        );
+      }
+      if (width === 390) {
+        const bar = await page.evaluate(() => {
+          const nav = document.querySelector(".bottom-nav");
+          return nav ? nav.scrollWidth - nav.clientWidth : 0;
+        });
+        if (bar > 0) {
+          overflowing.push(`${name}: the bottom bar is ${bar}px too wide`);
+        }
       }
       if (shots) {
         await page.screenshot({
@@ -101,8 +156,6 @@ test("every screen fits the width of a phone, a tablet and a desk", async ({
   ]) {
     await sidebar(page, button).click();
     await expect(page.locator("main h1").first()).toBeVisible();
-    // Lists fill in after the heading.
-    await page.waitForTimeout(800);
     await check(button.toLowerCase().replaceAll(" ", "-"));
   }
 
@@ -128,6 +181,17 @@ test("every screen fits the width of a phone, a tablet and a desk", async ({
   await expect(page.locator(".tray-layout")).toBeVisible();
   await check("tray");
 
+  // A one-task step in two columns.
+  await page.getByRole("button", { name: "Lost", exact: true }).click();
+  await expect(page.locator(".action-columns")).toBeVisible();
+  await check("lost");
+
+  // A new invoice, whose lines are one row each on a wide desk.
+  await sidebar(page, "Invoices").click();
+  await page.getByRole("button", { name: "New invoice" }).click();
+  await expect(page.locator("main.invoice-page")).toBeVisible();
+  await check("new-invoice");
+
   await sidebar(page, "Settings").click();
   const settings = page.getByRole("navigation", { name: "Settings" });
   for (const item of await settings.getByRole("button").allTextContents()) {
@@ -140,5 +204,5 @@ test("every screen fits the width of a phone, a tablet and a desk", async ({
     await check(`settings-${name.toLowerCase().replaceAll(" ", "-")}`);
   }
 
-  expect(overflowing, "screens wider than the window").toEqual([]);
+  expect(overflowing, "screens that don't fit").toEqual([]);
 });
