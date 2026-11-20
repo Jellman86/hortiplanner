@@ -446,7 +446,7 @@
     <button onclick={start}>New invoice</button>
 
     {#if invoices.length > 0}
-      <div class="desktop-only">
+      <div class="wide-only">
         <DataTable
           rows={invoices}
           {columns}
@@ -455,7 +455,7 @@
           actions={rowActions}
         />
       </div>
-      <div class="mobile-only">
+      <div class="narrow-only">
         <div class="card-grid">
           {#each invoices as invoice (invoice.id)}
             <div class="card">

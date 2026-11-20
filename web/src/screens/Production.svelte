@@ -98,7 +98,7 @@
     },
     { label: "Stage", value: (row) => stageLabel(row.stage) },
     {
-      label: "Days at stage",
+      label: "Days",
       value: (row) => daysAt(row.stageSince),
       numeric: true,
     },
@@ -142,26 +142,27 @@
 </script>
 
 <main>
-  <h1>Production</h1>
+  <div class="title-row">
+    <h1>Production</h1>
+    <div class="row">
+      <button
+        class="secondary"
+        aria-pressed={choosing}
+        onclick={() => {
+          choosing = !choosing;
+          chosen = {};
+          notice = "";
+        }}>{choosing ? "Stop choosing" : "Choose several"}</button
+      >
+      {#if choosing}
+        <button class="secondary" onclick={chooseShown}
+          >Choose all {shown.length} shown</button
+        >
+      {/if}
+    </div>
+  </div>
   {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
   {#if notice}<p class="card done" role="status">{notice}</p>{/if}
-
-  <div class="row">
-    <button
-      class="secondary"
-      aria-pressed={choosing}
-      onclick={() => {
-        choosing = !choosing;
-        chosen = {};
-        notice = "";
-      }}>{choosing ? "Stop choosing" : "Choose several"}</button
-    >
-    {#if choosing}
-      <button class="secondary" onclick={chooseShown}
-        >Choose all {shown.length} shown</button
-      >
-    {/if}
-  </div>
   {#if choosing}
     <p class="muted">
       Tap or click trays to choose them, then pick what to do with them all
@@ -227,7 +228,7 @@
   {/if}
 
   {#if shown.length > 0}
-    <div class="desktop-only">
+    <div class="wide-only">
       <DataTable
         rows={shown}
         {columns}
@@ -239,7 +240,7 @@
     </div>
   {/if}
 
-  <div class="mobile-only">
+  <div class="narrow-only">
     <div class="card-grid">
       {#each shown as row (`${row.containerId}/${row.batchId}`)}
         <button
@@ -252,18 +253,20 @@
             url={row.hasPhoto ? `/api/plants/${row.plantId}/photo` : null}
           />
           <span class="plant-names">
-            <strong
-              >{lineAmount(row)}
-              {plantName(row.commonName, row.variety)}</strong
-            >
-            <span class="muted">
+            <span class="production-title">
+              <strong
+                >{lineAmount(row)}
+                {plantName(row.commonName, row.variety)}</strong
+              >
+              <span class="muted production-stage">
+                <span class="pill">{stageLabel(row.stage)}</span>
+                {timeAtStage(row.stageSince, now)}
+              </span>
+            </span>
+            <span class="muted production-where">
               {[row.labelCode, row.locationName, row.potSizeName]
                 .filter(Boolean)
                 .join(" · ")}
-            </span>
-            <span class="muted">
-              <span class="pill">{stageLabel(row.stage)}</span>
-              {timeAtStage(row.stageSince, now)}
             </span>
           </span>
         </button>

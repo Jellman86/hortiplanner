@@ -275,16 +275,24 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await page.getByLabel("VAT (£)", { exact: true }).fill("9.10");
   await button(page, "Save purchase").click();
   await expect(page.getByText("Hillside Plants: £54.60")).toBeVisible();
-  await expect(page.getByText("Still owed: £54.60")).toBeVisible();
-  await page.getByLabel("Add a receipt").setInputFiles({
-    name: "receipt.png",
-    mimeType: "image/png",
-    buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1]),
-  });
+  await expect(
+    page.getByText("£54.60 is still owed to suppliers."),
+  ).toBeVisible();
+  // The phone's list and the desk's table both have one; only one shows.
+  await page
+    .getByLabel("Add a receipt")
+    .filter({ visible: true })
+    .setInputFiles({
+      name: "receipt.png",
+      mimeType: "image/png",
+      buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1]),
+    });
   await expect(page.getByRole("link", { name: "Receipt 1" })).toBeVisible();
   await expectAccessible(page, "Purchases");
   await button(page, "Mark paid").click();
-  await expect(page.getByText("Still owed: £0.00")).toBeVisible();
+  await expect(
+    page.getByText("£0.00 is still owed to suppliers."),
+  ).toBeVisible();
   await leaveManage(page);
 
   // Money in: a day's takings show in the month's figures, with the purchase.

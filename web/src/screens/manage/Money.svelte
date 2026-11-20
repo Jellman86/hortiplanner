@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FileDown from "@lucide/svelte/icons/file-down";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import { isOn } from "../../lib/features.svelte";
   import { isoDay } from "../../lib/days";
@@ -140,40 +141,13 @@
         <label>Notes <input bind:value={notes} /></label>
         <button type="submit">Save takings</button>
       </form>
-
-      <a class="button secondary" href="/api/money/export.csv" download
-        >Download for accountant (CSV)</a
-      >
-
-      <div class="mobile-only stack">
-        <h2>Recent takings</h2>
-        {#each takings as taking (taking.id)}
-          <div class="card recent">
-            <span class="stack-tight">
-              <strong
-                >{dayLabel(taking.takenOn)}: {money(
-                  Number(taking.amount),
-                )}</strong
-              >
-              {#if taking.notes}<span class="muted">{taking.notes}</span>{/if}
-            </span>
-            <button
-              class="link-button danger-link"
-              onclick={() => voidTaking(taking)}
-              ><Trash2 size={16} aria-hidden="true" />Void</button
-            >
-          </div>
-        {:else}
-          <p class="note-empty muted">No takings have been entered yet.</p>
-        {/each}
-      </div>
     </section>
 
     <section>
       {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
 
       {#if summary}
-        <div class="stat-tiles">
+        <div class="stat-tiles money-totals">
           {#if isOn("Purchases")}
             <div class="stat-tile">
               <strong>{money(Number(summary.owed))}</strong><span
@@ -189,7 +163,7 @@
             </div>
           {/if}
         </div>
-        <div class="mobile-only stack">
+        <div class="narrow-only stack">
           {#each summary.months as month (month.month)}
             <div class="card">
               <strong>{monthName(month.month)}</strong>
@@ -199,31 +173,54 @@
           {/each}
         </div>
         {#if summary.months.length > 0}
-          <div class="desktop-only">
+          <div class="wide-only">
             <DataTable
               rows={summary.months}
               columns={monthColumns}
               key={(month) => month.month}
               caption="Income and spending by month"
+              fit
             />
           </div>
         {/if}
       {/if}
 
-      <div class="desktop-only">
-        <h2 class="table-heading">Recent takings</h2>
-        {#if takings.length > 0}
+      <a class="button secondary" href="/api/money/export.csv" download
+        ><FileDown size={18} aria-hidden="true" /> Download the takings and spending
+        for the accountant (CSV)</a
+      >
+
+      <h2 class="table-heading">Recent takings</h2>
+      {#if takings.length > 0}
+        <!-- On a phone, one card with a row for each day's takings. -->
+        <ul class="narrow-only card takings-list">
+          {#each takings as taking (taking.id)}
+            <li>
+              <span class="stack-tight">
+                <strong
+                  >{dayLabel(taking.takenOn)}: {money(
+                    Number(taking.amount),
+                  )}</strong
+                >
+                {#if taking.notes}<span class="muted">{taking.notes}</span>{/if}
+              </span>
+              {@render takingActions(taking)}
+            </li>
+          {/each}
+        </ul>
+        <div class="wide-only">
           <DataTable
             rows={takings}
             columns={takingColumns}
             key={(taking) => taking.id}
             caption="Recent takings"
             actions={takingActions}
+            fit
           />
-        {:else}
-          <p class="note-empty muted">No takings have been entered yet.</p>
-        {/if}
-      </div>
+        </div>
+      {:else}
+        <p class="note-empty muted">No takings have been entered yet.</p>
+      {/if}
     </section>
   </div>
 

@@ -11,6 +11,7 @@
     onSelect,
     actions,
     chosen,
+    fit = false,
   }: {
     rows: T[];
     columns: Column<T>[];
@@ -20,6 +21,8 @@
     actions?: Snippet<[T]>;
     /** While choosing several: whether a row is chosen. A row's tick box, or anywhere on the row, then chooses it. */
     chosen?: (row: T) => boolean;
+    /** A table of a few columns: as wide as its contents, rather than spread across the page. */
+    fit?: boolean;
   } = $props();
 
   let sortBy = $state<number | null>(null);
@@ -38,7 +41,7 @@
     sortBy !== index ? "none" : ascending ? "ascending" : "descending";
 </script>
 
-<div class="table-wrap">
+<div class="table-wrap" class:fit>
   <table class="data-table">
     <caption class="visually-hidden">{caption}</caption>
     <thead>

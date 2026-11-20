@@ -831,6 +831,12 @@ button.photo-remove {
   padding-left: calc(var(--depth, 0) * 1.25rem);
 }
 
+/* Batches to choose from, such as the newest on Trace a batch: side by side wherever two fit. */
+.with-sidebar .place-tree.batch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
+}
+
 button.place-row {
   display: flex;
   align-items: center;
@@ -973,9 +979,35 @@ button.place-row:hover:not(:disabled) {
 
 .figure-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
   align-items: start;
+}
+
+/* Two charts to a row wherever there's room, so four make two even rows rather than three and one. */
+@container page (min-width: 56rem) {
+  .figure-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* A plant's figures on a phone: names and numbers in two columns. */
+.figure-facts {
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: start;
+  gap: 0.15rem 1rem;
+  margin: 0;
+}
+
+.figure-facts dt {
+  color: var(--muted);
+}
+
+.figure-facts dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
 }
 
 .figure-grid details summary {
@@ -1163,6 +1195,13 @@ button.place-row:hover:not(:disabled) {
   border-radius: 0.75rem;
   background: var(--surface);
   box-shadow: var(--shadow);
+}
+
+/* A table of a few columns is as wide as its contents, rather than spread thin across the page. */
+.table-wrap.fit {
+  width: fit-content;
+  min-width: min(100%, 28rem);
+  max-width: 100%;
 }
 
 .data-table {
@@ -2703,6 +2742,54 @@ button.danger:hover:not(:disabled) {
 
 /* Several trays chosen in Production: the work for them all waits at the foot of the screen. A chosen row keeps
    its own text colour whatever the pointer does, so it reads the same tapped, hovered or pressed. */
+/* Money's totals keep to the width of the narrow tables beneath them. */
+.money-totals {
+  max-width: var(--measure);
+}
+
+/* Money's takings on a phone: one card, a row for each day, with its small Void button on the right. */
+.takings-list {
+  margin: 0;
+  padding: 0.25rem 1rem;
+  list-style: none;
+}
+
+.takings-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0;
+}
+
+.takings-list li + li {
+  border-top: 1px solid var(--line);
+}
+
+/* A tray on Production, in two lines: what and how many, with its stage on the right; then where it is. */
+.production-row .plant-names {
+  flex: 1;
+  min-width: 0;
+}
+
+.production-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.15rem 0.6rem;
+}
+
+.production-stage {
+  white-space: nowrap;
+}
+
+.production-where {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 button.production-row[aria-pressed],
 button.production-row[aria-pressed]:hover:not(:disabled) {
   border: 1px solid var(--line);
@@ -3785,20 +3872,35 @@ button.ask-card:hover:not(:disabled) {
   min-height: 2rem;
 }
 
-/* A file chooser that reads as a link, such as adding a receipt in a table. */
+.data-table td .file-link {
+  min-height: 2.25rem;
+  padding: 0.2rem 0.65rem;
+}
+
+/* A file chooser drawn as a small button, such as adding a receipt to a purchase. */
 .file-link {
   position: relative;
   display: inline-flex;
   flex-direction: row;
   align-items: center;
-  color: var(--primary);
+  justify-content: center;
+  gap: 0.4rem;
+  align-self: flex-start;
+  min-height: 2.75rem;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
   font-weight: 600;
-  text-decoration: underline;
+  box-shadow: var(--shadow);
   cursor: pointer;
 }
 
 .file-link:hover {
-  color: var(--primary-hover);
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  color: var(--primary);
 }
 
 .file-link:focus-within {
@@ -4002,11 +4104,23 @@ button:disabled:is(.link-button, .back, .danger-link):hover {
 }
 
 /* Each purchase's actions stacked, so the table fits its column and What keeps room to read. */
+/* Each purchase's actions as one line of small buttons, wrapping when the column is narrow. */
 .purchases-table .cell-actions {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.15rem;
+  flex-flow: row wrap;
+  align-items: center;
+  gap: 0.35rem;
   white-space: nowrap;
+}
+
+.purchases-table td:nth-child(5) {
+  white-space: nowrap;
+}
+
+/* A purchase on a phone: its smaller actions on one wrapping line. */
+.purchase-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .purchases-table td:nth-child(3) {

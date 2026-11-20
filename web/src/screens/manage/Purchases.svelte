@@ -289,9 +289,9 @@
 
     <section>
       {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
-      <p><strong>Still owed: {money(owed)}</strong></p>
+      <p><strong>{money(owed)} is still owed to suppliers.</strong></p>
 
-      <div class="mobile-only stack">
+      <div class="narrow-only stack">
         {#each purchases as purchase (purchase.id)}
           <div class="card">
             <strong
@@ -335,40 +335,42 @@
                 {/if}
               </div>
             {/each}
-            {#each purchase.receiptIds as receipt, index (receipt)}
-              <a
-                class="small-button"
-                href="/api/purchases/receipts/{receipt}"
-                target="_blank"
-                rel="noopener"
-                ><FileDown size={16} aria-hidden="true" /> Receipt {index +
-                  1}</a
-              >
-            {/each}
-            <label class="photo-choice">
-              <Paperclip size={20} />
-              <span>Add a receipt (photo or PDF)</span>
-              <input
-                type="file"
-                accept="image/jpeg,image/png,application/pdf"
-                onchange={(event) => addReceipt(purchase.id, event)}
-              />
-            </label>
-            <div class="row">
+            <div class="purchase-actions">
+              {#each purchase.receiptIds as receipt, index (receipt)}
+                <a
+                  class="small-button"
+                  href="/api/purchases/receipts/{receipt}"
+                  target="_blank"
+                  rel="noopener"
+                  ><FileDown size={16} aria-hidden="true" /> Receipt {index +
+                    1}</a
+                >
+              {/each}
+              <label class="file-link">
+                <Paperclip size={16} aria-hidden="true" />
+                Add a receipt
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,application/pdf"
+                  onchange={(event) => addReceipt(purchase.id, event)}
+                />
+              </label>
               {#if purchase.paidOn}
                 <button
-                  class="secondary"
+                  class="link-button"
                   onclick={() => setPaid(purchase.id, null)}
-                  >Mark as not paid</button
+                  ><Coins size={16} aria-hidden="true" />Mark as not paid</button
                 >
               {:else}
                 <button
-                  class="secondary"
+                  class="link-button"
                   onclick={() => setPaid(purchase.id, today())}
-                  >Mark paid</button
+                  ><Coins size={16} aria-hidden="true" />Mark paid</button
                 >
               {/if}
-              <button class="link-button" onclick={() => voidPurchase(purchase)}
+              <button
+                class="link-button danger-link"
+                onclick={() => voidPurchase(purchase)}
                 ><Trash2 size={16} aria-hidden="true" />Void</button
               >
             </div>
@@ -377,7 +379,7 @@
           <p class="note-empty muted">No purchases have been recorded yet.</p>
         {/each}
       </div>
-      <div class="desktop-only">
+      <div class="wide-only">
         {#if purchases.length > 0}
           <div class="table-wrap">
             <table class="data-table purchases-table">
@@ -474,7 +476,8 @@
                           >
                         {/each}
                         <label class="file-link">
-                          Add receipt
+                          <Paperclip size={16} aria-hidden="true" />
+                          Add a receipt
                           <input
                             type="file"
                             accept="image/jpeg,image/png,application/pdf"

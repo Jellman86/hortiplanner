@@ -555,7 +555,9 @@
           </button>
         </li>
       {:else}
-        <li class="muted">No consignments have been recorded yet.</li>
+        <li class="note-empty muted">
+          No consignments have been recorded yet.
+        </li>
       {/each}
     </ul>
     <button class="back" onclick={onBack}>Back</button>
