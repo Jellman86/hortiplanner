@@ -178,3 +178,98 @@ test("the bell is in the sidebar on a desk", async ({ page }) => {
   await expect(entry.locator(".bell-badge")).toBeVisible();
   await expectAccessible(page, "Needs a look on a desk");
 });
+
+test("ticking a job lowers the bell, and work that wasn't saved is on it", async ({
+  page,
+}) => {
+  const jobId = "0193a6f0-0000-7000-8000-0000000000j1";
+  let done = false;
+
+  // Something recorded on this phone that the server refused.
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      "hortiplanner.queue.owner",
+      JSON.stringify({
+        waiting: [],
+        failed: [
+          { eventId: "e1", description: "Lost 3 Lavender", reason: "Too many" },
+        ],
+      }),
+    ),
+  );
+
+  await page.route("**/api/**", async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+
+    if (path === "/api/alerts") {
+      await route.fulfill({ json: done ? [invoices] : [jobsDue, invoices] });
+      return;
+    }
+
+    if (path === `/api/jobs/${jobId}/done`) {
+      done = true;
+      await route.fulfill({ status: 201, json: { nextDue: "2026-11-27" } });
+      return;
+    }
+
+    const data: Record<string, unknown> = {
+      "/api/account/me": {
+        id: "owner",
+        name: "Test owner",
+        isOwner: true,
+        isTeam: false,
+      },
+      "/api/bench/people": null,
+      "/api/backups/status": { known: true, healthy: true },
+      "/api/jobs": [
+        {
+          id: jobId,
+          title: "Water house 1",
+          notes: null,
+          everyDays: 7,
+          nextDue: "2026-11-20",
+          locationId: null,
+          locationName: null,
+          lastDoneOn: null,
+          lastDoneBy: null,
+          due: !done,
+          daysLate: 0,
+        },
+      ],
+    };
+    await route.fulfill({ json: Object.hasOwn(data, path) ? data[path] : [] });
+  });
+
+  await page.goto("/");
+  // The job, the invoice and the work that wasn't saved.
+  const bell = page.getByRole("button", { name: "Needs a look, 3 things" });
+  await expect(bell).toBeVisible();
+
+  // It's reached from the keyboard, by its name.
+  await bell.focus();
+  await expect(bell).toBeFocused();
+
+  // From Settings too, and Back returns there.
+  await page
+    .getByRole("navigation", { name: "Phone" })
+    .getByRole("button", { name: "Settings" })
+    .click();
+  await bell.click();
+  await expect(page).toHaveTitle(/^Needs a look/);
+  await expect(
+    page.getByText("1 thing you recorded couldn't be saved", { exact: true }),
+  ).toBeVisible();
+  await page.goBack();
+  await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+
+  // Ticking the job off on Record work lowers the number without a reload.
+  await page
+    .getByRole("navigation", { name: "Phone" })
+    .getByRole("button", { name: "Record" })
+    .click();
+  await page.getByRole("button", { name: "Done" }).first().click();
+  await expect(
+    page.getByRole("button", { name: "Needs a look, 2 things" }),
+  ).toBeVisible();
+});

@@ -2,6 +2,8 @@
   import ArrowRight from "@lucide/svelte/icons/arrow-right";
   import { onMount } from "svelte";
   import { levelClass, placeNames, type Alert } from "../../lib/needs";
+  import { dayLabel } from "../../lib/dates";
+  import { isoDay } from "../../lib/days";
   import { loadNeeds, needs } from "../../lib/needs.svelte";
 
   // Everything that needs this person's look, from any screen: the same list as Record work, worked out afresh on
@@ -18,16 +20,31 @@
   // Opening the list always checks it again.
   onMount(() => void loadNeeds());
 
-  const checked = $derived(
-    needs.checkedAt?.toLocaleTimeString("en-GB", {
+  // The time it was last checked, with the day too when that wasn't today.
+  const checked = $derived.by(() => {
+    if (needs.checkedAt === null) {
+      return null;
+    }
+
+    const when = new Date(needs.checkedAt);
+    const time = when.toLocaleTimeString("en-GB", {
       hour: "2-digit",
       minute: "2-digit",
-    }) ?? null,
-  );
+    });
+    return isoDay(when) === isoDay(new Date())
+      ? time
+      : `${dayLabel(isoDay(when))} at ${time}`;
+  });
 </script>
 
 <main>
   <h1>Needs a look</h1>
+
+  {#if needs.failed && !needs.offline && alerts.length === 0}
+    <p class="problem" role="alert">
+      This list couldn't be checked just now. Please try again in a minute.
+    </p>
+  {/if}
 
   {#if needs.offline}
     <p class="card notice">

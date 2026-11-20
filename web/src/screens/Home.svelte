@@ -124,6 +124,7 @@
     plants: "Plants",
     manage: "Manage",
     ask: "Ask Hortiplanner",
+    needs: "Needs a look",
   };
   const sendEvery = 30 * 1000;
   const cameraAvailable = !!navigator.mediaDevices?.getUserMedia;
@@ -594,16 +595,23 @@
   // Said once when the list grows while the app is open; never on first loading, nor when it shrinks.
   let needsSaid = $state("");
   let needsBefore: Alert[] | null = null;
+  let quiet: ReturnType<typeof setTimeout> | undefined;
   $effect(() => {
     const now = allNeeds;
 
     if (!needs.loaded) {
+      needsBefore = null;
       return;
     }
 
     const said = announcement(needsBefore, now);
     if (said) {
       needsSaid = said;
+      // Cleared again shortly, so the same news later is said again and an old sentence isn't left to be read.
+      clearTimeout(quiet);
+      quiet = setTimeout(() => (needsSaid = ""), 6000);
+    } else if (needsBefore && now.length < needsBefore.length) {
+      needsSaid = "";
     }
     needsBefore = now;
   });

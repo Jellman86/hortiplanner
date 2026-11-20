@@ -86,5 +86,5 @@ export function announcement(
 
   return added.length === 1
     ? `Something new needs a look: ${added[0].title}.`
-    : `${after.length - before.length} more things need a look.`;
+    : `${added.length || after.length - before.length} more things need a look.`;
 }
