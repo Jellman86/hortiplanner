@@ -10192,6 +10192,10 @@ export interface components {
             packetSays?: null | string;
             /** Format: uuid */
             motherPlantId?: null | string;
+            /** Format: double */
+            costAmount?: null | number | string;
+            /** @default false */
+            costNothing: boolean;
         };
         StationSummary: {
             /** Format: uuid */

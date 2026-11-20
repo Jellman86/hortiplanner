@@ -12,6 +12,7 @@
   import { shrinkPhoto } from "../../lib/photo";
   import { attempt, optional, type Schemas } from "../../lib/types";
   import {
+    money,
     outcomeProblem,
     plantName,
     submit,
@@ -29,6 +30,7 @@
   import SowByPicker from "./SowByPicker.svelte";
   import SupplierRegistrations from "./SupplierRegistrations.svelte";
   import { sowByWords } from "../../lib/sowBy";
+  import { moneyProblem, readMoney } from "../../lib/costs";
   import {
     packetShares,
     sowingChoices,
@@ -103,6 +105,9 @@
   let newPassport = $state("");
   let newOther = $state("");
   let sowBy = $state("");
+  // What the seed or plants cost, if anyone knows. Optional, and the owner can add it later.
+  let cost = $state("");
+  let costNothing = $state(false);
   // Cuttings: the mother plant they're taken from, for plants already on the list.
   let mothers = $state<Schemas["MotherSummary"][]>([]);
   let motherId = $state("");
@@ -489,6 +494,17 @@
     setTimeout(() => (moving = false), 1000);
   }
 
+  // Cuttings taken here cost nothing to buy, and a batch from a purchase takes its cost from there.
+  const asksCost = $derived(
+    isOn("Costs") && source !== "Cuttings" && !prefill?.purchaseLineId,
+  );
+  const paid = $derived(
+    !asksCost ? null : costNothing ? 0 : cost.trim() ? readMoney(cost) : null,
+  );
+  const costProblem = $derived(
+    asksCost && !costNothing && cost.trim() !== "" && paid === null,
+  );
+
   // The answers on "Where from?" must be complete, even if the browser's Forward skipped past it.
   const whereFromDone = $derived(
     originCountry.trim().length === 2 &&
@@ -563,6 +579,20 @@
               value:
                 mothers.find((item) => item.id === motherId)?.name ??
                 "A mother plant",
+              stage: 3,
+            },
+          ]
+        : []),
+      ...(asksCost
+        ? [
+            {
+              name: seed ? "Seed cost" : "Cost of the plants",
+              value:
+                paid === 0
+                  ? "Nothing"
+                  : paid === null
+                    ? "Not added yet"
+                    : money(paid),
               stage: 3,
             },
           ]
@@ -773,6 +803,9 @@
               potSizeId: potSizeId || null,
               purchaseLineId: prefill?.purchaseLineId ?? null,
               sowBy: source === "SeedLot" && sowBy ? sowBy : null,
+              // Nought is taken as it costing nothing.
+              costAmount: paid ? paid : null,
+              costNothing: paid === 0,
             },
             momentOn(startedOn),
           ),
@@ -1046,6 +1079,41 @@
         <SowByPicker bind:value={sowBy}>{@render tag("sowBy")}</SowByPicker>
       {/if}
     {/if}
+    {#if asksCost}
+      <label
+        >{seed
+          ? "What did this seed cost? (£, optional)"
+          : "What did these plants cost altogether? (£, optional)"}
+        <input
+          bind:value={cost}
+          inputmode="decimal"
+          autocomplete="off"
+          disabled={costNothing}
+          aria-describedby={costProblem
+            ? "new-cost-problem new-cost-help"
+            : "new-cost-help"}
+          aria-invalid={costProblem ? "true" : undefined}
+        /></label
+      >
+      {#if costProblem}<p class="problem" id="new-cost-problem">
+          {moneyProblem}
+        </p>{/if}
+      <p class="muted" id="new-cost-help">
+        {seed
+          ? "Put in what was paid for the seed this batch is sown from, with any VAT included, as it's printed on the packet or the receipt. If only part of a packet is sown, put in roughly that part of its price. You can leave this empty and add it later."
+          : `Put in what was paid for all ${quantity} of them, not for one of them, with any VAT included. You can leave this empty and add it later.`}
+      </p>
+      <label class="tick"
+        ><input type="checkbox" bind:checked={costNothing} />
+        {seed
+          ? "It cost nothing, because it was our own seed or a gift."
+          : "They cost nothing, because they were a gift."}</label
+      >
+    {:else if isOn("Costs") && prefill?.purchaseLineId}
+      <p class="muted">
+        The cost comes from the purchase, so there's nothing to add here.
+      </p>
+    {/if}
     <label>
       Country of origin
       <select
@@ -1081,7 +1149,8 @@
         Bought-in plants need their supplier, for the passport record.
       </p>
     {/if}
-    <button onclick={next} disabled={!whereFromDone}>Next</button>
+    <button onclick={next} disabled={!whereFromDone || costProblem}>Next</button
+    >
   {:else if stage === 4}
     <p class="muted">
       Take a photo of anything worth keeping. They're all optional.
@@ -1144,8 +1213,18 @@
         every batch its country of origin.
       </p>
     {/if}
+    {#if costProblem}
+      <p class="problem" role="alert">
+        The cost on "Where from?" isn't in pounds and pence. Please change it,
+        such as to 2.99, or leave it empty.
+      </p>
+    {/if}
     <button
-      disabled={busy || !whereFromDone || !picked || !sowingReady}
+      disabled={busy ||
+        !whereFromDone ||
+        costProblem ||
+        !picked ||
+        !sowingReady}
       onclick={start}>Start batch</button
     >
   {/if}

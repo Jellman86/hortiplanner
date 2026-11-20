@@ -439,6 +439,61 @@ public sealed class CostTests(PostgresFixture database)
         Assert.Equal("BeforeVat", (await CostingAsync(nursery.Owner, batch)).GetProperty("counts").GetString());
     }
 
+    private static readonly DateTimeOffset StartedAt = DateTimeOffset.UtcNow.AddHours(-1);
+
+    private static object NewBatch(Guid plant, Guid? id = null, string source = "SeedLot", decimal? costAmount = null, bool costNothing = false, Guid? purchaseLineId = null, Guid? supplierId = null) =>
+        new { eventId = id ?? Guid.NewGuid(), occurredAt = StartedAt, plantId = plant, quantity = 40, source, supplierId, originCountry = "GB", containerKind = "Tray", purchaseLineId, costAmount, costNothing };
+
+    [Fact]
+    public async Task New_batch_saves_what_it_cost_with_the_batch_and_a_retry_saves_it_once()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var plant = await AddPlantAsync(nursery.Owner);
+        var id = Guid.NewGuid();
+
+        var started = Json(await PostForTextAsync(nursery.Staff, "/api/batches", NewBatch(plant, id, costAmount: 2.99m)));
+        Assert.Equal(HttpStatusCode.OK, await PostStatusAsync(nursery.Staff, "/api/batches", NewBatch(plant, id, costAmount: 2.99m)));
+
+        var costing = await CostingAsync(nursery.Owner, started.GetProperty("batchId").GetGuid());
+        Assert.Equal((2.99m, 2.49m), Pair(costing.GetProperty("material").GetProperty("cost")));
+        Assert.Equal("Alex Moss", costing.GetProperty("material").GetProperty("entry").GetProperty("addedBy").GetString());
+        Assert.Single(costing.GetProperty("history").EnumerateArray());
+        Assert.False(await CostMissingAsync(nursery.Staff, started.GetProperty("containerId").GetGuid()));
+
+        var free = Json(await PostForTextAsync(nursery.Staff, "/api/batches", NewBatch(plant, costNothing: true))).GetProperty("batchId").GetGuid();
+        Assert.Equal("Free", (await CostingAsync(nursery.Owner, free)).GetProperty("material").GetProperty("state").GetString());
+    }
+
+    [Fact]
+    public async Task A_cost_that_wont_do_refuses_the_whole_batch()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var plant = await AddPlantAsync(nursery.Owner);
+
+        Assert.Equal(HttpStatusCode.BadRequest, await PostStatusAsync(nursery.Staff, "/api/batches", NewBatch(plant, costAmount: 0m)));
+        Assert.Equal(HttpStatusCode.BadRequest, await PostStatusAsync(nursery.Staff, "/api/batches", NewBatch(plant, costAmount: 2.999m)));
+        Assert.Equal(HttpStatusCode.BadRequest, await PostStatusAsync(nursery.Staff, "/api/batches", NewBatch(plant, costNothing: true, costAmount: 1m)));
+        Assert.Equal(HttpStatusCode.BadRequest, await PostStatusAsync(nursery.Staff, "/api/batches", NewBatch(plant, costAmount: -1m)));
+
+        Assert.Equal(0, (await nursery.Owner.GetFromJsonAsync<JsonElement>(Route("/api/containers/active"), Cancellation)).GetArrayLength());
+    }
+
+    [Fact]
+    public async Task New_batch_keeps_no_typed_cost_for_cuttings_or_plants_from_a_purchase()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var (supplier, _, line) = await BuyAsync(nursery.Owner, 30m, 6m);
+        var plant = await AddPlantAsync(nursery.Owner);
+
+        var bought = Json(await PostForTextAsync(nursery.Owner, "/api/batches", NewBatch(plant, source: "BoughtIn", costAmount: 50m, purchaseLineId: line, supplierId: supplier))).GetProperty("batchId").GetGuid();
+        var cuttings = Json(await PostForTextAsync(nursery.Owner, "/api/batches", NewBatch(plant, source: "Cuttings", costAmount: 5m))).GetProperty("batchId").GetGuid();
+
+        var fromPurchase = await CostingAsync(nursery.Owner, bought);
+        Assert.Equal("Purchase", fromPurchase.GetProperty("material").GetProperty("state").GetString());
+        Assert.Empty(fromPurchase.GetProperty("history").EnumerateArray());
+        Assert.Empty((await CostingAsync(nursery.Owner, cuttings)).GetProperty("history").EnumerateArray());
+    }
+
     [Fact]
     public async Task Costs_are_never_changed_or_deleted()
     {

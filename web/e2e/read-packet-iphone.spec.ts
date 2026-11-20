@@ -198,6 +198,15 @@ test("a seed packet photo fills in New batch, to check before starting", async (
   await expectAccessible(page, "New batch, where from, read from a packet");
   await page.getByLabel(/Lot or reference/).fill("L2292");
   await expect(page.locator(".read-tag")).toHaveCount(2);
+
+  // What the seed cost is asked, and optional; something that isn't money holds up Next until it's put right.
+  const costBox = page.getByLabel("What did this seed cost? (£, optional)");
+  await expect(costBox).toHaveAccessibleDescription(/with any VAT included/);
+  await costBox.fill("two pounds");
+  await expect(costBox).toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByRole("button", { name: "Next" })).toBeDisabled();
+  await expectAccessible(page, "New batch, a cost that isn't money");
+  await costBox.fill("£1.80");
   await page.getByRole("button", { name: "Next" }).click();
   await page.getByRole("button", { name: "Next" }).click();
   await page.getByRole("button", { name: "Next" }).click();
@@ -206,6 +215,18 @@ test("a seed packet photo fills in New batch, to check before starting", async (
   await expect(check).toContainText("Chiltern Seeds");
   await expect(check).toContainText("Dec 2027");
   await expect(check).toContainText("L2292");
+  await expect(check).toContainText(/Seed cost\s*£1\.80/);
+
+  // Change from the check page keeps what was typed.
+  await page.getByRole("button", { name: "Change seed cost" }).click();
+  await expect(costBox).toHaveValue("£1.80");
+  await page
+    .getByLabel("It cost nothing, because it was our own seed or a gift.")
+    .check();
+  await page.getByRole("button", { name: "Next" }).click();
+  await page.getByRole("button", { name: "Next" }).click();
+  await page.getByRole("button", { name: "Next" }).click();
+  await expect(check).toContainText(/Seed cost\s*Nothing/);
   await page.getByRole("button", { name: "Start batch" }).click();
   await expect(page.getByRole("status")).toContainText("Started");
 
@@ -217,6 +238,8 @@ test("a seed packet photo fills in New batch, to check before starting", async (
     sourceReference: "L2292",
     sowBy: "2027-12-31",
     source: "SeedLot",
+    costAmount: null,
+    costNothing: true,
   });
   await expect
     .poll(() => sent.some((item) => item.url.includes("kind=Packet")))

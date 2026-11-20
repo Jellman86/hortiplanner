@@ -117,6 +117,8 @@ internal static class WorkEndpoints
         ClaimsPrincipal user,
         HortiplannerDbContext db,
         EventStore store,
+        DeviceClock device,
+        TimeProvider clock,
         CancellationToken cancellationToken)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
@@ -133,6 +135,7 @@ internal static class WorkEndpoints
         if ((counted && !IsValidQuantity(request.Quantity))
             || (request.Source == BatchSource.BoughtIn && request.SupplierId is null)
             || !IsSensibleSowing(request)
+            || !CostEndpoints.IsValidStartingCost(request.CostAmount, request.CostNothing)
             || (request.MotherPlantId is not null && request.Source != BatchSource.Cuttings))
         {
             return TypedResults.BadRequest();
@@ -161,6 +164,7 @@ internal static class WorkEndpoints
 
         // Tracked now and saved with the event, so a refused or repeated request leaves nothing behind.
         db.AddRange(batch, container);
+        await AddStartingCostAsync(request, batch, user, db, device, clock, cancellationToken);
 
         var result = await StoreAsync(
             () => store.AppendAsync(work, cancellationToken),
@@ -172,6 +176,21 @@ internal static class WorkEndpoints
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// What the seed or plants cost, if New batch was told, saved with the batch or not at all. Cuttings taken here
+    /// cost nothing to buy and a batch from a purchase takes its cost from there, so neither keeps a typed cost.
+    /// </summary>
+    private static async Task AddStartingCostAsync(StartBatchRequest request, Batch batch, ClaimsPrincipal user, HortiplannerDbContext db, DeviceClock device, TimeProvider clock, CancellationToken cancellationToken)
+    {
+        if ((request.CostAmount is null && !request.CostNothing) || request.Source == BatchSource.Cuttings || request.PurchaseLineId is not null)
+        {
+            return;
+        }
+
+        var answer = request.CostNothing ? CostAnswer.Free : CostAnswer.Amount;
+        db.BatchCosts.Add(await CostEndpoints.StartingCostAsync(batch, answer, request.CostAmount, request.OccurredAt, UserId(user), device, db, clock, cancellationToken));
     }
 
     /// <summary>The mother plant cuttings are taken from, locked until the batch is saved; null if there's none or it won't do.</summary>
@@ -734,7 +753,9 @@ internal static class WorkEndpoints
         decimal? SownAmount = null,
         PacketShare? PacketShare = null,
         string? PacketSays = null,
-        Guid? MotherPlantId = null);
+        Guid? MotherPlantId = null,
+        decimal? CostAmount = null,
+        bool CostNothing = false);
 
     internal sealed record GerminatedRequest(Guid EventId, DateTimeOffset OccurredAt, Guid? CountEventId = null, Guid? BatchId = null, int? Counted = null, bool Rough = false);
 

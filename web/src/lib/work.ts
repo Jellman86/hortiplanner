@@ -369,6 +369,8 @@ export function repeatOf(action: Schemas["RecentAction"]): WorkRequest | null {
       locationId: action.locationId,
       potSizeId: action.potSizeId,
       purchaseLineId: null,
+      // Each batch's cost is its own, so doing it again doesn't copy one.
+      costNothing: false,
     });
   }
 
