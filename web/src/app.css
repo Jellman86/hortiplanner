@@ -5122,3 +5122,59 @@ button.link-button.ftree-leaf {
 .feature-list {
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 26rem), 1fr));
 }
+
+/* The bell for what needs a look: in the phone's header and the desk's sidebar, with a number on its corner when
+   there's something. The number is never the only sign: the button's name says it too. */
+.topbar-bell,
+.topbar-bell:hover:not(:disabled) {
+  position: relative;
+  margin-left: auto;
+  border-color: transparent;
+  background: transparent;
+  color: var(--sidebar-text);
+}
+
+.topbar-bell[aria-current="page"] {
+  background: var(--sidebar-hover);
+}
+
+.needs-icon {
+  position: relative;
+  display: inline-flex;
+}
+
+.bell-badge {
+  position: absolute;
+  top: -0.45rem;
+  right: -0.55rem;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-family: system-ui, sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.15rem;
+  text-align: center;
+}
+
+/* The number is drawn from an attribute, not written as text, so the button's name, which says it, is all a
+   screen reader hears and matches what's on screen. */
+.bell-badge::after {
+  content: attr(data-count);
+}
+
+.topbar-bell .bell-badge {
+  top: 0.2rem;
+  right: 0.15rem;
+}
+
+/* The list itself: one card for each kind of thing, side by side on a desk. */
+.needs-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+  gap: 0.75rem;
+  align-items: start;
+}

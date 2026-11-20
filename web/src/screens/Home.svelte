@@ -68,6 +68,16 @@
   import MoveMany from "./work/MoveMany.svelte";
   import LabelSheets from "./work/LabelSheets.svelte";
   import JobsDue from "./work/JobsDue.svelte";
+  import NeedsALook from "./work/NeedsALook.svelte";
+  import Bell from "@lucide/svelte/icons/bell";
+  import {
+    announcement,
+    badgeText,
+    bellName,
+    withRefused,
+    type Alert,
+  } from "../lib/needs";
+  import { loadNeeds, needs, watchNeeds } from "../lib/needs.svelte";
   import PlaceView from "./work/PlaceView.svelte";
   import { findPlaceByCode, isPlaceCode, type Place } from "../lib/places";
   import { rememberedPlaces } from "../lib/offline";
@@ -125,6 +135,7 @@
     | { name: "camera" }
     | { name: "settings"; page: SettingsPage | null }
     | { name: "production" }
+    | { name: "needs" }
     | { name: "place"; id: string }
     | { name: "moveMany"; destination?: string | null }
     | { name: "labelSheets"; trays?: string[] }
@@ -191,6 +202,8 @@
         return [
           { label: "Production", go: () => again({ name: "production" }) },
         ];
+      case "needs":
+        return [{ label: "Needs a look" }];
       case "place":
         return [recordWorkCrumb];
       case "moveMany":
@@ -330,6 +343,11 @@
 
   // Refreshes what the device keeps for working with no signal.
   async function refresh() {
+    // Recording work, or coming back to Record work, can change what needs a look.
+    if (!atBench) {
+      void loadNeeds();
+    }
+
     try {
       recent = (await api.GET("/api/events/recent")).data ?? [];
 
@@ -569,6 +587,27 @@
   // A change the owner makes to Settings, Features reaches this device when the app comes back into view.
   onMount(watchFeatures);
 
+  // What needs a look, with anything this device couldn't save first. A bench station has no bell: it's shared.
+  onMount(() => (atBench ? undefined : watchNeeds()));
+  const allNeeds = $derived(withRefused(needs.alerts, failed.length));
+
+  // Said once when the list grows while the app is open; never on first loading, nor when it shrinks.
+  let needsSaid = $state("");
+  let needsBefore: Alert[] | null = null;
+  $effect(() => {
+    const now = allNeeds;
+
+    if (!needs.loaded) {
+      return;
+    }
+
+    const said = announcement(needsBefore, now);
+    if (said) {
+      needsSaid = said;
+    }
+    needsBefore = now;
+  });
+
   // Whether Ask Hortiplanner can be offered, checked again whenever the app comes back into view.
   onMount(() => {
     const visible = () => {
@@ -690,6 +729,12 @@
       about={view.about ?? null}
       onOpenTray={(code) => open(code)}
       onOpenPlace={(id) => (view = { name: "place", id })}
+    />
+  {:else if view.name === "needs"}
+    <NeedsALook
+      alerts={allNeeds}
+      onGo={(where) =>
+        where === "record" ? void goHome() : (view = needsView(where))}
     />
   {:else if view.name === "production"}
     <Production
@@ -933,6 +978,7 @@
             ? "production"
             : "home"
           : view.name === "home" ||
+              view.name === "needs" ||
               view.name === "ask" ||
               view.name === "start" ||
               view.name === "settings" ||
@@ -950,12 +996,28 @@
       onProduction={() => (view = { name: "production" })}
       onPlants={() => (view = { name: "plants" })}
       onFinished={signOut}
+      needsCount={allNeeds.length}
+      onNeeds={() => (view = { name: "needs" })}
     />
     <div class="content">
       <div class="topbar">
         <img src="/logo-96.png" alt="" width="32" height="32" />
         Hortiplanner
+        <button
+          class="icon-button topbar-bell"
+          aria-label={bellName(allNeeds.length)}
+          aria-current={view.name === "needs" ? "page" : undefined}
+          onclick={() => (view = { name: "needs" })}
+        >
+          <Bell size={22} aria-hidden="true" />
+          {#if allNeeds.length > 0}<span
+              class="bell-badge"
+              aria-hidden="true"
+              data-count={badgeText(allNeeds.length)}
+            ></span>{/if}
+        </button>
       </div>
+      <p class="visually-hidden" role="status">{needsSaid}</p>
       <Breadcrumbs />
       {#key fresh}{@render screen()}{/key}
     </div>
