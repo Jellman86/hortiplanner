@@ -272,6 +272,7 @@
     if (fromPhoto.packetSays) packetSays = "";
     if (fromPhoto.aboutSeeds) aboutSeeds = 200;
     if (fromPhoto.variety) variety = "";
+    if (fromPhoto.cost) cost = "";
     if (fromPhoto.supplier) {
       supplierId = "";
       newSupplier = "";
@@ -309,6 +310,11 @@
       sowBy = read.sowBy;
       marks.sowBy = true;
     }
+    // Filled in below, from the price and how much of the packet went in.
+    if (read.price && isOn("Costs")) {
+      costNothing = false;
+      marks.cost = true;
+    }
     if (keep) {
       const previous = photos.Packet;
       if (previous) {
@@ -329,6 +335,34 @@
     await tick();
     packetNote?.focus();
   }
+
+  // The packet's price, for what this batch used of it: all of it, half, or a part nobody can price.
+  const packetPrice = $derived(packet?.price ? Number(packet.price) : null);
+  const usedOfPacket = $derived(
+    seed && sownAs === "Packet" ? packetShare : "Whole",
+  );
+  $effect(() => {
+    if (packetPrice !== null && fromPhoto.cost) {
+      cost =
+        usedOfPacket === "Half"
+          ? (Math.round(packetPrice * 50) / 100).toFixed(2)
+          : usedOfPacket === "Part"
+            ? ""
+            : packetPrice.toFixed(2);
+    }
+  });
+  const packetPriceWords = $derived.by(() => {
+    if (packetPrice === null || !fromPhoto.cost) {
+      return "";
+    }
+
+    const price = money(packetPrice);
+    return usedOfPacket === "Half"
+      ? `The packet says ${price} and half of it went in, so ${money(Math.round(packetPrice * 50) / 100)} has been put in. Change it if that isn't right.`
+      : usedOfPacket === "Part"
+        ? `The packet says ${price} and part of it went in, so put in roughly what that part cost.`
+        : `The packet says ${price}.`;
+  });
 
   // A filled-in value changed by hand, however it was changed, is no longer "read from the photo".
   $effect(() => {
@@ -1111,21 +1145,28 @@
           : onePlant
             ? "What did this plant cost? (£, optional)"
             : "What did these plants cost altogether? (£, optional)"}
+        {#if cost}{@render tag("cost")}{/if}
         <input
           bind:this={costBox}
           bind:value={cost}
+          oninput={() => forget("cost")}
           inputmode="decimal"
           autocomplete="off"
           disabled={costNothing}
-          aria-describedby={showCostProblem
-            ? "new-cost-problem new-cost-help"
-            : "new-cost-help"}
+          aria-describedby={[
+            showCostProblem ? "new-cost-problem" : "",
+            packetPriceWords ? "new-cost-packet" : "",
+            "new-cost-help",
+          ]
+            .filter(Boolean)
+            .join(" ")}
           aria-invalid={showCostProblem ? "true" : undefined}
         /></label
       >
       {#if showCostProblem}<p class="problem" id="new-cost-problem">
           {moneyProblem}
         </p>{/if}
+      {#if packetPriceWords}<p id="new-cost-packet">{packetPriceWords}</p>{/if}
       <p class="muted" id="new-cost-help">
         {seed
           ? "Put in what was paid for the seed this batch is sown from, with any VAT included, as it's printed on the packet or the receipt. If only part of a packet is sown, put in roughly that part of its price. You can leave this empty and add it later."
@@ -1134,7 +1175,11 @@
             : `Put in what was paid for all ${quantity} of them, with any VAT included, and not the price of one. You can leave this empty and add it later.`}
       </p>
       <label class="tick"
-        ><input type="checkbox" bind:checked={costNothing} />
+        ><input
+          type="checkbox"
+          bind:checked={costNothing}
+          onchange={() => forget("cost")}
+        />
         {seed
           ? "It cost nothing, because it was our own seed or a gift."
           : onePlant

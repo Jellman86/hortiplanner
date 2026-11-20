@@ -10,6 +10,7 @@
   import { shrinkPhoto } from "../../lib/photo";
   import { sowByWords } from "../../lib/sowBy";
   import type { Schemas } from "../../lib/types";
+  import { money } from "../../lib/work";
 
   type LabelRead = Schemas["LabelRead"];
 
@@ -72,6 +73,18 @@
         name: "Number of seeds",
         value: read.seedCount ? String(read.seedCount) : null,
       },
+      // Only while costs are kept, since it goes into the batch's cost.
+      ...(isOn("Costs")
+        ? [
+            {
+              field: "price",
+              name: "Price",
+              value:
+                read.priceAsPrinted ??
+                (read.price ? money(Number(read.price)) : null),
+            },
+          ]
+        : []),
     ].map((row) => ({
       ...row,
       unsure:

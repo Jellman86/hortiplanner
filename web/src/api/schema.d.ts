@@ -9209,6 +9209,9 @@ export interface components {
             /** Format: double */
             cost?: number | string;
             /** Format: double */
+            price?: null | number | string;
+            priceAsPrinted?: null | string;
+            /** Format: double */
             spentThisMonth?: number | string;
             /** Format: double */
             spentInAll?: number | string;

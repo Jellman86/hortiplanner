@@ -23,6 +23,8 @@ const reading = {
   sowBy: "2027-12-31",
   contentsAsPrinted: "approx. 25 seeds",
   seedCount: 25,
+  price: 2.99,
+  priceAsPrinted: "£2.99",
   unsure: ["lotOrReference"],
   plantMatches: [
     {
@@ -194,10 +196,15 @@ test("a seed packet photo fills in New batch, to check before starting", async (
     supplier,
   );
   await expect(page.getByLabel(/Lot or reference/)).toHaveValue("L2291");
-  await expect(page.locator(".read-tag")).toHaveCount(3);
+  await expect(page.locator(".read-tag")).toHaveCount(4);
   await expectAccessible(page, "New batch, where from, read from a packet");
   await page.getByLabel(/Lot or reference/).fill("L2292");
-  await expect(page.locator(".read-tag")).toHaveCount(2);
+  await expect(page.locator(".read-tag")).toHaveCount(3);
+
+  // The packet's price is put in as the cost, and marked, until it's changed.
+  const priced = page.getByLabel(/What did this seed cost\?/);
+  await expect(priced).toHaveValue("2.99");
+  await expect(priced).toHaveAccessibleDescription(/^The packet says £2\.99\./);
 
   // What the seed cost is asked, and optional. Something that isn't money is pointed out when Next is pressed.
   const costBox = page.getByLabel("What did this seed cost? (£, optional)");
@@ -329,6 +336,8 @@ test("reading a second packet leaves nothing from the first behind", async ({
     supplierId: null,
     supplierName: null,
     supplierPassportNumber: null,
+    price: null,
+    priceAsPrinted: null,
     unsure: [],
   };
   await page.locator(".read-label input[type=file]").setInputFiles(file);
@@ -341,6 +350,7 @@ test("reading a second packet leaves nothing from the first behind", async ({
     "",
   );
   await expect(page.getByLabel("Month")).toHaveValue("");
+  await expect(page.getByLabel(/What did this seed cost\?/)).toHaveValue("");
   await expect(page.locator(".read-tag")).toHaveCount(0);
 });
 
@@ -370,4 +380,38 @@ test("the cost question follows where the plants came from", async ({
   // Cuttings taken here cost nothing to buy, so nothing is asked.
   await page.getByRole("button", { name: "Cuttings", exact: true }).click();
   await expect(page.getByLabel(/cost\? \(£, optional\)/)).toHaveCount(0);
+});
+
+test("half a packet puts in half its price, and part of one asks for a rough part", async ({
+  page,
+}) => {
+  await pretend(page, [], () => ({ status: 200, json: reading }));
+  await startNewBatch(page);
+  await page
+    .locator(".read-label input[type=file]")
+    .setInputFiles({ name: "packet.png", mimeType: "image/png", buffer: png });
+  await expect(page.getByText("Price")).toBeVisible();
+  await page.getByRole("button", { name: "Use these details" }).click();
+  await page.locator(".plant-card", { hasText: "Sweet Pea 'Cupani'" }).click();
+
+  await page.getByRole("button", { name: "A packet", exact: true }).click();
+  await page.getByRole("button", { name: "Half", exact: true }).click();
+  await page.getByRole("button", { name: "Next" }).click();
+  const box = page.getByLabel(/What did this seed cost\?/);
+  await expect(box).toHaveValue("1.50");
+  await expect(box).toHaveAccessibleDescription(
+    /^The packet says £2\.99 and half of it went in, so £1\.50 has been put in\. Change it if that isn't right\./,
+  );
+
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await page.getByRole("button", { name: "Part", exact: true }).click();
+  await page.getByRole("button", { name: "Next" }).click();
+  await expect(box).toHaveValue("");
+  await expect(box).toHaveAccessibleDescription(
+    /^The packet says £2\.99 and part of it went in, so put in roughly what that part cost\./,
+  );
+
+  // Typed over, it's no longer from the photo.
+  await box.fill("0.75");
+  await expect(page.getByText(/^The packet says/)).toHaveCount(0);
 });

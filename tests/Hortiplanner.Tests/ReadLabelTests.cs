@@ -89,6 +89,47 @@ public sealed class ReadLabelTests(PostgresFixture database)
         Assert.Single((await nursery.Owner.GetFromJsonAsync<JsonElement>(Route("/api/suppliers"), Cancellation)).EnumerateArray());
     }
 
+    [Theory]
+    [InlineData("""{"what":"seed_packet","commonName":"Cosmos","price":2.99,"priceAsPrinted":"£2.99"}""", "2.99", "£2.99")]
+    [InlineData("""{"what":"seed_packet","commonName":"Cosmos","price":"£3.50"}""", "3.50", null)]
+    [InlineData("""{"what":"seed_packet","commonName":"Cosmos","price":3.5,"priceAsPrinted":"€3.50"}""", null, "€3.50")]
+    [InlineData("""{"what":"seed_packet","commonName":"Cosmos","price":2.999}""", null, null)]
+    [InlineData("""{"what":"seed_packet","commonName":"Cosmos","price":1250}""", null, null)]
+    [InlineData("""{"what":"seed_packet","commonName":"Cosmos","price":0}""", null, null)]
+    [InlineData("""{"what":"seed_packet","commonName":"Cosmos"}""", null, null)]
+    public async Task A_price_is_taken_only_when_printed_in_pounds_and_sensible(string label, string? price, string? asPrinted)
+    {
+        await using var nursery = await SetUpAsync(database, new PretendOpenRouter { Label = label });
+
+        var read = Json(await (await ReadAsync(nursery.Owner)).Content.ReadAsStringAsync(Cancellation));
+
+        Assert.Equal(price, read.GetProperty("price").ValueKind == JsonValueKind.Null ? null : read.GetProperty("price").GetDecimal().ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
+        Assert.Equal(asPrinted, read.GetProperty("priceAsPrinted").GetString());
+    }
+
+    [Fact]
+    public async Task A_price_alone_on_a_photo_that_isnt_a_packet_fills_nothing_in()
+    {
+        await using var nursery = await SetUpAsync(database, new PretendOpenRouter { Label = """{"what":"other","price":4.99,"priceAsPrinted":"£4.99"}""" });
+
+        var read = Json(await (await ReadAsync(nursery.Owner)).Content.ReadAsStringAsync(Cancellation));
+
+        Assert.False(read.GetProperty("readable").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, read.GetProperty("price").ValueKind);
+    }
+
+    [Fact]
+    public async Task The_model_is_asked_for_the_price_as_printed()
+    {
+        var openRouter = new PretendOpenRouter { Label = """{"what":"seed_packet","commonName":"Cosmos"}""" };
+        await using var nursery = await SetUpAsync(database, openRouter);
+        await ReadAsync(nursery.Owner);
+
+        var properties = JsonNode.Parse(Assert.Single(openRouter.Questions).Body)!["tools"]![0]!["function"]!["parameters"]!["properties"]!;
+        Assert.Equal("number", properties["price"]!["type"]!.GetValue<string>());
+        Assert.Equal("string", properties["priceAsPrinted"]!["type"]!.GetValue<string>());
+    }
+
     [Fact]
     public async Task A_photo_that_isnt_a_packet_or_cant_be_read_fills_nothing_in_but_is_still_counted()
     {
