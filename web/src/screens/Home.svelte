@@ -1017,7 +1017,14 @@
             ></span>{/if}
         </button>
       </div>
-      <p class="visually-hidden" role="status">{needsSaid}</p>
+      <!-- Polite, and not a status message, so it doesn't stand in for a screen's own "saved" message. -->
+      <p
+        class="visually-hidden needs-said"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {needsSaid}
+      </p>
       <Breadcrumbs />
       {#key fresh}{@render screen()}{/key}
     </div>

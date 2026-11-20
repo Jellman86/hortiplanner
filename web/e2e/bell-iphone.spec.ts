@@ -112,9 +112,9 @@ test("the bell shows what needs a look from any screen on a phone", async ({
   await page.evaluate(() =>
     document.dispatchEvent(new Event("visibilitychange")),
   );
-  await expect(
-    page.getByRole("status").filter({ hasText: "Something new" }),
-  ).toHaveText("Something new needs a look: 1 invoice is overdue.");
+  await expect(page.locator(".needs-said")).toHaveText(
+    "Something new needs a look: 1 invoice is overdue.",
+  );
 
   // Without a signal the last list stays, with when it was checked.
   state.offline = true;
