@@ -27,6 +27,9 @@ internal sealed class Plant : IAudited, IArchivable
 
     public bool ProtectedVariety { get; set; }
 
+    /// <summary>The VAT rate it is sold at. Standard unless the owner has said otherwise.</summary>
+    public VatBand VatBand { get; set; } = VatBand.Standard;
+
     public DateTimeOffset? ArchivedAt { get; set; }
 
     public ICollection<PlantPrice> Prices { get; } = new List<PlantPrice>();

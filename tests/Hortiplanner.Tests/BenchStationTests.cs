@@ -262,6 +262,12 @@ public sealed class BenchStationTests(PostgresFixture database)
         Assert.Equal(HttpStatusCode.Forbidden, await GetStatusAsync(nursery.Bench, "/api/staff"));
         Assert.Equal(HttpStatusCode.OK, await GetStatusAsync(nursery.Bench, "/api/containers/active"));
 
+        // A plant added at the bench is standard rate, as anyone's but the owner's own is.
+        var plant = Json(await PostForTextAsync(nursery.Bench, "/api/plants", new { commonName = "Basil", protectedVariety = false, vatBand = "Zero" })).GetProperty("id").GetGuid();
+        var band = (await nursery.Owner.GetFromJsonAsync<JsonElement>(Route("/api/plants"), Cancellation)).EnumerateArray()
+            .Single(entry => entry.GetProperty("id").GetGuid() == plant).GetProperty("vatBand").GetString();
+        Assert.Equal("Standard", band);
+
         // What needs a look is the staff's list there: a job due, but not that it's running late.
         Assert.Equal(HttpStatusCode.Created, await PostStatusAsync(nursery.Owner, "/api/jobs", new { title = "Water the tunnel", everyDays = 7, firstDue = DateOnly.FromDateTime(DateTime.Now).AddDays(-10) }));
         var kinds = (await nursery.Bench.GetFromJsonAsync<JsonElement>(Route("/api/alerts"), Cancellation)).EnumerateArray()

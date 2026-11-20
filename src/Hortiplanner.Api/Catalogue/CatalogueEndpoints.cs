@@ -120,6 +120,7 @@ internal static class CatalogueEndpoints
                 row.Plant.Hardiness,
                 row.Plant.XylellaHost,
                 row.Plant.ProtectedVariety,
+                row.Plant.VatBand,
                 row.Plant.ArchivedAt != null,
                 row.Plant.Prices.Select(price => new PlantPriceDto(price.PotSizeId, price.Price)).ToList(),
                 db.PlantPhotos.Any(photo => photo.PlantId == row.Plant.Id) || db.Species.Any(species => species.Id == row.Plant.SpeciesId && species.PhotoUrl != null)))
@@ -127,6 +128,7 @@ internal static class CatalogueEndpoints
 
     private static bool IsValid(PlantRequest request) =>
         Clean(request.CommonName) is not null
+        && (request.VatBand is null || Enum.IsDefined(request.VatBand.Value))
         && (request.Prices ?? []).Select(price => price.PotSizeId).Distinct().Count() == (request.Prices ?? []).Count;
 
     private static void Apply(PlantRequest request, Plant plant)
@@ -140,6 +142,9 @@ internal static class CatalogueEndpoints
         plant.Hardiness = Clean(request.Hardiness);
         plant.XylellaHost = request.XylellaHost;
         plant.ProtectedVariety = request.ProtectedVariety;
+
+        // Left as it was when a request doesn't say, as an older app's won't.
+        plant.VatBand = request.VatBand ?? plant.VatBand;
 
         var prices = request.Prices ?? [];
 
@@ -161,7 +166,8 @@ internal static class CatalogueEndpoints
         }
     }
 
-    private static async Task<IResult> AddPlantAsync(PlantRequest request, HortiplannerDbContext db, CancellationToken cancellationToken)
+    /// <summary>Anyone can add a plant, but its VAT rate is the owner's to choose: a plant someone else adds is standard rate.</summary>
+    private static async Task<IResult> AddPlantAsync(PlantRequest request, ClaimsPrincipal user, HortiplannerDbContext db, CancellationToken cancellationToken)
     {
         if (!IsValid(request))
         {
@@ -169,7 +175,7 @@ internal static class CatalogueEndpoints
         }
 
         var plant = new Plant { CommonName = request.CommonName };
-        Apply(request, plant);
+        Apply(AccountServices.IsOwner(user) ? request : request with { VatBand = null }, plant);
         db.Plants.Add(plant);
         return await SaveAsync(db, CreatedEntry("/api/plants", plant.Id), cancellationToken);
     }
@@ -466,7 +472,8 @@ internal static class CatalogueEndpoints
         string? Hardiness,
         bool? XylellaHost,
         bool ProtectedVariety,
-        IReadOnlyList<PlantPriceDto>? Prices);
+        IReadOnlyList<PlantPriceDto>? Prices,
+        VatBand? VatBand = null);
 
     internal sealed record PlantResponse(
         Guid Id,
@@ -479,6 +486,7 @@ internal static class CatalogueEndpoints
         string? Hardiness,
         bool? XylellaHost,
         bool ProtectedVariety,
+        VatBand VatBand,
         bool Archived,
         IReadOnlyList<PlantPriceDto> Prices,
         bool HasPhoto);

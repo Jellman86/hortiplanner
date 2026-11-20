@@ -1,4 +1,4 @@
-import { catalogueNet, changeRate, vatChoices } from "./invoices";
+import { catalogueNet, changeRate, plantRate, vatChoices } from "./invoices";
 import { describe, expect, it } from "vitest";
 import { invoiceNumber, standing, totals, type DraftLine } from "./invoices";
 
@@ -89,5 +89,23 @@ describe("VAT choices", () => {
       { rate: 5, label: "Reduced, 5%" },
       { rate: 0, label: "None, 0%" },
     ]);
+  });
+});
+
+describe("a plant's line", () => {
+  it("starts at the plant's own rate, as set under Settings", () => {
+    expect(plantRate("Standard", 17.5, 5, true)).toBe(17.5);
+    expect(plantRate("Reduced", 17.5, 5, true)).toBe(5);
+    expect(plantRate("Zero", 17.5, 5, true)).toBe(0);
+  });
+
+  it("charges nothing while the nursery isn't registered", () => {
+    expect(plantRate("Standard", 20, 5, false)).toBe(0);
+    expect(plantRate("Reduced", 20, 5, false)).toBe(0);
+  });
+
+  it("works a zero-rated plant's price back to the whole catalogue price", () => {
+    expect(catalogueNet(6, plantRate("Zero", 20, 5, true), true)).toBe(6);
+    expect(catalogueNet(6, plantRate("Standard", 20, 5, true), true)).toBe(5);
   });
 });

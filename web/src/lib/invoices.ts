@@ -23,6 +23,23 @@ export function vatChoices(
   ];
 }
 
+/**
+ * The rate a line for a plant starts at: the plant's own VAT rate, at the rates set under Settings. Nothing is
+ * charged while the nursery isn't registered.
+ */
+export function plantRate(
+  band: Schemas["VatBand"],
+  standard: number,
+  reduced: number,
+  registered: boolean,
+): number {
+  if (!registered || band === "Zero") {
+    return 0;
+  }
+
+  return band === "Reduced" ? reduced : standard;
+}
+
 const round = (value: number) => Math.round(value * 100) / 100;
 
 /** The same sums the invoice shows: VAT is worked out for each rate, then rounded. */

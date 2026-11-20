@@ -110,6 +110,68 @@ public sealed class CatalogueApiTests(PostgresFixture database)
         Assert.Equal(9m, price.GetProperty("price").GetDecimal());
     }
 
+    private static async Task<string?> VatBandAsync(HttpClient client, Guid id) =>
+        (await ListAsync(client, "/api/plants")).EnumerateArray().Single(plant => plant.GetProperty("id").GetGuid() == id).GetProperty("vatBand").GetString();
+
+    [Fact]
+    public async Task A_plant_is_standard_rate_until_the_owner_says_otherwise()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var id = await AddAsync(nursery.Owner, "/api/plants", PlantBody("Lavender"));
+
+        Assert.Equal("Standard", await VatBandAsync(nursery.Owner, id));
+
+        Assert.Equal(HttpStatusCode.NoContent, await PutStatusAsync(nursery.Owner, $"/api/plants/{id}", new { commonName = "Lavender", variety = "Hidcote", protectedVariety = false, vatBand = "Zero" }));
+        Assert.Equal("Zero", await VatBandAsync(nursery.Owner, id));
+
+        // An older app's save doesn't name the rate, so it stays as it was.
+        Assert.Equal(HttpStatusCode.NoContent, await PutStatusAsync(nursery.Owner, $"/api/plants/{id}", PlantBody("Lavender")));
+        Assert.Equal("Zero", await VatBandAsync(nursery.Owner, id));
+
+        var owners = await AddAsync(nursery.Owner, "/api/plants", new { commonName = "Thyme", protectedVariety = false, vatBand = "Reduced" });
+        Assert.Equal("Reduced", await VatBandAsync(nursery.Owner, owners));
+    }
+
+    [Fact]
+    public async Task A_plant_someone_else_adds_is_standard_rate_whatever_it_asks_for()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+
+        var id = await AddAsync(nursery.Staff, "/api/plants", new { commonName = "Basil", protectedVariety = false, vatBand = "Zero" });
+
+        Assert.Equal("Standard", await VatBandAsync(nursery.Owner, id));
+        Assert.Equal(HttpStatusCode.Forbidden, await PutStatusAsync(nursery.Staff, $"/api/plants/{id}", new { commonName = "Basil", protectedVariety = false, vatBand = "Zero" }));
+    }
+
+    [Fact]
+    public async Task A_VAT_rate_that_isnt_one_of_the_three_is_refused()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+
+        Assert.Equal(HttpStatusCode.BadRequest, await PostStatusAsync(nursery.Owner, "/api/plants", new { commonName = "Basil", protectedVariety = false, vatBand = "Luxury" }));
+        Assert.Equal(HttpStatusCode.BadRequest, await PostStatusAsync(nursery.Owner, "/api/plants", new { commonName = "Basil", protectedVariety = false, vatBand = 7 }));
+
+        var id = await AddAsync(nursery.Owner, "/api/plants", PlantBody("Lavender"));
+        Assert.Equal(HttpStatusCode.BadRequest, await PutStatusAsync(nursery.Owner, $"/api/plants/{id}", new { commonName = "Lavender", protectedVariety = false, vatBand = 7 }));
+    }
+
+    [Fact]
+    public async Task Changing_a_plants_VAT_rate_is_kept_in_the_change_history()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var id = await AddAsync(nursery.Owner, "/api/plants", PlantBody("Lavender"));
+        await PutStatusAsync(nursery.Owner, $"/api/plants/{id}", new { commonName = "Lavender", variety = "Hidcote", xylellaHost = true, protectedVariety = false, vatBand = "Zero" });
+
+        await using var scope = nursery.App.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<HortiplannerDbContext>();
+        var change = await db.CatalogueChanges.Where(c => c.EntityKey == id.ToString() && c.Action == "Modified").SingleAsync(Cancellation);
+
+        var band = Json(change.Changes).GetProperty("VatBand");
+        Assert.Equal("Standard", band.GetProperty("before").GetString());
+        Assert.Equal("Zero", band.GetProperty("after").GetString());
+        Assert.Single(Json(change.Changes).EnumerateObject());
+    }
+
     [Fact]
     public async Task An_archived_entry_leaves_the_list_and_can_be_restored()
     {

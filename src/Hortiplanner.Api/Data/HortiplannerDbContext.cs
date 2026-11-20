@@ -650,6 +650,7 @@ internal sealed class HortiplannerDbContext(DbContextOptions<HortiplannerDbConte
             entity.Property(e => e.Id).ValueGeneratedNever();
             entity.Property(e => e.CommonName).HasColumnType("citext");
             entity.Property(e => e.Variety).HasColumnType("citext");
+            entity.Property(e => e.VatBand).HasConversion<string>();
             entity.HasIndex(e => new { e.CommonName, e.Variety }).IsUnique().AreNullsDistinct(false);
             entity.HasOne<Species>().WithMany().HasForeignKey(e => e.SpeciesId).OnDelete(DeleteBehavior.Restrict);
         });

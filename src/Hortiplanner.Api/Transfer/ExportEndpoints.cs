@@ -88,9 +88,17 @@ internal static class ExportEndpoints
     }
 
     private static async Task<Sheet> PlantsAsync(HortiplannerDbContext db, CancellationToken cancellationToken) =>
-        new("plants", ["Common name", "Variety", "Botanical name", "Category", "Position", "Watering", "Hardiness", "Xylella host", "Protected variety", "No longer used"],
+        new("plants", ["Common name", "Variety", "Botanical name", "Category", "Position", "Watering", "Hardiness", "Xylella host", "Protected variety", "VAT rate", "No longer used"],
             (await db.Plants.AsNoTracking().OrderBy(plant => plant.CommonName).ThenBy(plant => plant.Variety).ToListAsync(cancellationToken))
-                .Select(plant => new object?[] { plant.CommonName, plant.Variety, plant.BotanicalName, plant.Category, plant.Position, plant.Watering, plant.Hardiness, plant.XylellaHost, plant.ProtectedVariety, plant.ArchivedAt != null }));
+                .Select(plant => new object?[] { plant.CommonName, plant.Variety, plant.BotanicalName, plant.Category, plant.Position, plant.Watering, plant.Hardiness, plant.XylellaHost, plant.ProtectedVariety, VatRateWord(plant.VatBand), plant.ArchivedAt != null }));
+
+    /// <summary>The word the plant import reads back.</summary>
+    private static string VatRateWord(VatBand band) => band switch
+    {
+        VatBand.Reduced => "Reduced",
+        VatBand.Zero => "Zero",
+        _ => "Standard",
+    };
 
     private static async Task<Sheet> SuppliersAsync(HortiplannerDbContext db, CancellationToken cancellationToken) =>
         new("suppliers", ["Name", "Contact", "Phone", "Email", "Address", "Account reference", "Supplies", "Lead time (days)", "Passport registration", "Other registrations", "Notes", "No longer used"],
