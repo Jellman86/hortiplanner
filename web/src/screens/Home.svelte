@@ -741,7 +741,7 @@
           <span
             >{backupNeverReported
               ? "Hortiplanner has never heard from the backups. Please check that the nursery's records are being backed up."
-              : "The backups may have stopped. The nursery's records aren't being protected until this is fixed."}</span
+              : "The backups may have stopped. The nursery's records aren't being protected until this is put right."}</span
           >
           <button
             class="secondary"

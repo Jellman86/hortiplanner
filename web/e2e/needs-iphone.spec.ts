@@ -34,7 +34,7 @@ test("staff see their own items under Needs a look on Record work", async ({
       "/api/alerts": [
         {
           kind: "JobsDue",
-          title: "1 job is due today",
+          title: "1 job is due",
           why: "It's on Record work, ready to tick off once it's done.",
           where: "record",
           count: 1,
@@ -65,7 +65,7 @@ test("staff see their own items under Needs a look on Record work", async ({
     ),
   ).toBeVisible();
   // The job is listed once, ready to tick off, rather than also as an item.
-  await expect(page.getByText("1 job is due today")).toHaveCount(0);
+  await expect(page.getByText("1 job is due")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Jobs due" })).toBeVisible();
   await expect(page.getByText("Water house 1")).toBeVisible();
   await expectAccessible(page, "Record work, staff with things to look at");

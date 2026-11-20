@@ -22,9 +22,11 @@ export function levelClass(alert: Alert): string {
 }
 
 /**
- * The items to show on Record work: jobs due are left out there, because Record work lists them itself, ready to
- * tick off.
+ * The items to show on Record work: jobs due and stopped backups are left out there, because Record work shows them
+ * itself, as the jobs to tick off and the red card about the backups.
  */
 export function forRecordWork(alerts: Alert[]): Alert[] {
-  return alerts.filter((alert) => alert.kind !== "JobsDue");
+  return alerts.filter(
+    (alert) => alert.kind !== "JobsDue" && alert.kind !== "BackupsStopped",
+  );
 }

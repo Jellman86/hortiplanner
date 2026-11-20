@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Hortiplanner.Api.Data;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 using static Hortiplanner.Tests.AccountHarness;
@@ -94,6 +95,9 @@ public sealed class AssistantTests(PostgresFixture database)
         private static HttpResponseMessage Reply(string json) =>
             new(HttpStatusCode.OK) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
     }
+
+    private static async Task<Guid> AddAsync(HttpClient client, string path, object body) =>
+        Json(await PostForTextAsync(client, path, body)).GetProperty("id").GetGuid();
 
     private static async Task<HttpResponseMessage> AskAsync(HttpClient client, string question) =>
         await client.PostAsJsonAsync(Route("/api/assistant/ask"), new { messages = new[] { new { role = "user", text = question } } }, Cancellation);
@@ -406,7 +410,8 @@ public sealed class AssistantTests(PostgresFixture database)
     public async Task Odd_requests_are_turned_away_and_staff_get_only_their_own_reminders()
     {
         var openRouter = new PretendOpenRouter { Tool = "needs_a_look" };
-        await using var nursery = await TwoPersonNursery.CreateAsync(database, outsideWorld: openRouter);
+        var clock = new TestClock();
+        await using var nursery = await TwoPersonNursery.CreateAsync(database, clock: clock, outsideWorld: openRouter);
         await SetUpAsync(nursery, openRouter, forStaff: true);
 
         async Task<HttpStatusCode> SendAsync(object body)
@@ -422,15 +427,27 @@ public sealed class AssistantTests(PostgresFixture database)
 
         // The owner's renewal is overdue and a job is due: staff are told about the job only.
         var today = DateOnly.FromDateTime(DateTime.Now);
-        using var settings = await nursery.Owner.PutAsJsonAsync(Route("/api/settings/nursery"), new { name = "Croft View", hasLogo = false, vatRegistered = false, paymentTermsDays = 30, authorisationRenewsOn = today.AddDays(-1), setsRenewal = true }, Cancellation);
+        using var settings = await nursery.Owner.PutAsJsonAsync(Route("/api/settings/nursery"), new { name = "Croft View", hasLogo = false, vatRegistered = false, paymentTermsDays = 0, authorisationRenewsOn = today.AddDays(-1), setsRenewal = true }, Cancellation);
         settings.EnsureSuccessStatusCode();
         await PostForTextAsync(nursery.Owner, "/api/jobs", new { title = "Water house 1", everyDays = 7, firstDue = today });
 
         using var asked = await AskAsync(nursery.Staff, "What needs a look?");
         Assert.Equal(HttpStatusCode.OK, asked.StatusCode);
         var lookedUp = openRouter.Questions[^1].Body;
-        Assert.Contains("1 job is due today", lookedUp, StringComparison.Ordinal);
+        Assert.Contains("1 job is due", lookedUp, StringComparison.Ordinal);
         Assert.DoesNotContain("authorisation", lookedUp, StringComparison.OrdinalIgnoreCase);
+
+        // The owner's lookup has the renewal, but never an overdue invoice: the assistant is never given money.
+        var customer = await AddAsync(nursery.Owner, "/api/customers", new { name = "Hilltop", address = "1 High Street", email = "", phone = "", vatNumber = "" });
+        using var issued = await PostAsync(nursery.Owner, "/api/invoices", new { customerId = customer, notes = "", lines = new[] { new { description = "Lavender 2L", quantity = 1, unitPrice = 5m, vatRate = 0m } } });
+        Assert.Equal(HttpStatusCode.Created, issued.StatusCode);
+        clock.Advance(TimeSpan.FromDays(2));
+
+        using var ownerAsked = await AskAsync(nursery.Owner, "What needs a look?");
+        Assert.Equal(HttpStatusCode.OK, ownerAsked.StatusCode);
+        var ownersLookup = openRouter.Questions[^1].Body;
+        Assert.Contains("authorisation", ownersLookup, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("invoice is overdue", ownersLookup, StringComparison.Ordinal);
     }
 
     [Fact]

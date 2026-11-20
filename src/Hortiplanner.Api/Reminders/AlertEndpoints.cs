@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Claims;
 using Hortiplanner.Api.Accounts;
 using Hortiplanner.Api.Data;
+using Hortiplanner.Api.Operations;
 using Hortiplanner.Api.Production;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,9 +19,6 @@ internal static class AlertEndpoints
     private const int ReadyTooLongDays = 28;
     private const int UncountedTooLongDays = 21;
     private const int JobLateDays = 2;
-
-    // The backup jobs run hourly and report on each other's schedule, as on Data and backups.
-    private static readonly TimeSpan BackupLimit = TimeSpan.FromMinutes(150);
 
     public static void MapAlertEndpoints(this IEndpointRouteBuilder app) => app.MapGet("/api/alerts", GetAsync);
 
@@ -70,35 +68,16 @@ internal static class AlertEndpoints
         }
     }
 
+    // The same test as Data and backups, so the two never disagree.
     private static async Task<Alert?> BackupsAsync(HortiplannerDbContext db, TimeProvider clock, CancellationToken cancellationToken)
     {
-        var status = await db.BackupStatus.AsNoTracking().FirstOrDefaultAsync(cancellationToken);
-        var now = clock.GetUtcNow();
+        var health = await BackupStatusEndpoints.GetStatusAsync(db, clock, cancellationToken);
 
-        if (status is null)
-        {
-            // A new nursery has a day's grace before the backups are expected to report.
-            var firstAccount = await db.Users.MinAsync(person => (DateTimeOffset?)person.CreatedAt, cancellationToken);
-            return firstAccount is null || now - firstAccount < TimeSpan.FromHours(24)
-                ? null
-                : new Alert(
-                    "BackupsStopped",
-                    "Hortiplanner has never heard from the backups",
-                    "Please check that the nursery's records are being backed up.",
-                    "data",
-                    1,
-                    "Problem");
-        }
-
-        return status.LastDumpAt >= now - BackupLimit && status.LastTransferAt >= now - BackupLimit
+        return health.Healthy
             ? null
-            : new Alert(
-                "BackupsStopped",
-                "The backups may have stopped",
-                "The nursery's records aren't being protected until this is put right.",
-                "data",
-                1,
-                "Problem");
+            : health.Known
+                ? new Alert("BackupsStopped", "The backups may have stopped", "The nursery's records aren't being protected until this is put right.", "data", 1, "Problem")
+                : new Alert("BackupsStopped", "Hortiplanner has never heard from the backups", "Please check that the nursery's records are being backed up.", "data", 1, "Problem");
     }
 
     private static async Task<Alert?> LateJobsAsync(HortiplannerDbContext db, DateOnly today, CancellationToken cancellationToken)
@@ -126,7 +105,7 @@ internal static class AlertEndpoints
             ? null
             : new Alert(
                 "JobsDue",
-                due == 1 ? "1 job is due today" : $"{due} jobs are due",
+                due == 1 ? "1 job is due" : $"{due} jobs are due",
                 due == 1
                     ? "It's on Record work, ready to tick off once it's done."
                     : "They're on Record work, ready to tick off as each one is done.",
@@ -147,7 +126,9 @@ internal static class AlertEndpoints
         var days = date.DayNumber - today.DayNumber;
         var why = days < 0
             ? $"It was due on {Day(date)}. Once you've renewed it, add the next renewal date in Nursery details."
-            : $"It's due on {Day(date)}, which is in {Plural(days, "day", "days")}. Book the inspection, and once it's renewed, add the next date in Nursery details.";
+            : days == 0
+                ? "It's due today. Once it's renewed, add the next date in Nursery details."
+                : $"It's due on {Day(date)}, which is in {Plural(days, "day", "days")}. Book the inspection, and once it's renewed, add the next date in Nursery details.";
 
         return new Alert("Authorisation", "Your plant health authorisation needs renewing", why, "nursery", 1, days < 0 ? "Problem" : "Soon");
     }
