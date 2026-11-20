@@ -106,6 +106,30 @@ public sealed class TransferTests(PostgresFixture database)
     }
 
     [Fact]
+    public async Task Every_cost_said_for_a_batch_comes_out_with_its_VAT_and_who_said_it()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var plant = Json(await PostForTextAsync(nursery.Owner, "/api/plants", new { commonName = "Lavender", protectedVariety = false })).GetProperty("id").GetGuid();
+        var started = Json(await PostForTextAsync(nursery.Staff, "/api/batches", new { eventId = Guid.NewGuid(), occurredAt = DateTimeOffset.UtcNow.AddDays(-3), plantId = plant, quantity = 40, source = "SeedLot", originCountry = "GB", containerKind = "Tray" }));
+        var batch = started.GetProperty("batchId").GetGuid();
+        await PostForTextAsync(nursery.Staff, $"/api/batches/{batch}/costs", new { eventId = Guid.NewGuid(), occurredAt = DateTimeOffset.UtcNow, kind = "Material", answer = "Amount", amount = 2.99m });
+        await PostForTextAsync(nursery.Owner, $"/api/batches/{batch}/costs", new { eventId = Guid.NewGuid(), occurredAt = DateTimeOffset.UtcNow, kind = "Material", answer = "Amount", amount = 2.99m, vatBand = "Zero", includesVat = true });
+
+        using var response = await nursery.Owner.GetAsync(Route("/api/export"), Cancellation);
+        await using var zipped = await response.Content.ReadAsStreamAsync(Cancellation);
+        using var archive = new ZipArchive(zipped);
+        using var costs = new StreamReader(archive.GetEntry("batch-costs.csv")!.Open(), Encoding.UTF8);
+        var lines = (await costs.ReadToEndAsync(Cancellation)).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+
+        Assert.Equal(3, lines.Length);
+        Assert.EndsWith("Batch,Kind,Answer,Amount typed,Typed amount includes VAT,VAT rate (%),VAT said by,With VAT,Before VAT,VAT,Note,Added by,Added,Replaced", lines[0], StringComparison.Ordinal);
+        Assert.Contains(",Seed or plants,Amount,2.99,Yes,20.00,Assumed,2.99,2.49,0.50,,Alex Moss,", lines[1], StringComparison.Ordinal);
+        Assert.EndsWith(",Yes", lines[1], StringComparison.Ordinal);
+        Assert.Contains(",Seed or plants,Amount,2.99,Yes,0.00,Sam Fielding,2.99,2.99,0.00,,Sam Fielding,", lines[2], StringComparison.Ordinal);
+        Assert.EndsWith(",No", lines[2], StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Everything_comes_out_in_one_download()
     {
         await using var nursery = await TwoPersonNursery.CreateAsync(database);
@@ -123,6 +147,7 @@ public sealed class TransferTests(PostgresFixture database)
         Assert.Contains(archive.Entries, entry => string.Equals(entry.Name, "work.csv", StringComparison.Ordinal));
         Assert.Contains(archive.Entries, entry => string.Equals(entry.Name, "count-adjustments.csv", StringComparison.Ordinal));
         Assert.Contains(archive.Entries, entry => string.Equals(entry.Name, "legacy-counts.csv", StringComparison.Ordinal));
+        Assert.Contains(archive.Entries, entry => string.Equals(entry.Name, "batch-costs.csv", StringComparison.Ordinal));
 
         using var plants = new StreamReader(archive.GetEntry("plants.csv")!.Open(), Encoding.UTF8);
         var text = await plants.ReadToEndAsync(Cancellation);

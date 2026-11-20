@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using Hortiplanner.Api.Accounts;
 using Hortiplanner.Api.Catalogue;
+using Hortiplanner.Api.Costs;
 using Hortiplanner.Api.Data;
 using Hortiplanner.Api.Production;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -245,8 +246,9 @@ internal static class WorkEndpoints
             .ToListAsync(cancellationToken);
 
         var rough = await store.RoughlyCountedAsync([container.Id], cancellationToken);
+        var costMissing = await BatchCostings.MissingAsync(db, batchIds, cancellationToken);
         var contents = state.Contents
-            .Join(batches, count => count.BatchId, batch => batch.Id, (count, batch) => new ContainerLine(batch.Id, batch.TraceabilityCode, batch.PlantId, batch.CommonName, batch.Variety, count.Quantity, batch.Source, count.NotCounted, rough.Contains((container.Id, batch.Id)), SeedSown.For(count.NotCounted, batch.SownAs, batch.SownAmount, batch.PacketShare, batch.PacketSays)))
+            .Join(batches, count => count.BatchId, batch => batch.Id, (count, batch) => new ContainerLine(batch.Id, batch.TraceabilityCode, batch.PlantId, batch.CommonName, batch.Variety, count.Quantity, batch.Source, count.NotCounted, rough.Contains((container.Id, batch.Id)), SeedSown.For(count.NotCounted, batch.SownAs, batch.SownAmount, batch.PacketShare, batch.PacketSays), costMissing.Contains(batch.Id)))
             .ToList();
 
         var paths = await PlacePaths.LoadAsync(db, cancellationToken);
@@ -293,6 +295,7 @@ internal static class WorkEndpoints
         var potSizeNames = await db.PotSizes.ToDictionaryAsync(size => size.Id, size => size.Name, cancellationToken);
         var rough = await store.RoughlyCountedAsync(containerIds, cancellationToken);
         var starts = await StartsAsync(containerIds, db, cancellationToken);
+        var costMissing = await BatchCostings.MissingAsync(db, batches.Keys, cancellationToken);
 
         return containers.ConvertAll(container =>
         {
@@ -300,7 +303,7 @@ internal static class WorkEndpoints
 
             var contents = stock
                 .Where(row => row.ContainerId == container.Id)
-                .Select(row => new ContainerLine(row.BatchId, batches[row.BatchId].TraceabilityCode, batches[row.BatchId].PlantId, batches[row.BatchId].CommonName, batches[row.BatchId].Variety, row.Quantity, batches[row.BatchId].Source, row.NotCounted, rough.Contains((row.ContainerId, row.BatchId)), SeedSown.For(row.NotCounted, batches[row.BatchId].SownAs, batches[row.BatchId].SownAmount, batches[row.BatchId].PacketShare, batches[row.BatchId].PacketSays)))
+                .Select(row => new ContainerLine(row.BatchId, batches[row.BatchId].TraceabilityCode, batches[row.BatchId].PlantId, batches[row.BatchId].CommonName, batches[row.BatchId].Variety, row.Quantity, batches[row.BatchId].Source, row.NotCounted, rough.Contains((row.ContainerId, row.BatchId)), SeedSown.For(row.NotCounted, batches[row.BatchId].SownAs, batches[row.BatchId].SownAmount, batches[row.BatchId].PacketShare, batches[row.BatchId].PacketSays), costMissing.Contains(row.BatchId)))
                 .ToList();
             var stage = stages.GetValueOrDefault(container.Id);
 
@@ -769,7 +772,8 @@ internal static class WorkEndpoints
     /// <param name="NotCounted">Sown without a count and not counted since: Quantity is 0 because nobody knows it yet.</param>
     /// <param name="Rough">The latest count was only a rough guess, so Quantity is about right.</param>
     /// <param name="Sown">For a tray not counted yet, the seed that went in, if it was measured at all.</param>
-    internal sealed record ContainerLine(Guid BatchId, string TraceabilityCode, Guid PlantId, string CommonName, string? Variety, int Quantity, BatchSource Source, bool NotCounted = false, bool Rough = false, SeedSown? Sown = null);
+    /// <param name="CostMissing">Nobody has said what the batch's seed or plants cost yet, so the tray can ask. No amounts.</param>
+    internal sealed record ContainerLine(Guid BatchId, string TraceabilityCode, Guid PlantId, string CommonName, string? Variety, int Quantity, BatchSource Source, bool NotCounted = false, bool Rough = false, SeedSown? Sown = null, bool CostMissing = false);
 
     internal sealed record ContainerResponse(
         Guid Id,

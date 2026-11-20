@@ -768,6 +768,9 @@
         label={view.label}
         onAsk={askAbout}
         onTrace={me.isOwner && !atBench ? trace : undefined}
+        onPurchases={me.isOwner && !atBench
+          ? () => (view = { name: "manage", section: "purchases" })
+          : undefined}
         onDone={finishWork}
         onCancel={view.fromProduction
           ? () => (view = { name: "production" })

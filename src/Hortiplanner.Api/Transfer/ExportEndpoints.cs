@@ -55,6 +55,7 @@ internal static class ExportEndpoints
             await CustomersAsync(db, cancellationToken),
             await PlacesAsync(db, names.Places, cancellationToken),
             await BatchesAsync(db, names, cancellationToken),
+            await BatchCostsAsync(db, names, cancellationToken),
             await TraysAsync(db, store, cancellationToken),
             await WorkAsync(db, names, cancellationToken),
             await AdjustmentsAsync(db, cancellationToken),
@@ -99,6 +100,38 @@ internal static class ExportEndpoints
         VatBand.Zero => "Zero",
         _ => "Standard",
     };
+
+    /// <summary>Every cost said for a batch, replaced ones too, with who said it and when.</summary>
+    private static async Task<Sheet> BatchCostsAsync(HortiplannerDbContext db, Names names, CancellationToken cancellationToken)
+    {
+        var costs = await db.BatchCosts.AsNoTracking().OrderBy(cost => cost.RecordedAt).ThenBy(cost => cost.Id).ToListAsync(cancellationToken);
+        var replaced = costs.Where(cost => cost.ReplacesId is not null).Select(cost => cost.ReplacesId!.Value).ToHashSet();
+
+        return new("batch-costs", ["Batch", "Kind", "Answer", "Amount typed", "Typed amount includes VAT", "VAT rate (%)", "VAT said by", "With VAT", "Before VAT", "VAT", "Note", "Added by", "Added", "Replaced"],
+            costs.Select(cost => new object?[]
+            {
+                names.Batch(cost.BatchId),
+                cost.Kind == CostKind.Material ? "Seed or plants" : "Something else",
+                cost.Answer switch
+                {
+                    CostAnswer.Amount => "Amount",
+                    CostAnswer.Free => "Nothing",
+                    CostAnswer.NotKnown => "Not known",
+                    _ => "Removed",
+                },
+                cost.AmountPaid,
+                cost.IncludesVat,
+                cost.VatRate,
+                cost.Answer != CostAnswer.Amount ? null : cost.VatSaid ? names.People.GetValueOrDefault(cost.RecordedBy) : "Assumed",
+                cost.NetCost + cost.Vat,
+                cost.NetCost,
+                cost.Vat,
+                cost.Note,
+                names.People.GetValueOrDefault(cost.RecordedBy),
+                cost.RecordedAt,
+                replaced.Contains(cost.Id),
+            }));
+    }
 
     private static async Task<Sheet> SuppliersAsync(HortiplannerDbContext db, CancellationToken cancellationToken) =>
         new("suppliers", ["Name", "Contact", "Phone", "Email", "Address", "Account reference", "Supplies", "Lead time (days)", "Passport registration", "Other registrations", "Notes", "No longer used"],

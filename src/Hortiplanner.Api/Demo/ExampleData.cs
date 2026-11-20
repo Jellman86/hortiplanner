@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Hortiplanner.Api.Costs;
 using Hortiplanner.Api.Data;
 
 namespace Hortiplanner.Api.Demo;
@@ -38,6 +39,7 @@ internal sealed class ExampleData(HortiplannerDbContext db, EventStore store)
     private readonly List<Plant> plants = [];
     private readonly List<Supplier> suppliers = [];
     private Guid recordedBy;
+    private int batchesSeeded;
 
     public async Task LoadAsync(Guid ownerId, CancellationToken cancellationToken)
     {
@@ -157,6 +159,7 @@ internal sealed class ExampleData(HortiplannerDbContext db, EventStore store)
         var start = NewEvent(startType, seed.DaysAgo, container.Id, benches[seed.Bench], potSizes[0]);
         AddLine(start, container.Id, batch.Id, seed.Quantity);
         await store.AppendAsync(start, cancellationToken);
+        await AddCostAsync(seed, batch, start.OccurredAt, cancellationToken);
 
         if (seed.Germinated is { } germinated)
         {
@@ -192,6 +195,34 @@ internal sealed class ExampleData(HortiplannerDbContext db, EventStore store)
             });
             await db.SaveChangesAsync(cancellationToken);
         }
+    }
+
+    /// <summary>What most batches' seed or plants cost, taken as including VAT, with every third left for someone to fill in.</summary>
+    private async Task AddCostAsync(BatchSeed seed, Batch batch, DateTimeOffset startedAt, CancellationToken cancellationToken)
+    {
+        if (seed.Source == BatchSource.Cuttings || batchesSeeded++ % 3 == 2)
+        {
+            return;
+        }
+
+        var paid = seed.Source == BatchSource.SeedLot ? 2.49m + (seed.Quantity % 4) : Math.Round(seed.Quantity * 0.65m, 2);
+        var (net, vat) = CostEndpoints.Split(paid, 20m, includesVat: true);
+        db.BatchCosts.Add(new BatchCost
+        {
+            Id = Guid.CreateVersion7(),
+            BatchId = batch.Id,
+            Kind = CostKind.Material,
+            Answer = CostAnswer.Amount,
+            AmountPaid = paid,
+            IncludesVat = true,
+            VatBand = VatBand.Standard,
+            VatRate = 20m,
+            NetCost = net,
+            Vat = vat,
+            OccurredAt = startedAt,
+            RecordedBy = recordedBy,
+        });
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     private async Task AddPurchasesAsync(CancellationToken cancellationToken)
