@@ -143,7 +143,7 @@
     {#if figures.plants.length === 0}
       <p class="note-empty muted">Nothing has been recorded yet.</p>
     {:else}
-      <div class="desktop-only">
+      <div class="wide-only">
         <DataTable
           rows={figures.plants}
           columns={plantColumns}
@@ -151,29 +151,6 @@
           caption="Germination and survival for each plant"
         />
       </div>
-      <div class="mobile-only">
-        <div class="card-grid">
-          {#each figures.plants as plant (plant.plantId)}
-            <div class="card">
-              <strong>{plantName(plant.commonName, plant.variety)}</strong>
-              <span>Started: {plant.started}</span>
-              <span
-                >Germination: {germination(
-                  plant.germinationRate,
-                  plant.germinationApproximate,
-                )}</span
-              >
-              <span>Survival: {percent(plant.survivalRate)}</span>
-              <span>Lost: {plant.lost}</span>
-              {#if Number(plant.adjusted) !== 0}
-                <span>Stock count adjustments: {plant.adjusted}</span>
-              {/if}
-              <span>Alive now: {plant.alive}</span>
-            </div>
-          {/each}
-        </div>
-      </div>
-
       <div class="figure-grid">
         {#if figures.losses.length > 0}
           <section class="card">
@@ -209,10 +186,44 @@
                 columns={groupColumns(item.heading, item.name)}
                 key={(row) => row.name}
                 caption={item.title}
+                fit
               />
             </details>
           </section>
         {/each}
+      </div>
+
+      <!-- On a phone the charts come first, then each plant's figures. -->
+      <div class="narrow-only stack">
+        <h2>Each plant</h2>
+        <div class="card-grid">
+          {#each figures.plants as plant (plant.plantId)}
+            <section class="card stack tight">
+              <h3>{plantName(plant.commonName, plant.variety)}</h3>
+              <dl class="figure-facts">
+                <dt>Started</dt>
+                <dd>{plant.started}</dd>
+                <dt>Germination</dt>
+                <dd>
+                  {germination(
+                    plant.germinationRate,
+                    plant.germinationApproximate,
+                  )}
+                </dd>
+                <dt>Survival</dt>
+                <dd>{percent(plant.survivalRate)}</dd>
+                <dt>Lost</dt>
+                <dd>{plant.lost}</dd>
+                {#if Number(plant.adjusted) !== 0}
+                  <dt>Stock count adjustments</dt>
+                  <dd>{plant.adjusted}</dd>
+                {/if}
+                <dt>Alive now</dt>
+                <dd>{plant.alive}</dd>
+              </dl>
+            </section>
+          {/each}
+        </div>
       </div>
     {/if}
   {/if}

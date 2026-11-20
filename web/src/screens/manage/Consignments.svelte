@@ -554,10 +554,11 @@
             </span>
           </button>
         </li>
-      {:else}
-        <li class="muted">No consignments have been recorded yet.</li>
       {/each}
     </ul>
+    {#if list.length === 0}
+      <p class="note-empty muted">No consignments have been recorded yet.</p>
+    {/if}
     <button class="back" onclick={onBack}>Back</button>
   </main>
 {/if}

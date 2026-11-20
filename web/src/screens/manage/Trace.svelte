@@ -229,7 +229,9 @@
                   >
                 </PassportCard>
               {:else}
-                <p class="muted">No passports were received with this batch.</p>
+                <p class="note-empty muted">
+                  No passports were received with this batch.
+                </p>
               {/each}
             </div>
 
@@ -260,7 +262,7 @@
                   </div>
                 </div>
               {:else}
-                <p class="muted">
+                <p class="note-empty muted">
                   No passports have been issued for this batch.
                 </p>
               {/each}
@@ -308,7 +310,9 @@
               >
             </div>
           {:else}
-            <p class="muted">No invoices have taken plants from this batch.</p>
+            <p class="note-empty muted">
+              No invoices have taken plants from this batch.
+            </p>
           {/each}
           {#if trace.children.length > 0}
             <p>
@@ -349,7 +353,7 @@
             <h2>Photos</h2>
             {#key trace.id}<BatchPhotos
                 batchId={trace.id}
-                emptyText="No photos of this batch yet."
+                emptyText="Nobody has taken a photo of this batch yet."
                 of={plantName(trace.plant.commonName, trace.plant.variety)}
                 askWith={{ plantId: trace.plant.id }}
                 {onAsk}
@@ -400,14 +404,14 @@
     </form>
 
     {#if !searched && matches.length > 0}
-      <h2 class="settings-heading">Newest batches</h2>
+      <h2>Newest batches</h2>
     {/if}
     {#if loaded && matches.length === 0}
       <p class="note-empty muted">
         {searched ? "No batch matches that." : "There are no batches yet."}
       </p>
     {/if}
-    <ul class="place-tree">
+    <ul class="place-tree batch-grid">
       {#each matches as match (match.batchId)}
         <li>
           <button class="place-row" onclick={() => onChoose(match.batchId)}>
