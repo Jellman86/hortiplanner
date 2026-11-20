@@ -279,7 +279,7 @@
   {/key}
 {:else if showForm}
   <main>
-    <h1>{editing ? "Change plant" : "Add a plant"}</h1>
+    <h1>{editing ? "Change this plant's details" : "Add a plant"}</h1>
 
     <div class="plant-layout" class:single={!species}>
       {#if species}

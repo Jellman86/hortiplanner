@@ -279,7 +279,7 @@
     <p class="note-empty muted">
       {hasPicture
         ? "Nobody has added a photo of this plant yet, so the picture above comes from the online plant details. Add one and it will be used instead."
-        : "There are no photos of this plant yet. Add a few, such as the flower, the leaves and the label, so everyone can recognise it."}
+        : "There are no photos of this plant yet. Add one below so everyone can recognise it."}
     </p>
   {/if}
 
@@ -331,34 +331,28 @@
   {#if addProblem}<p class="problem" role="alert">{addProblem}</p>{/if}
 </section>
 
-{#if isOn("BatchPhotos") && !unreachable}
+<!-- Shown only when there are some: they are added from a tray, so an empty section here would invite nothing. -->
+{#if isOn("BatchPhotos") && !unreachable && fromBatches.length > 0}
   <section class="stack plant-photos">
     <h2>Photos from its batches</h2>
-    {#if fromBatches.length > 0}
-      <ol class="photo-strip" aria-label="Photos from the batches of {plant}">
-        {#each fromBatches as photo (photo.id)}
-          <li>
-            <button class="photo-strip-item" onclick={() => viewBatch(photo)}>
-              <img
-                src="/api/batch-photos/{photo.id}"
-                alt="{plant}, batch {photo.traceabilityCode}"
-                loading="lazy"
-              />
-              <span
-                >Batch {photo.traceabilityCode}{photo.stage
-                  ? ` · ${photoCaption({ kind: "Growing", stage: photo.stage })}`
-                  : ""}</span
-              >
-            </button>
-          </li>
-        {/each}
-      </ol>
-    {:else if loaded}
-      <p class="note-empty muted">
-        Nobody has taken a photo of this plant's batches yet. Photos of the
-        plants growing, added from a tray, will show here.
-      </p>
-    {/if}
+    <ol class="photo-strip" aria-label="Photos from the batches of {plant}">
+      {#each fromBatches as photo (photo.id)}
+        <li>
+          <button class="photo-strip-item" onclick={() => viewBatch(photo)}>
+            <img
+              src="/api/batch-photos/{photo.id}"
+              alt="{plant}, batch {photo.traceabilityCode}"
+              loading="lazy"
+            />
+            <span
+              >Batch {photo.traceabilityCode}{photo.stage
+                ? ` · ${photoCaption({ kind: "Growing", stage: photo.stage })}`
+                : ""}</span
+            >
+          </button>
+        </li>
+      {/each}
+    </ol>
   </section>
 {/if}
 

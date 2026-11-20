@@ -155,8 +155,8 @@
       </p>
     {/if}
 
-    <!-- One grid: on a phone the picture, the facts, the photos, then the notes; on a desk the picture and photos
-         beside the notes, and from a wide desk the facts and actions in a third column. -->
+    <!-- One grid. On a phone: the picture, the facts and actions, the photos, the notes, then the tree; with more
+         room the facts and actions move beside the picture, then the notes beside them all. -->
     <div class="plant-page">
       <div class="plant-page-hero">
         {#key photoVersion}
@@ -173,7 +173,7 @@
            own on a wide desk. -->
       <div class="plant-page-aside">
         {#if facts.length > 0}
-          <dl class="facts card plant-page-facts">
+          <dl class="facts card">
             {#each facts as [name, value] (name)}
               <dt>{name}</dt>
               <dd>{value}</dd>
@@ -266,9 +266,11 @@
     <p class="problem" role="alert">{problem}</p>
   {:else}
     <Loading text="Opening this plant…" />
-    <div class="plant-layout" aria-hidden="true">
-      <div class="plant-side"><span class="skeleton skeleton-hero"></span></div>
-      <div class="plant-main">
+    <div class="plant-page" aria-hidden="true">
+      <div class="plant-page-hero">
+        <span class="skeleton skeleton-hero"></span>
+      </div>
+      <div class="plant-page-read">
         <span class="skeleton-lines">
           <span class="skeleton"></span>
           <span class="skeleton"></span>

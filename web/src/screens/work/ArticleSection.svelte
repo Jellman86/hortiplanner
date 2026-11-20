@@ -31,7 +31,7 @@
   {#if long}
     <button
       type="button"
-      class="link-button"
+      class="link-button article-toggle"
       aria-expanded={open}
       onclick={() => (open = !open)}>{open ? "Show less" : "Read more"}</button
     >
