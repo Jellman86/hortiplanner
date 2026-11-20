@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Hortiplanner.Api.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -23,6 +24,12 @@ internal static partial class AssistantEndpoints
 
     /// <summary>More than any seed packet costs, so a misread number isn't taken as a price.</summary>
     private const decimal MostPacketPrice = 999.99m;
+
+    /// <summary>A price in pounds as printed, "£2.99", or in pence, "99p".</summary>
+    private static readonly Regex PoundsPrinted = new(@"£\s*(?<pounds>\d{1,3}(\.\d{1,2})?)|\b(?<pence>\d{1,2})\s*p\b", RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture, TimeSpan.FromMilliseconds(500));
+
+    /// <summary>Other currencies written in letters, which a currency symbol check wouldn't catch.</summary>
+    private static readonly Regex OtherCurrencyCode = new(@"\b(EUR|USD|CHF|SEK|NOK|DKK|AUD|CAD|NZD|JPY|kr)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture, TimeSpan.FromMilliseconds(500));
 
     private static readonly string[] SeedPacketFields =
         ["commonName", "variety", "botanicalName", "supplierName", "supplierPassportNumber", "lotOrReference", "sowBy", "contentsAsPrinted", "seedCount", "price"];
@@ -209,7 +216,8 @@ internal static partial class AssistantEndpoints
             SowBy: sowBy,
             ContentsAsPrinted: Text(found["contentsAsPrinted"], LongestContents),
             SeedCount: seeds,
-            Unsure: [.. (found["unsure"] as JsonArray ?? []).Select(item => Text(item, 40)).OfType<string>().Where(field => SeedPacketFields.Contains(field, StringComparer.Ordinal)).Distinct(StringComparer.Ordinal)],
+            Unsure: [.. (found["unsure"] as JsonArray ?? []).Select(item => Text(item, 40)).OfType<string>()
+                .Select(field => string.Equals(field, "priceAsPrinted", StringComparison.Ordinal) ? "price" : field).Where(field => SeedPacketFields.Contains(field, StringComparer.Ordinal)).Distinct(StringComparer.Ordinal)],
             PlantMatches: [],
             SupplierId: null)
         {
@@ -217,36 +225,54 @@ internal static partial class AssistantEndpoints
             PriceAsPrinted = Text(found["priceAsPrinted"], LongestPrice),
         };
         var anything = read.CommonName ?? read.Variety ?? read.BotanicalName ?? read.SupplierName ?? read.SupplierPassportNumber ?? read.LotOrReference ?? read.ContentsAsPrinted
-            ?? read.SowBy?.ToString(CultureInfo.InvariantCulture) ?? read.SeedCount?.ToString(CultureInfo.InvariantCulture) ?? read.PriceAsPrinted;
+            ?? read.SowBy?.ToString(CultureInfo.InvariantCulture) ?? read.SeedCount?.ToString(CultureInfo.InvariantCulture);
 
         return string.Equals(what, "seed_packet", StringComparison.Ordinal) && anything is not null
             ? read with { Readable = true }
             : Nothing(read);
     }
 
-    /// <summary>A reading that can't be used: what kind of photo it was, and nothing else.</summary>
     /// <summary>
-    /// The price in pounds, if one was printed: to the penny, and no more than a packet could cost. Not when what was
-    /// printed is in another currency, whatever number the model gave.
+    /// The price in pounds, if one was printed: to the penny, and no more than a packet could cost. Where a price in
+    /// pounds is printed, the number must be that price; otherwise none is taken when what was printed is in another
+    /// currency, whatever number the model gave.
     /// </summary>
     private static decimal? PriceOf(JsonObject found)
     {
         var printed = Text(found["priceAsPrinted"], LongestPrice);
+        decimal? price = found["price"] is JsonValue value
+            ? value.TryGetValue<decimal>(out var number) ? number : Pounds(value)
+            : null;
 
-        if (printed is not null && !printed.Contains('£', StringComparison.Ordinal) && printed.IndexOfAny(['€', '$']) >= 0)
+        if (price is not (> 0 and <= MostPacketPrice) || decimal.Round(price.Value, 2) != price)
         {
             return null;
         }
 
-        decimal? price = found["price"] is JsonValue value
-            ? value.TryGetValue<decimal>(out var number) ? number
-                : value.TryGetValue<string>(out var text) && decimal.TryParse(text.Trim().TrimStart('£'), NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed) ? parsed
-                : null
-            : null;
+        if (printed is null)
+        {
+            return price;
+        }
 
-        return price is > 0 and <= MostPacketPrice && decimal.Round(price.Value, 2) == price ? price : null;
+        if (PoundsPrinted.Match(printed) is { Success: true } pounds)
+        {
+            var shown = pounds.Groups["pounds"].Success
+                ? decimal.Parse(pounds.Groups["pounds"].Value, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture)
+                : decimal.Parse(pounds.Groups["pence"].Value, NumberStyles.None, CultureInfo.InvariantCulture) / 100m;
+            return shown == price ? price : null;
+        }
+
+        var foreign = printed.Any(letter => letter != '£' && char.GetUnicodeCategory(letter) == UnicodeCategory.CurrencySymbol) || OtherCurrencyCode.IsMatch(printed);
+        return foreign ? null : price;
     }
 
+    /// <summary>A price the model gave as text, such as "£3.50": a decimal point only, so "2,99" isn't read as 299.</summary>
+    private static decimal? Pounds(JsonValue value) =>
+        value.TryGetValue<string>(out var text) && decimal.TryParse(text.Trim().TrimStart('£').Trim(), NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : null;
+
+    /// <summary>A reading that can't be used: what kind of photo it was, and nothing else.</summary>
     private static LabelRead Nothing(LabelRead read) =>
         new(false, string.Equals(read.What, "other", StringComparison.Ordinal) ? "other" : "unreadable", null, null, null, null, null, null, null, null, null, [], [], null);
 

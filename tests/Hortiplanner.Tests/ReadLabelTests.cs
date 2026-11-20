@@ -97,6 +97,12 @@ public sealed class ReadLabelTests(PostgresFixture database)
     [InlineData("""{"what":"seed_packet","commonName":"Cosmos","price":1250}""", null, null)]
     [InlineData("""{"what":"seed_packet","commonName":"Cosmos","price":0}""", null, null)]
     [InlineData("""{"what":"seed_packet","commonName":"Cosmos"}""", null, null)]
+    [InlineData("""{"what":"seed_packet","commonName":"Cosmos","price":3.5,"priceAsPrinted":"£2.99 / €3.50"}""", null, "£2.99 / €3.50")]
+    [InlineData("""{"what":"seed_packet","commonName":"Cosmos","price":2.99,"priceAsPrinted":"£2.99 / €3.50"}""", "2.99", "£2.99 / €3.50")]
+    [InlineData("""{"what":"seed_packet","commonName":"Cosmos","price":"2,99"}""", null, null)]
+    [InlineData("""{"what":"seed_packet","commonName":"Cosmos","price":0.99,"priceAsPrinted":"99p"}""", "0.99", "99p")]
+    [InlineData("""{"what":"seed_packet","commonName":"Cosmos","price":3.5,"priceAsPrinted":"CHF 3.50"}""", null, "CHF 3.50")]
+    [InlineData("""{"what":"seed_packet","commonName":"Cosmos","price":300,"priceAsPrinted":"¥300"}""", null, "¥300")]
     public async Task A_price_is_taken_only_when_printed_in_pounds_and_sensible(string label, string? price, string? asPrinted)
     {
         await using var nursery = await SetUpAsync(database, new PretendOpenRouter { Label = label });
@@ -107,15 +113,28 @@ public sealed class ReadLabelTests(PostgresFixture database)
         Assert.Equal(asPrinted, read.GetProperty("priceAsPrinted").GetString());
     }
 
-    [Fact]
-    public async Task A_price_alone_on_a_photo_that_isnt_a_packet_fills_nothing_in()
+    [Theory]
+    [InlineData("""{"what":"other","price":4.99,"priceAsPrinted":"£4.99"}""")]
+    [InlineData("""{"what":"unreadable","price":4.99,"priceAsPrinted":"£4.99"}""")]
+    [InlineData("""{"what":"seed_packet","priceAsPrinted":"€3.50"}""")]
+    public async Task A_price_alone_or_on_a_photo_that_isnt_a_packet_fills_nothing_in(string label)
     {
-        await using var nursery = await SetUpAsync(database, new PretendOpenRouter { Label = """{"what":"other","price":4.99,"priceAsPrinted":"£4.99"}""" });
+        await using var nursery = await SetUpAsync(database, new PretendOpenRouter { Label = label });
 
         var read = Json(await (await ReadAsync(nursery.Owner)).Content.ReadAsStringAsync(Cancellation));
 
         Assert.False(read.GetProperty("readable").GetBoolean());
         Assert.Equal(JsonValueKind.Null, read.GetProperty("price").ValueKind);
+    }
+
+    [Fact]
+    public async Task A_price_the_model_was_unsure_of_is_marked_unsure()
+    {
+        await using var nursery = await SetUpAsync(database, new PretendOpenRouter { Label = """{"what":"seed_packet","commonName":"Cosmos","price":2.99,"priceAsPrinted":"£2.99","unsure":["priceAsPrinted"]}""" });
+
+        var read = Json(await (await ReadAsync(nursery.Owner)).Content.ReadAsStringAsync(Cancellation));
+
+        Assert.Equal(["price"], read.GetProperty("unsure").EnumerateArray().Select(field => field.GetString()!), StringComparer.Ordinal);
     }
 
     [Fact]

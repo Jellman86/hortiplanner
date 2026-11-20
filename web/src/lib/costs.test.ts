@@ -3,6 +3,7 @@ import {
   costDay,
   entrySentence,
   firstOf,
+  halfOf,
   materialSentence,
   readMoney,
   replacedParts,
@@ -222,5 +223,16 @@ describe("the words for a cost", () => {
     expect(supersededSentence(entry())).toMatch(
       /^The purchase now gives this batch's cost, so the £2\.99 typed in on 3 March( 2026)? is no longer counted\.$/,
     );
+  });
+});
+
+describe("half a packet's price", () => {
+  it("is worked out in pence, rounding a half penny up", () => {
+    expect(halfOf(2.99)).toBe(1.5);
+    expect(halfOf(1.15)).toBe(0.58);
+    expect(halfOf(2.01)).toBe(1.01);
+    expect(halfOf(2.55)).toBe(1.28);
+    expect(halfOf(0.01)).toBe(0.01);
+    expect(halfOf(4)).toBe(2);
   });
 });

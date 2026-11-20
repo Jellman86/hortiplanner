@@ -204,12 +204,17 @@ test("a seed packet photo fills in New batch, to check before starting", async (
   // The packet's price is put in as the cost, and marked, until it's changed.
   const priced = page.getByLabel(/What did this seed cost\?/);
   await expect(priced).toHaveValue("2.99");
-  await expect(priced).toHaveAccessibleDescription(/^The packet says £2\.99\./);
+  await expect(priced).toHaveAccessibleDescription(
+    /^The packet says £2\.99, so that has been put in\./,
+  );
 
   // What the seed cost is asked, and optional. Something that isn't money is pointed out when Next is pressed.
   const costBox = page.getByLabel("What did this seed cost? (£, optional)");
   await expect(costBox).toHaveAccessibleDescription(/with any VAT included/);
+  // Typed over, the cost is no longer marked as read from the photo.
+  await expect(page.locator(".read-tag")).toHaveCount(3);
   await costBox.fill("2.");
+  await expect(page.locator(".read-tag")).toHaveCount(2);
   await expect(costBox).not.toHaveAttribute("aria-invalid", "true");
   await costBox.fill("two pounds");
   await page.getByRole("button", { name: "Next" }).click();
@@ -411,7 +416,81 @@ test("half a packet puts in half its price, and part of one asks for a rough par
     /^The packet says £2\.99 and part of it went in, so put in roughly what that part cost\./,
   );
 
-  // Typed over, it's no longer from the photo.
+  // For part of a packet the price stays there to work from while a part is typed.
   await box.fill("0.75");
+  await expect(box).toHaveAccessibleDescription(
+    /^The packet says £2\.99 and part of it went in/,
+  );
+
+  // A cost typed by hand isn't replaced when the share changes.
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await page.getByRole("button", { name: "Whole packet", exact: true }).click();
+  await page.getByRole("button", { name: "Next" }).click();
+  await expect(box).toHaveValue("0.75");
   await expect(page.getByText(/^The packet says/)).toHaveCount(0);
+});
+
+test("the packet's price is marked on the check page, survives a tick taken back, and never becomes the plants' cost", async ({
+  page,
+}) => {
+  await pretend(page, [], () => ({ status: 200, json: reading }));
+  await startNewBatch(page);
+  await page
+    .locator(".read-label input[type=file]")
+    .setInputFiles({ name: "packet.png", mimeType: "image/png", buffer: png });
+  await page.getByRole("button", { name: "Use these details" }).click();
+  await page.locator(".plant-card", { hasText: "Sweet Pea 'Cupani'" }).click();
+  await page.getByRole("button", { name: "Next" }).click();
+
+  // Counted seed takes the whole price, and says only some may have gone in.
+  const box = page.getByLabel(/What did this seed cost\?/);
+  await expect(box).toHaveValue("2.99");
+  await expect(box).toHaveAccessibleDescription(
+    /^The packet says £2\.99, so that has been put in\. Change it if only some of the packet went in\./,
+  );
+
+  // Ticked and taken back, the price is still the packet's.
+  const nothing = page.getByLabel(
+    "It cost nothing, because it was our own seed or a gift.",
+  );
+  await nothing.check();
+  await expect(page.getByText(/^The packet says/)).toHaveCount(0);
+  await nothing.uncheck();
+  await expect(box).toHaveValue("2.99");
+  await expect(page.getByText(/^The packet says/)).toHaveCount(1);
+
+  await page.getByRole("button", { name: "Next" }).click();
+  await page.getByRole("button", { name: "Next" }).click();
+  await page.getByRole("button", { name: "Next" }).click();
+  await expect(
+    page.locator(".batch-check dd", { hasText: "£2.99" }).locator(".read-tag"),
+  ).toHaveCount(1);
+
+  // Bought in, the seed's price goes, and doesn't come back on the way to seed again.
+  await page.getByRole("button", { name: "Change seed cost" }).click();
+  await page.getByRole("button", { name: "Bought in", exact: true }).click();
+  await expect(page.getByLabel(/What did this plant cost\?/)).toHaveValue("");
+  await expect(page.getByText(/^The packet says/)).toHaveCount(0);
+  await page.getByRole("button", { name: "Seed", exact: true }).click();
+  await expect(box).toHaveValue("");
+  await expect(page.getByText(/^The packet says/)).toHaveCount(0);
+});
+
+test("with costs turned off, the price is neither shown nor put in", async ({
+  page,
+}) => {
+  await pretend(page, [], () => ({ status: 200, json: reading }));
+  await page.route("**/api/settings/features", (route) =>
+    route.fulfill({ json: [{ feature: "Costs", on: false }] }),
+  );
+  await startNewBatch(page);
+  await page
+    .locator(".read-label input[type=file]")
+    .setInputFiles({ name: "packet.png", mimeType: "image/png", buffer: png });
+  await expect(page.getByText("L2291")).toBeVisible();
+  await expect(page.getByText("£2.99")).toHaveCount(0);
+  await page.getByRole("button", { name: "Use these details" }).click();
+  await page.locator(".plant-card", { hasText: "Sweet Pea 'Cupani'" }).click();
+  await page.getByRole("button", { name: "Next" }).click();
+  await expect(page.getByLabel(/cost\? \(£, optional\)/)).toHaveCount(0);
 });

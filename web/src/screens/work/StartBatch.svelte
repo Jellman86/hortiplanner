@@ -30,7 +30,7 @@
   import SowByPicker from "./SowByPicker.svelte";
   import SupplierRegistrations from "./SupplierRegistrations.svelte";
   import { sowByWords } from "../../lib/sowBy";
-  import { moneyProblem, readMoney } from "../../lib/costs";
+  import { halfOf, moneyProblem, readMoney } from "../../lib/costs";
   import {
     packetShares,
     sowingChoices,
@@ -208,6 +208,8 @@
       cost = "";
       costNothing = false;
       costChecked = false;
+      // A packet's price is the seed's, never the cost of plants bought in.
+      forget("cost");
     }
 
     source = chosen;
@@ -337,32 +339,46 @@
   }
 
   // The packet's price, for what this batch used of it: all of it, half, or a part nobody can price.
-  const packetPrice = $derived(packet?.price ? Number(packet.price) : null);
-  const usedOfPacket = $derived(
-    seed && sownAs === "Packet" ? packetShare : "Whole",
+  const packetPrice = $derived(
+    seed && packet?.price ? Number(packet.price) : null,
   );
+  const usedOfPacket = $derived(sownAs === "Packet" ? packetShare : null);
   $effect(() => {
     if (packetPrice !== null && fromPhoto.cost) {
       cost =
         usedOfPacket === "Half"
-          ? (Math.round(packetPrice * 50) / 100).toFixed(2)
+          ? halfOf(packetPrice).toFixed(2)
           : usedOfPacket === "Part"
             ? ""
             : packetPrice.toFixed(2);
     }
   });
+  // Shown while the cost is the packet's, and for part of a packet as long as there's a price to work from.
   const packetPriceWords = $derived.by(() => {
-    if (packetPrice === null || !fromPhoto.cost) {
+    if (
+      packetPrice === null ||
+      costNothing ||
+      (!fromPhoto.cost && usedOfPacket !== "Part")
+    ) {
       return "";
     }
 
     const price = money(packetPrice);
-    return usedOfPacket === "Half"
-      ? `The packet says ${price} and half of it went in, so ${money(Math.round(packetPrice * 50) / 100)} has been put in. Change it if that isn't right.`
-      : usedOfPacket === "Part"
-        ? `The packet says ${price} and part of it went in, so put in roughly what that part cost.`
-        : `The packet says ${price}.`;
+
+    switch (usedOfPacket) {
+      case "Whole":
+        return `The packet says ${price}.`;
+      case "Half":
+        return `The packet says ${price} and half of it went in, so ${money(halfOf(packetPrice))} has been put in. Change it if that isn't right.`;
+      case "Part":
+        return `The packet says ${price} and part of it went in, so put in roughly what that part cost.`;
+      default:
+        return `The packet says ${price}, so that has been put in. Change it if only some of the packet went in.`;
+    }
   });
+  const costFromPhoto = $derived(
+    !!fromPhoto.cost && !!cost && !costNothing && packetPrice !== null,
+  );
 
   // A filled-in value changed by hand, however it was changed, is no longer "read from the photo".
   $effect(() => {
@@ -653,6 +669,7 @@
                       ? "Not added yet"
                       : money(paid),
               stage: 3,
+              field: costFromPhoto && !costProblem ? "cost" : undefined,
             },
           ]
         : []),
@@ -1145,7 +1162,7 @@
           : onePlant
             ? "What did this plant cost? (£, optional)"
             : "What did these plants cost altogether? (£, optional)"}
-        {#if cost}{@render tag("cost")}{/if}
+        {#if costFromPhoto}{@render tag("cost")}{/if}
         <input
           bind:this={costBox}
           bind:value={cost}
@@ -1175,11 +1192,7 @@
             : `Put in what was paid for all ${quantity} of them, with any VAT included, and not the price of one. You can leave this empty and add it later.`}
       </p>
       <label class="tick"
-        ><input
-          type="checkbox"
-          bind:checked={costNothing}
-          onchange={() => forget("cost")}
-        />
+        ><input type="checkbox" bind:checked={costNothing} />
         {seed
           ? "It cost nothing, because it was our own seed or a gift."
           : onePlant
