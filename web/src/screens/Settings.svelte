@@ -93,10 +93,15 @@
     <p class="muted">Signed in as {me.name}.</p>
     <div class="stack">
       {@render list(true)}
-      <button class="secondary menu-item settings-sign-out" onclick={onSignOut}>
-        <LogOut size={20} />
-        {signOutLabel}
-      </button>
+      <div class="menu-grid">
+        <button
+          class="secondary menu-item settings-sign-out"
+          onclick={onSignOut}
+        >
+          <LogOut size={20} />
+          {signOutLabel}
+        </button>
+      </div>
     </div>
     <button class="back" onclick={onBack}>Back</button>
   </main>

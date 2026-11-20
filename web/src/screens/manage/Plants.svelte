@@ -431,7 +431,9 @@
 
         {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
         <div class="form-actions">
-          <button type="submit">{editing ? "Save changes" : "Add"}</button>
+          <button type="submit"
+            >{editing ? "Save changes" : "Add this plant"}</button
+          >
           <button type="button" class="secondary" onclick={reset}>Cancel</button
           >
         </div>

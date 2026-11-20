@@ -100,13 +100,13 @@ export const featureInfo: FeatureInfo[] = [
     feature: "PlacesMap",
     label: "Places map",
     hides:
-      "the map step when adding a place, the map on each place's page, and Map under Settings with its satellite pictures",
+      "the map step when adding a place, the map on each place's page and Map under Settings with its satellite pictures",
   },
   {
     feature: "Passports",
     label: "Plant passports",
     hides:
-      "passports on trays, issuing them, received passports, consignments and the authorisation renewal reminder",
+      "passports on trays, issuing them, received passports, Consignments under Manage and the authorisation renewal reminder",
   },
   {
     feature: "MotherPlants",
@@ -125,7 +125,7 @@ export const featureInfo: FeatureInfo[] = [
     feature: "Invoices",
     label: "Trade invoices",
     hides:
-      "Invoices, the overdue invoices reminder and invoiced orders in Consignments",
+      "Invoices under Manage, the overdue invoices reminder and invoiced plants in Consignments",
   },
   {
     feature: "Purchases",
@@ -149,6 +149,6 @@ export const featureInfo: FeatureInfo[] = [
     label: "Bench stations",
     hides:
       "Bench stations under Settings and the bench PINs in My account and Staff",
-    note: "A device already made a bench station shows the ordinary sign-in instead.",
+    note: "While it's off, a device already made a bench station shows the ordinary sign-in instead.",
   },
 ];

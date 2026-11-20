@@ -983,7 +983,7 @@
           >
           {#if newMother.trim()}
             <button type="button" class="secondary" onclick={addMother}
-              >Add</button
+              >Add this mother plant</button
             >
           {/if}
         </div>

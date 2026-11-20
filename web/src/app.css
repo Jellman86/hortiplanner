@@ -3886,6 +3886,16 @@ button.ask-card:hover:not(:disabled) {
   cursor: pointer;
 }
 
+/* A file chooser that can't be used just now, such as while a picture uploads, looks it. */
+label.file-link:has(input:disabled),
+label.file-link:has(input:disabled):hover {
+  border-color: var(--line);
+  background: color-mix(in srgb, var(--line) 60%, var(--surface));
+  color: var(--muted);
+  box-shadow: none;
+  cursor: default;
+}
+
 .file-link:has(input:focus-visible) {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
@@ -5053,12 +5063,49 @@ button.link-button.ftree-leaf {
   margin-left: 0;
 }
 
-/* The kinds of label on one row where they fit, rather than one left alone on a second row. */
+/* The kinds of label, never one left alone: two to a row on a phone, where a fifth runs the width; then four on one
+   row, or five as three and two; then all five on one row. */
 .segmented.label-kinds {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-/* Features: a card for each part of Hortiplanner, two to a row on a desk. */
+.segmented.label-kinds > :last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+@container page (min-width: 30rem) {
+  .segmented.label-kinds {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .segmented.label-kinds > :last-child:nth-child(odd) {
+    grid-column: auto;
+  }
+
+  .segmented.label-kinds:has(> :nth-child(5)) {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .segmented.label-kinds:has(> :nth-child(5)) > * {
+    grid-column: span 2;
+  }
+
+  .segmented.label-kinds:has(> :nth-child(5)) > :nth-child(n + 4) {
+    grid-column: span 3;
+  }
+}
+
+@container page (min-width: 43rem) {
+  .segmented.label-kinds:has(> :nth-child(5)) {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .segmented.label-kinds:has(> :nth-child(5)) > :nth-child(n) {
+    grid-column: auto;
+  }
+}
+
+/* Features: a card for each part of Hortiplanner, side by side where there's room. */
 .feature-list {
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 26rem), 1fr));
 }

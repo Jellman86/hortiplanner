@@ -179,11 +179,7 @@
   {#if saved}<p class="card done" role="status">{saved}</p>{/if}
 
   <section class="stack">
-    <div
-      class="segmented four label-kinds"
-      role="group"
-      aria-label="Which label"
-    >
+    <div class="segmented label-kinds" role="group" aria-label="Which label">
       {#each kindsOfLabel.filter((item) => item.kind !== "PlantPassport" || isOn("Passports")) as item (item.kind)}
         <button
           class:secondary={kind !== item.kind}
@@ -295,21 +291,22 @@
             </div>
             {#if details && style.showLogo && !details.hasLogo}
               <p class="muted">
-                Add a logo under <button
-                  class="link-button"
-                  onclick={onNurseryDetails}
-                  ><ArrowRight size={16} aria-hidden="true" />Nursery details</button
-                > for it to show on the label.
+                Add a logo under Nursery details for it to show on the label.
               </p>
+              <button class="link-button" onclick={onNurseryDetails}
+                ><ArrowRight size={16} aria-hidden="true" />Go to Nursery
+                details</button
+              >
             {/if}
             {#if details && style.showNurseryName && !details.name}
               <p class="muted">
-                Fill in the nursery's name under <button
-                  class="link-button"
-                  onclick={onNurseryDetails}
-                  ><ArrowRight size={16} aria-hidden="true" />Nursery details</button
-                > for it to show on the label.
+                Fill in the nursery's name under Nursery details for it to show
+                on the label.
               </p>
+              <button class="link-button" onclick={onNurseryDetails}
+                ><ArrowRight size={16} aria-hidden="true" />Go to Nursery
+                details</button
+              >
             {/if}
           </div>
 
