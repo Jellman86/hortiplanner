@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Pencil from "@lucide/svelte/icons/pencil";
   import PrintButton from "../PrintButton.svelte";
   import type { AskAbout } from "../../lib/assistant.svelte";
   import { onMount } from "svelte";
@@ -264,7 +265,7 @@
             </section>
             <div class="row">
               <button class="secondary" onclick={() => edit(selected)}
-                >Change</button
+                ><Pencil size={18} aria-hidden="true" /> Change this plant's details</button
               >
               <button
                 class="secondary destructive"

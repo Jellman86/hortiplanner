@@ -310,12 +310,11 @@
   {#if !unreachable}
     <fieldset class="stack tight batch-photo-add">
       <legend class="field-label">Add a photo</legend>
-      <div class="card-grid">
+      <!-- Small buttons, one tap each: what kind of photo it is goes with it. -->
+      <div class="photo-choices">
         {#each plantPhotoKinds as choice (choice.kind)}
           <label class="photo-choice" aria-disabled={adding}>
-            <span class="plant-thumb placeholder"
-              ><Camera size={22} aria-hidden="true" /></span
-            >
+            <Camera size={18} aria-hidden="true" />
             <span>{choice.label}</span>
             <input
               type="file"

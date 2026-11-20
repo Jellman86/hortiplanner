@@ -153,7 +153,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await button(page, "Add note").click();
   await expect(page.getByText("Cut back hard in August.")).toBeVisible();
   await expectAccessible(page, "Plant card");
-  await button(page, "Change").click();
+  await button(page, "Change this plant's details").click();
   await expect(page.getByLabel("Price for 9cm (£)")).toHaveValue("4.5");
   await page.getByLabel("Variety", { exact: true }).fill("Munstead");
   await button(page, "Save changes").click();
