@@ -6,6 +6,7 @@
   import { dayLabel } from "../../lib/dates";
   import { isOn } from "../../lib/features.svelte";
   import { forRecordWork, levelClass, placeNames } from "../../lib/needs";
+  import { loadNeeds, needs } from "../../lib/needs.svelte";
   import type { Schemas } from "../../lib/types";
 
   // Jobs due today or late, to tick off; and anything in the records that wants this person's look, with why. Each
@@ -17,7 +18,8 @@
   } = $props();
 
   let jobs = $state<Schemas["JobSummary"][]>([]);
-  let alerts = $state<Schemas["Alert"][]>([]);
+  // The same list as the bell, so ticking a job off here lowers its number straight away.
+  const alerts = $derived(forRecordWork(needs.alerts));
   let busyId = $state<string | null>(null);
   let problem = $state("");
   // The job last ticked off here, so a tap by mistake can be taken back.
@@ -29,8 +31,6 @@
     try {
       // With jobs turned off only the reminders show here.
       jobs = isOn("Jobs") ? ((await api.GET("/api/jobs")).data ?? []) : [];
-
-      alerts = forRecordWork((await api.GET("/api/alerts")).data ?? []);
     } catch {
       // No signal: the jobs show again when there is one.
     }
@@ -49,7 +49,7 @@
       });
       problem = response.ok ? "" : "That couldn't be marked done.";
       lastDone = response.ok ? { id: job.id, title: job.title } : null;
-      await load();
+      await Promise.all([load(), loadNeeds()]);
     } catch {
       problem = "Marking a job done needs a signal.";
     } finally {
@@ -74,7 +74,7 @@
         ? ""
         : "That can't be undone any more, because a job can only be undone for a quarter of an hour.";
       lastDone = null;
-      await load();
+      await Promise.all([load(), loadNeeds()]);
     } catch {
       problem = "Undoing needs a signal.";
     } finally {
