@@ -888,6 +888,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/batches/{id}/costs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CostRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CostRecorded"];
+                    };
+                };
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CostRecorded"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CostRefused"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/batches/{id}/costing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BatchCosting"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/settings/clear-records": {
         parameters: {
             query?: never;
@@ -8368,6 +8464,23 @@ export interface components {
             /** Format: date-time */
             lastTransferAt: null | string;
         };
+        BatchCosting: {
+            /** Format: uuid */
+            batchId: string;
+            traceabilityCode: string;
+            source: components["schemas"]["BatchSource"];
+            plantVatBand: components["schemas"]["VatBand"];
+            vatRegistered: boolean;
+            counts: components["schemas"]["VatCounts"];
+            material: components["schemas"]["MaterialCost"];
+            others: components["schemas"]["CostEntry"][];
+            total: null | components["schemas"]["MoneyPair"];
+            history: components["schemas"]["CostEntry"][];
+            /** Format: double */
+            standardRate: number | string;
+            /** Format: double */
+            reducedRate: number | string;
+        };
         BatchDetails: {
             /** Format: uuid */
             id: string;
@@ -8599,6 +8712,8 @@ export interface components {
             /** @default false */
             rough: boolean;
             sown?: null | components["schemas"]["SeedSown"];
+            /** @default false */
+            costMissing: boolean;
         };
         ContainerResponse: {
             /** Format: uuid */
@@ -8649,6 +8764,55 @@ export interface components {
             quantity: null | number | string;
             /** Format: uuid */
             locationId: null | string;
+        };
+        /** @enum {unknown} */
+        CostAnswer: "Amount" | "Free" | "NotKnown" | "Removed";
+        CostEntry: {
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["CostKind"];
+            answer: components["schemas"]["CostAnswer"];
+            /** Format: double */
+            amountPaid: null | number | string;
+            includesVat: null | boolean;
+            vatBand: null | components["schemas"]["VatBand"];
+            /** Format: double */
+            vatRate: null | number | string;
+            vatSaid: boolean;
+            cost: null | components["schemas"]["MoneyPair"];
+            note: null | string;
+            addedBy: string;
+            /** Format: date-time */
+            occurredAt: string;
+            /** Format: date-time */
+            addedAt: string;
+            replaced: boolean;
+            /** Format: uuid */
+            replacesId: null | string;
+        };
+        /** @enum {unknown} */
+        CostKind: "Material" | "Other";
+        CostRecorded: {
+            /** Format: uuid */
+            eventId: string;
+        };
+        CostRefused: {
+            problem: string;
+        };
+        CostRequest: {
+            /** Format: uuid */
+            eventId: string;
+            /** Format: date-time */
+            occurredAt: string;
+            kind: components["schemas"]["CostKind"];
+            answer: components["schemas"]["CostAnswer"];
+            /** Format: double */
+            amount?: null | number | string;
+            vatBand?: null | components["schemas"]["VatBand"];
+            includesVat?: null | boolean;
+            note?: null | string;
+            /** Format: uuid */
+            replacesId?: null | string;
         };
         CountRequest: {
             /** Format: uuid */
@@ -9141,6 +9305,15 @@ export interface components {
         MapSettingsRequest: {
             imageryKey: null | string;
         };
+        MaterialCost: {
+            state: components["schemas"]["MaterialState"];
+            cost: null | components["schemas"]["MoneyPair"];
+            entry: null | components["schemas"]["CostEntry"];
+            purchase: null | components["schemas"]["PurchaseSource"];
+            superseded: null | components["schemas"]["CostEntry"];
+        };
+        /** @enum {unknown} */
+        MaterialState: "NoAnswer" | "Amount" | "Free" | "NotKnown" | "Cuttings" | "Purchase";
         ModelChoice: {
             id: string;
             name: string;
@@ -9151,6 +9324,12 @@ export interface components {
             readsImages: boolean;
             /** Format: int32 */
             contextLength: number | string;
+        };
+        MoneyPair: {
+            /** Format: double */
+            withVat: number | string;
+            /** Format: double */
+            beforeVat: number | string;
         };
         MoneySummary: {
             months: components["schemas"]["MonthFigures"][];
@@ -9258,7 +9437,7 @@ export interface components {
             setsRenewal: boolean;
         };
         /** @enum {unknown} */
-        NurseryFeature: "Climate" | "PlacesMap" | "Passports" | "MotherPlants" | "Jobs" | "Invoices" | "Purchases" | "BatchPhotos" | "BenchStations" | "Assistant";
+        NurseryFeature: "Climate" | "PlacesMap" | "Passports" | "MotherPlants" | "Jobs" | "Invoices" | "Purchases" | "BatchPhotos" | "BenchStations" | "Assistant" | "Costs";
         OutlineRequest: {
             points: null | (number | string)[][];
             /** @default false */
@@ -9709,6 +9888,16 @@ export interface components {
             vatTotal: number | string;
             lines: components["schemas"]["LineResponse"][];
             receiptIds: string[];
+        };
+        PurchaseSource: {
+            /** Format: uuid */
+            purchaseId: string;
+            supplier: string;
+            /** Format: date */
+            purchasedOn: string;
+            shared: boolean;
+            equally: boolean;
+            share: components["schemas"]["MoneyPair"];
         };
         QrCode: {
             svg: string;
@@ -10249,6 +10438,8 @@ export interface components {
          * @enum {unknown}
          */
         VatBand: "Standard" | "Reduced" | "Zero";
+        /** @enum {unknown} */
+        VatCounts: "WithVat" | "BeforeVat";
         VatRateHistory: {
             band: components["schemas"]["VatBand"];
             /** Format: double */

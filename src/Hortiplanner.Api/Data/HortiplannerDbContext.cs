@@ -17,6 +17,8 @@ internal sealed class HortiplannerDbContext(DbContextOptions<HortiplannerDbConte
 
     public DbSet<VatRateChange> VatRateChanges => Set<VatRateChange>();
 
+    public DbSet<BatchCost> BatchCosts => Set<BatchCost>();
+
     public DbSet<Purchase> Purchases => Set<Purchase>();
 
     public DbSet<PurchaseLine> PurchaseLines => Set<PurchaseLine>();
@@ -136,6 +138,7 @@ internal sealed class HortiplannerDbContext(DbContextOptions<HortiplannerDbConte
         ConfigureSettings(modelBuilder);
         ConfigureSelling(modelBuilder);
         ConfigureVatRates(modelBuilder);
+        ConfigureBatchCosts(modelBuilder);
 
         modelBuilder.Entity<CatalogueChange>(entity =>
         {
@@ -449,6 +452,32 @@ internal sealed class HortiplannerDbContext(DbContextOptions<HortiplannerDbConte
             entity.ToTable(table => table.HasCheckConstraint("ck_nursery_settings_single", "id = 1"));
         });
     }
+
+    private static void ConfigureBatchCosts(ModelBuilder modelBuilder) =>
+        modelBuilder.Entity<BatchCost>(entity =>
+        {
+            entity.ToTable(table =>
+            {
+                table.HasCheckConstraint("ck_batch_costs_amount", "amount_paid IS NULL OR (amount_paid > 0 AND amount_paid < 100000)");
+                table.HasCheckConstraint("ck_batch_costs_vat_rate", "vat_rate IS NULL OR (vat_rate >= 0 AND vat_rate <= 100)");
+            });
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Kind).HasConversion<string>();
+            entity.Property(e => e.Answer).HasConversion<string>();
+            entity.Property(e => e.VatBand).HasConversion<string>();
+            entity.Property(e => e.AmountPaid).HasPrecision(10, 2);
+            entity.Property(e => e.VatRate).HasPrecision(5, 2);
+            entity.Property(e => e.NetCost).HasPrecision(10, 2);
+            entity.Property(e => e.Vat).HasPrecision(10, 2);
+            entity.Property(e => e.Note).HasMaxLength(200);
+            entity.Property(e => e.RecordedAt).HasDefaultValueSql("now()");
+            entity.HasIndex(e => e.BatchId);
+            // An entry is replaced at most once, so a batch has one answer standing for its seed or plants.
+            entity.HasIndex(e => e.ReplacesId).IsUnique();
+            entity.HasOne<Batch>().WithMany().HasForeignKey(e => e.BatchId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<BatchCost>().WithMany().HasForeignKey(e => e.ReplacesId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<AppUser>().WithMany().HasForeignKey(e => e.RecordedBy).OnDelete(DeleteBehavior.Restrict);
+        });
 
     private static void ConfigureVatRates(ModelBuilder modelBuilder) =>
         modelBuilder.Entity<VatRateChange>(entity =>

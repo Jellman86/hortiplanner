@@ -410,6 +410,106 @@ namespace Hortiplanner.Api.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Hortiplanner.Api.Data.BatchCost", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal?>("AmountPaid")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("amount_paid");
+
+                    b.Property<string>("Answer")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("answer");
+
+                    b.Property<Guid>("BatchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("batch_id");
+
+                    b.Property<bool?>("IncludesVat")
+                        .HasColumnType("boolean")
+                        .HasColumnName("includes_vat");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("kind");
+
+                    b.Property<decimal?>("NetCost")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("net_cost");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("note");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recorded_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<Guid>("RecordedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recorded_by");
+
+                    b.Property<Guid?>("ReplacesId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("replaces_id");
+
+                    b.Property<string>("RequestFingerprint")
+                        .HasColumnType("text")
+                        .HasColumnName("request_fingerprint");
+
+                    b.Property<decimal?>("Vat")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("vat");
+
+                    b.Property<string>("VatBand")
+                        .HasColumnType("text")
+                        .HasColumnName("vat_band");
+
+                    b.Property<decimal?>("VatRate")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("vat_rate");
+
+                    b.Property<bool>("VatSaid")
+                        .HasColumnType("boolean")
+                        .HasColumnName("vat_said");
+
+                    b.HasKey("Id")
+                        .HasName("pk_batch_costs");
+
+                    b.HasIndex("BatchId")
+                        .HasDatabaseName("ix_batch_costs_batch_id");
+
+                    b.HasIndex("RecordedBy")
+                        .HasDatabaseName("ix_batch_costs_recorded_by");
+
+                    b.HasIndex("ReplacesId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_batch_costs_replaces_id");
+
+                    b.ToTable("batch_costs", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_batch_costs_amount", "amount_paid IS NULL OR (amount_paid > 0 AND amount_paid < 100000)");
+
+                            t.HasCheckConstraint("ck_batch_costs_vat_rate", "vat_rate IS NULL OR (vat_rate >= 0 AND vat_rate <= 100)");
+                        });
+                });
+
             modelBuilder.Entity("Hortiplanner.Api.Data.BatchPhoto", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2957,6 +3057,29 @@ namespace Hortiplanner.Api.Data.Migrations
                         .HasForeignKey("SupplierId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_batches_suppliers_supplier_id");
+                });
+
+            modelBuilder.Entity("Hortiplanner.Api.Data.BatchCost", b =>
+                {
+                    b.HasOne("Hortiplanner.Api.Data.Batch", null)
+                        .WithMany()
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_batch_costs_batches_batch_id");
+
+                    b.HasOne("Hortiplanner.Api.Accounts.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("RecordedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_batch_costs_asp_net_users_recorded_by");
+
+                    b.HasOne("Hortiplanner.Api.Data.BatchCost", null)
+                        .WithMany()
+                        .HasForeignKey("ReplacesId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_batch_costs_batch_costs_replaces_id");
                 });
 
             modelBuilder.Entity("Hortiplanner.Api.Data.BatchPhoto", b =>

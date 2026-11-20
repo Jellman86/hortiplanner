@@ -145,6 +145,13 @@ export const featureInfo: FeatureInfo[] = [
     note: "It also needs an OpenRouter key there before anyone can ask.",
   },
   {
+    feature: "Costs",
+    label: "Costs",
+    hides:
+      "Costs and takings on each tray and the notice asking what a batch's seed or plants cost",
+    note: "While it's off, a cost already waiting on a phone is still saved when it's sent.",
+  },
+  {
     feature: "BenchStations",
     label: "Bench stations",
     hides:

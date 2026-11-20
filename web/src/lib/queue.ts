@@ -73,6 +73,11 @@ export class WorkQueue {
     return this.items.some((item) => item.request.body.eventId === eventId);
   }
 
+  /** Whether work for this address is waiting, such as a batch's cost. */
+  waitingFor(url: string): boolean {
+    return this.items.some((item) => item.request.url === url);
+  }
+
   add(request: WorkRequest) {
     this.save([...this.items, { request, description: fallbackDescription }]);
   }
@@ -238,6 +243,18 @@ export function waitingByOthers(
   }
 
   return found;
+}
+
+/** Whether work for this address is waiting on this device for whoever is signed in. */
+export function waitingFor(url: string): boolean {
+  return active?.waitingFor(url) ?? false;
+}
+
+/** Names work kept on this device, so it's recognisable if it later can't be sent. */
+export function describeWaiting(eventId: string, description: string) {
+  if (active?.has(eventId)) {
+    active.describe(eventId, description);
+  }
 }
 
 /** Sends work now, or keeps it on this device if the server can't be reached. */

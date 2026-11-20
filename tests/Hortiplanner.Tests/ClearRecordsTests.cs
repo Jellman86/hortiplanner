@@ -32,14 +32,22 @@ public sealed class ClearRecordsTests(PostgresFixture database)
         await PostForTextAsync(nursery.Owner, "/api/invoices", new { customerId = customer, notes = "", lines = new[] { new { description = "Compost", quantity = 1, unitPrice = 5m, vatRate = 0m } } });
     }
 
+    private static async Task<int> CostsAsync(TwoPersonNursery nursery)
+    {
+        await using var scope = nursery.App.Services.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<HortiplannerDbContext>().BatchCosts.CountAsync(Cancellation);
+    }
+
     [Fact]
     public async Task Clearing_empties_the_records_and_keeps_the_people_and_the_nursery_details()
     {
         await using var nursery = await TwoPersonNursery.CreateAsync(database, demo: true);
         await FillAsync(nursery);
         var staffBefore = await CountAsync(nursery.Owner, "/api/staff");
+        Assert.NotEqual(0, await CostsAsync(nursery));
 
         Assert.Equal(HttpStatusCode.NoContent, await PostStatusAsync(nursery.Owner, Path, new { confirmation = "Clear everything" }));
+        Assert.Equal(0, await CostsAsync(nursery));
 
         foreach (var path in new[] { "/api/plants", "/api/suppliers", "/api/pot-sizes", "/api/purchases", "/api/containers/active", "/api/locations", "/api/customers", "/api/invoices", "/api/events/recent" })
         {

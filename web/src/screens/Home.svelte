@@ -1,6 +1,6 @@
 <script lang="ts">
   import { stopTune } from "../lib/tune";
-  import { loadFeatures, watchFeatures } from "../lib/features.svelte";
+  import { isOn, loadFeatures, watchFeatures } from "../lib/features.svelte";
   import CircleCheck from "@lucide/svelte/icons/circle-check";
   import { onMount, tick } from "svelte";
   import { focusHeading } from "../lib/steps";
@@ -768,6 +768,9 @@
         label={view.label}
         onAsk={askAbout}
         onTrace={me.isOwner && !atBench ? trace : undefined}
+        onPurchases={me.isOwner && !atBench && isOn("Purchases")
+          ? () => (view = { name: "manage", section: "purchases" })
+          : undefined}
         onDone={finishWork}
         onCancel={view.fromProduction
           ? () => (view = { name: "production" })

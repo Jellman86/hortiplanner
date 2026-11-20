@@ -35,4 +35,7 @@ internal enum NurseryFeature
 
     /// <summary>Ask Hortiplanner, the optional AI assistant, which needs the owner's OpenRouter key.</summary>
     Assistant,
+
+    /// <summary>What each batch cost: its seed or plants, and anything else added to it.</summary>
+    Costs,
 }

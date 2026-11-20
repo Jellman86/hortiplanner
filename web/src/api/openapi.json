@@ -756,6 +756,96 @@
         }
       }
     },
+    "/api/batches/{id}/costs": {
+      "post": {
+        "tags": [
+          "CostEndpoints"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CostRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CostRecorded"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CostRecorded"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CostRefused"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/batches/{id}/costing": {
+      "get": {
+        "tags": [
+          "BatchCostings"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchCosting"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/settings/clear-records": {
       "post": {
         "tags": [
@@ -6973,6 +7063,85 @@
           }
         }
       },
+      "BatchCosting": {
+        "required": [
+          "batchId",
+          "traceabilityCode",
+          "source",
+          "plantVatBand",
+          "vatRegistered",
+          "counts",
+          "material",
+          "others",
+          "total",
+          "history",
+          "standardRate",
+          "reducedRate"
+        ],
+        "type": "object",
+        "properties": {
+          "batchId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "traceabilityCode": {
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/BatchSource"
+          },
+          "plantVatBand": {
+            "$ref": "#/components/schemas/VatBand"
+          },
+          "vatRegistered": {
+            "type": "boolean"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/VatCounts"
+          },
+          "material": {
+            "$ref": "#/components/schemas/MaterialCost"
+          },
+          "others": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CostEntry"
+            }
+          },
+          "total": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MoneyPair"
+              }
+            ]
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CostEntry"
+            }
+          },
+          "standardRate": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "reducedRate": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
       "BatchDetails": {
         "required": [
           "id",
@@ -7952,6 +8121,10 @@
                 "$ref": "#/components/schemas/SeedSown"
               }
             ]
+          },
+          "costMissing": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -8156,6 +8329,212 @@
             "format": "int32"
           },
           "locationId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "CostAnswer": {
+        "enum": [
+          "Amount",
+          "Free",
+          "NotKnown",
+          "Removed"
+        ]
+      },
+      "CostEntry": {
+        "required": [
+          "id",
+          "kind",
+          "answer",
+          "amountPaid",
+          "includesVat",
+          "vatBand",
+          "vatRate",
+          "vatSaid",
+          "cost",
+          "note",
+          "addedBy",
+          "occurredAt",
+          "addedAt",
+          "replaced",
+          "replacesId"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CostKind"
+          },
+          "answer": {
+            "$ref": "#/components/schemas/CostAnswer"
+          },
+          "amountPaid": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "includesVat": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "vatBand": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/VatBand"
+              }
+            ]
+          },
+          "vatRate": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "vatSaid": {
+            "type": "boolean"
+          },
+          "cost": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MoneyPair"
+              }
+            ]
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "addedBy": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "addedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "replaced": {
+            "type": "boolean"
+          },
+          "replacesId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "CostKind": {
+        "enum": [
+          "Material",
+          "Other"
+        ]
+      },
+      "CostRecorded": {
+        "required": [
+          "eventId"
+        ],
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "CostRefused": {
+        "required": [
+          "problem"
+        ],
+        "type": "object",
+        "properties": {
+          "problem": {
+            "type": "string"
+          }
+        }
+      },
+      "CostRequest": {
+        "required": [
+          "eventId",
+          "occurredAt",
+          "kind",
+          "answer"
+        ],
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CostKind"
+          },
+          "answer": {
+            "$ref": "#/components/schemas/CostAnswer"
+          },
+          "amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "vatBand": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/VatBand"
+              }
+            ]
+          },
+          "includesVat": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "replacesId": {
             "type": [
               "null",
               "string"
@@ -10185,6 +10564,71 @@
           }
         }
       },
+      "MaterialCost": {
+        "required": [
+          "state",
+          "cost",
+          "entry",
+          "purchase",
+          "superseded"
+        ],
+        "type": "object",
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/MaterialState"
+          },
+          "cost": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MoneyPair"
+              }
+            ]
+          },
+          "entry": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CostEntry"
+              }
+            ]
+          },
+          "purchase": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PurchaseSource"
+              }
+            ]
+          },
+          "superseded": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CostEntry"
+              }
+            ]
+          }
+        }
+      },
+      "MaterialState": {
+        "enum": [
+          "NoAnswer",
+          "Amount",
+          "Free",
+          "NotKnown",
+          "Cuttings",
+          "Purchase"
+        ]
+      },
       "ModelChoice": {
         "required": [
           "id",
@@ -10228,6 +10672,31 @@
               "string"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "MoneyPair": {
+        "required": [
+          "withVat",
+          "beforeVat"
+        ],
+        "type": "object",
+        "properties": {
+          "withVat": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "beforeVat": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
           }
         }
       },
@@ -10645,7 +11114,8 @@
           "Purchases",
           "BatchPhotos",
           "BenchStations",
-          "Assistant"
+          "Assistant",
+          "Costs"
         ]
       },
       "OutlineRequest": {
@@ -12567,6 +13037,39 @@
               "type": "string",
               "format": "uuid"
             }
+          }
+        }
+      },
+      "PurchaseSource": {
+        "required": [
+          "purchaseId",
+          "supplier",
+          "purchasedOn",
+          "shared",
+          "equally",
+          "share"
+        ],
+        "type": "object",
+        "properties": {
+          "purchaseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "supplier": {
+            "type": "string"
+          },
+          "purchasedOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "shared": {
+            "type": "boolean"
+          },
+          "equally": {
+            "type": "boolean"
+          },
+          "share": {
+            "$ref": "#/components/schemas/MoneyPair"
           }
         }
       },
@@ -14774,6 +15277,12 @@
         ],
         "default": "Standard"
       },
+      "VatCounts": {
+        "enum": [
+          "WithVat",
+          "BeforeVat"
+        ]
+      },
       "VatRateHistory": {
         "required": [
           "band",
@@ -14974,6 +15483,12 @@
     },
     {
       "name": "PlaceMapEndpoints"
+    },
+    {
+      "name": "CostEndpoints"
+    },
+    {
+      "name": "BatchCostings"
     },
     {
       "name": "ClearRecordsEndpoints"

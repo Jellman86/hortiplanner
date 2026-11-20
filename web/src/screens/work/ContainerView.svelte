@@ -1,6 +1,8 @@
 <script lang="ts">
   import Flower2 from "@lucide/svelte/icons/flower-2";
   import Pencil from "@lucide/svelte/icons/pencil";
+  import Plus from "@lucide/svelte/icons/plus";
+  import PoundSterling from "@lucide/svelte/icons/pound-sterling";
   import Route from "@lucide/svelte/icons/route";
   import Undo2 from "@lucide/svelte/icons/undo-2";
   import { aboutTray, type AskAbout } from "../../lib/assistant.svelte";
@@ -10,6 +12,8 @@
   import PrintButton from "../PrintButton.svelte";
   import BatchPhotos from "./BatchPhotos.svelte";
   import EditBatch from "./EditBatch.svelte";
+  import AddCost from "./AddCost.svelte";
+  import BatchCosting from "./BatchCosting.svelte";
   import DayPicker from "../DayPicker.svelte";
   import { chooseWorkDay, workDayFor } from "../../lib/workDays";
   import { isoDay, momentOn, onDay } from "../../lib/days";
@@ -27,7 +31,7 @@
   import { api } from "../../api/client";
   import type { Schemas } from "../../lib/types";
   import { rememberedContainer } from "../../lib/offline";
-  import { recordWork } from "../../lib/queue";
+  import { recordWork, waitingFor } from "../../lib/queue";
   import { stageLabel, timeAtStage } from "../../lib/production";
   import { seedAmount } from "../../lib/sowing";
   import {
@@ -57,6 +61,7 @@
   let {
     label,
     onTrace,
+    onPurchases,
     onDone,
     onCancel,
     onNotFound,
@@ -67,6 +72,8 @@
     onAsk?: (about: AskAbout) => void;
     /** Only for the owner: opens the batch's trace report. */
     onTrace?: (batchId: string) => void;
+    /** Only for the owner: opens Purchases, where a batch's cost can come from. */
+    onPurchases?: () => void;
     onDone: (message: string, eventId: string, newLabel?: string) => void;
     onCancel: () => void;
     onNotFound: (message: string) => void;
@@ -79,6 +86,11 @@
   let busy = $state(false);
   let cardPlant = $state<string | null>(null);
   let editing = $state<string | null>(null);
+  // The batch whose cost is being added, or whose costing the owner has open.
+  let addingCost = $state<string | null>(null);
+  let costing = $state<string | null>(null);
+  const lineOf = (batchId: string | null) =>
+    container?.contents.find((line) => line.batchId === batchId);
   // The day work on this tray is recorded for: today, unless someone is writing up earlier work. A day chosen
   // is kept for this tray for a while, as each piece of work returns to Record and the tray is opened again.
   // svelte-ignore state_referenced_locally
@@ -108,11 +120,15 @@
     const step =
       cardPlant !== null
         ? "About this plant"
-        : editing !== null
-          ? "Edit batch"
-          : action
-            ? actionLabels[action]
-            : null;
+        : costing !== null
+          ? "Costs and takings"
+          : addingCost !== null
+            ? "What did it cost?"
+            : editing !== null
+              ? "Edit batch"
+              : action
+                ? actionLabels[action]
+                : null;
     const tray = `Tray ${container?.labelCode ?? label}`;
 
     return step
@@ -131,6 +147,36 @@
     pushStep("trayEdit", batchId);
   }
 
+  function openCost(batchId: string, owner: boolean) {
+    saved = "";
+    if (owner) {
+      costing = batchId;
+      pushStep("trayCosting", batchId);
+    } else {
+      addingCost = batchId;
+      pushStep("trayAddCost", batchId);
+    }
+    void focusHeading();
+  }
+
+  // The tray asks only while nobody has answered, here or in a cost still waiting on this device.
+  const asksCost = (line: Schemas["ContainerLine"]) =>
+    line.costMissing &&
+    isOn("Costs") &&
+    !waitingFor(`/api/batches/${line.batchId}/costs`);
+
+  /** Back from the costing to the tray, which may no longer need to ask. */
+  function costingClosed() {
+    back();
+    void load();
+  }
+
+  function costSaved(message: string) {
+    saved = message;
+    back();
+    void load();
+  }
+
   function editSaved(message: string) {
     saved = message;
     back();
@@ -141,6 +187,8 @@
     action = stepOf<TrayAction>("trayAction");
     cardPlant = stepOf<string>("trayCard");
     editing = stepOf<string>("trayEdit");
+    addingCost = stepOf<string>("trayAddCost");
+    costing = stepOf<string>("trayCosting");
     void focusHeading();
   }
 
@@ -188,6 +236,8 @@
       action ||
       cardPlant ||
       editing ||
+      addingCost ||
+      costing ||
       target?.closest("input, textarea, select")
     ) {
       return;
@@ -315,6 +365,10 @@
       }}
     />
   {/key}
+{:else if costing && lineOf(costing)}
+  <BatchCosting line={lineOf(costing)!} {onPurchases} onBack={costingClosed} />
+{:else if addingCost && lineOf(addingCost)}
+  <AddCost line={lineOf(addingCost)!} onSaved={costSaved} onCancel={back} />
 {:else if editing}
   <EditBatch batchId={editing} onSaved={editSaved} onCancel={back} />
 {:else if action === "lost"}
@@ -378,6 +432,20 @@
               {plantName(line.commonName, line.variety)}
             </p>
             <span class="muted credit">Batch {line.traceabilityCode}</span>
+            {#if asksCost(line)}
+              <div class="card caution stack tight">
+                <p>
+                  Nobody has said what this batch's {line.source === "BoughtIn"
+                    ? "plants"
+                    : "seed"} cost yet.
+                </p>
+                <button
+                  type="button"
+                  onclick={() => openCost(line.batchId, false)}
+                  ><Plus size={16} aria-hidden="true" /> Add what it cost</button
+                >
+              </div>
+            {/if}
             {#if isOn("BatchPhotos")}
               <BatchPhotos
                 batchId={line.batchId}
@@ -405,6 +473,14 @@
                   onclick={() => onTrace(line.batchId)}
                   ><Route size={16} aria-hidden="true" />Trace this batch</button
                 >
+                {#if isOn("Costs") && !fromDevice}
+                  <button
+                    class="link-button"
+                    onclick={() => openCost(line.batchId, true)}
+                    ><PoundSterling size={16} aria-hidden="true" />Costs and
+                    takings</button
+                  >
+                {/if}
               {/if}
             </div>
           </div>
