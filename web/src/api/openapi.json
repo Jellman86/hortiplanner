@@ -4532,6 +4532,52 @@
         }
       }
     },
+    "/api/settings/vat-rates": {
+      "get": {
+        "tags": [
+          "VatRateEndpoints"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VatRatesSummary"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "VatRateEndpoints"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VatRatesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VatRatesRefused"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/settings/features": {
       "get": {
         "tags": [
@@ -6225,6 +6271,16 @@
           },
           "409": {
             "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssueRefused"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
             "content": {
               "application/json": {
                 "schema": {
@@ -14692,6 +14748,120 @@
           }
         }
       },
+      "VatBand": {
+        "enum": [
+          "Standard",
+          "Reduced",
+          "Zero"
+        ]
+      },
+      "VatRateHistory": {
+        "required": [
+          "band",
+          "percent",
+          "from",
+          "setBy",
+          "setAt"
+        ],
+        "type": "object",
+        "properties": {
+          "band": {
+            "$ref": "#/components/schemas/VatBand"
+          },
+          "percent": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "setBy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "setAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "VatRatesRefused": {
+        "required": [
+          "problem"
+        ],
+        "type": "object",
+        "properties": {
+          "problem": {
+            "type": "string"
+          }
+        }
+      },
+      "VatRatesRequest": {
+        "required": [
+          "standard",
+          "reduced"
+        ],
+        "type": "object",
+        "properties": {
+          "standard": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "reduced": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "VatRatesSummary": {
+        "required": [
+          "standard",
+          "reduced",
+          "changes"
+        ],
+        "type": "object",
+        "properties": {
+          "standard": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "reduced": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VatRateHistory"
+            }
+          }
+        }
+      },
       "WorkRecorded": {
         "required": [
           "eventId"
@@ -14866,6 +15036,9 @@
     },
     {
       "name": "NurserySettingsEndpoints"
+    },
+    {
+      "name": "VatRateEndpoints"
     },
     {
       "name": "FeatureEndpoints"

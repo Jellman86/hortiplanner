@@ -15,6 +15,8 @@ internal sealed class HortiplannerDbContext(DbContextOptions<HortiplannerDbConte
 
     public DbSet<CatalogueChange> CatalogueChanges => Set<CatalogueChange>();
 
+    public DbSet<VatRateChange> VatRateChanges => Set<VatRateChange>();
+
     public DbSet<Purchase> Purchases => Set<Purchase>();
 
     public DbSet<PurchaseLine> PurchaseLines => Set<PurchaseLine>();
@@ -133,6 +135,7 @@ internal sealed class HortiplannerDbContext(DbContextOptions<HortiplannerDbConte
         ConfigureStock(modelBuilder);
         ConfigureSettings(modelBuilder);
         ConfigureSelling(modelBuilder);
+        ConfigureVatRates(modelBuilder);
 
         modelBuilder.Entity<CatalogueChange>(entity =>
         {
@@ -446,6 +449,17 @@ internal sealed class HortiplannerDbContext(DbContextOptions<HortiplannerDbConte
             entity.ToTable(table => table.HasCheckConstraint("ck_nursery_settings_single", "id = 1"));
         });
     }
+
+    private static void ConfigureVatRates(ModelBuilder modelBuilder) =>
+        modelBuilder.Entity<VatRateChange>(entity =>
+        {
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Band).HasConversion<string>();
+            entity.Property(e => e.Percent).HasPrecision(5, 2);
+            entity.Property(e => e.SetAt).HasDefaultValueSql("now()");
+            entity.HasIndex(e => new { e.Band, e.From });
+            entity.HasOne<AppUser>().WithMany().HasForeignKey(e => e.SetBy).OnDelete(DeleteBehavior.Restrict);
+        });
 
     private static void ConfigureSelling(ModelBuilder modelBuilder)
     {

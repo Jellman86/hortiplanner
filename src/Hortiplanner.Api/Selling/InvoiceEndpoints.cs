@@ -16,13 +16,12 @@ internal static class InvoiceEndpoints
 {
     private const int MostLines = 100;
     private const int LongestDescription = 300;
-    private static readonly decimal[] UkVatRates = [0m, 5m, 20m];
 
     public static void MapInvoiceEndpoints(this IEndpointRouteBuilder app)
     {
         var invoices = app.MapGroup("/api/invoices").RequireAuthorization(AccountServices.OwnerPolicy).RequireFeature(NurseryFeature.Invoices);
         invoices.MapGet("/", ListAsync);
-        invoices.MapPost("/", IssueAsync).Produces<InvoiceIssued>(StatusCodes.Status201Created).Produces<IssueRefused>(StatusCodes.Status409Conflict);
+        invoices.MapPost("/", IssueAsync).Produces<InvoiceIssued>(StatusCodes.Status201Created).Produces<IssueRefused>(StatusCodes.Status409Conflict).Produces<IssueRefused>(StatusCodes.Status400BadRequest);
         invoices.MapPost("/{id:guid}/paid", SetPaidAsync);
         invoices.MapPost("/{id:guid}/credit", CreditAsync).Produces<InvoiceIssued>(StatusCodes.Status201Created);
         invoices.MapGet("/{id:guid}/pdf", PdfAsync).Produces(StatusCodes.Status200OK, contentType: "application/pdf");
@@ -50,7 +49,7 @@ internal static class InvoiceEndpoints
             invoice.CreditsInvoiceId));
     }
 
-    private static string? Problem(InvoiceRequest request, bool vatRegistered)
+    private static string? Problem(InvoiceRequest request, bool vatRegistered, HashSet<decimal> allowedRates)
     {
         if (request.Lines.Count is 0 or > MostLines)
         {
@@ -69,7 +68,7 @@ internal static class InvoiceEndpoints
                 return "Lines";
             }
 
-            if (vatRegistered ? !UkVatRates.Contains(line.VatRate) : line.VatRate != 0)
+            if (vatRegistered ? !allowedRates.Contains(line.VatRate) : line.VatRate != 0)
             {
                 return "VatRate";
             }
@@ -89,14 +88,16 @@ internal static class InvoiceEndpoints
                 ? TypedResults.Ok(new InvoiceIssued(stored.Id, stored.Number)) : TypedResults.Conflict(new IssueRefused("IdInUse"));
         }
         var settings = await db.GetNurserySettingsAsync(cancellationToken);
+        var issuedOn = request.IssuedOn ?? DateOnly.FromDateTime(clock.GetLocalNow().DateTime);
 
-        if (requestId == Guid.Empty || Problem(request, settings.VatRegistered) is not null
+        // A line may carry the standard or reduced rate in force on the day of issue, or nothing.
+        var problem = Problem(request, settings.VatRegistered, await VatRates.AllowedAsync(db, issuedOn, cancellationToken));
+        if (requestId == Guid.Empty || problem is not null
             || await db.Customers.AsNoTracking().FirstOrDefaultAsync(customer => customer.Id == request.CustomerId && customer.ArchivedAt == null, cancellationToken) is not { } customer)
         {
-            return TypedResults.BadRequest();
+            return string.Equals(problem, "VatRate", StringComparison.Ordinal) ? TypedResults.BadRequest(new IssueRefused("VatRate")) : TypedResults.BadRequest();
         }
 
-        var issuedOn = request.IssuedOn ?? DateOnly.FromDateTime(clock.GetLocalNow().DateTime);
         var number = await NextNumberAsync(db, cancellationToken);
         var sold = await TakeFromStockAsync(request.Lines, user, store, clock, cancellationToken);
 

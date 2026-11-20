@@ -11,7 +11,17 @@ export interface DraftLine {
   catalogueGross?: number | null;
 }
 
-export const vatRates = [20, 5, 0];
+/** The rates an invoice line can carry: the standard and reduced rates as set under Settings, and none. */
+export function vatChoices(
+  standard: number,
+  reduced: number,
+): { rate: number; label: string }[] {
+  return [
+    { rate: standard, label: `Standard, ${standard}%` },
+    { rate: reduced, label: `Reduced, ${reduced}%` },
+    { rate: 0, label: "None, 0%" },
+  ];
+}
 
 const round = (value: number) => Math.round(value * 100) / 100;
 

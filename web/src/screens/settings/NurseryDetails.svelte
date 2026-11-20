@@ -7,6 +7,7 @@
   import { attempt, type Schemas } from "../../lib/types";
   import { isoDay } from "../../lib/days";
   import DayPicker from "../DayPicker.svelte";
+  import VatRatesCard from "./VatRatesCard.svelte";
 
   // What invoices, labels and plant passports say about the nursery.
   let { onBack }: { onBack: () => void } = $props();
@@ -188,6 +189,8 @@
           >
         {/if}
       </div>
+
+      <VatRatesCard vatRegistered={details.vatRegistered} />
     </section>
   </div>
 

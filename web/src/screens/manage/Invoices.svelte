@@ -13,7 +13,7 @@
     changeRate,
     standing,
     totals,
-    vatRates,
+    vatChoices,
     type DraftLine,
     type InvoiceSummary,
   } from "../../lib/invoices";
@@ -31,6 +31,9 @@
   let potSizes = $state<Schemas["PotSizeResponse"][]>([]);
   let stock = $state<Schemas["ProductionRow"][]>([]);
   let vatRegistered = $state(false);
+  // The rates set under Settings, Nursery details, for a new line's choices.
+  let standardRate = $state(20);
+  let reducedRate = $state(5);
   let writing = $state(false);
 
   crumbs(() => (writing ? [{ label: "New invoice" }] : []));
@@ -83,15 +86,45 @@
     stock = (await api.GET("/api/production")).data ?? [];
     vatRegistered =
       (await api.GET("/api/settings/nursery")).data?.vatRegistered ?? false;
+
+    if (vatRegistered) {
+      const rates = (await api.GET("/api/settings/vat-rates")).data;
+      standardRate = Number(rates?.standard ?? 20);
+      reducedRate = Number(rates?.reduced ?? 5);
+    }
   }
 
   onMount(() => void attempt(load, setProblem));
+
+  /**
+   * The rates changed, or the nursery stopped being registered for VAT, while this invoice was being written. The
+   * rates are fetched again and each line moved to the matching new rate, so what's shown is what would be charged.
+   */
+  async function ratesChanged(): Promise<string> {
+    const oldStandard = standardRate;
+    const oldReduced = reducedRate;
+    await load();
+
+    if (!vatRegistered) {
+      lines = lines.map((line) => changeRate(line, 0, false));
+      return "The nursery is no longer registered for VAT, so the VAT has been taken off each line. Please check the invoice and issue it again.";
+    }
+
+    lines = lines.map((line) =>
+      line.vatRate === oldStandard
+        ? changeRate(line, standardRate, true)
+        : line.vatRate === oldReduced
+          ? changeRate(line, reducedRate, true)
+          : line,
+    );
+    return "The VAT rates changed while you were writing this invoice. Please check the VAT on each line and issue it again.";
+  }
 
   const emptyLine = (): DraftLine => ({
     description: "",
     quantity: 1,
     unitPrice: 0,
-    vatRate: vatRegistered ? 20 : 0,
+    vatRate: vatRegistered ? standardRate : 0,
     plantId: null,
     containerId: null,
     batchId: null,
@@ -187,7 +220,7 @@
       busy = true;
 
       try {
-        const { data, response } = await api.POST("/api/invoices", {
+        const { data, error, response } = await api.POST("/api/invoices", {
           body: {
             id: requestId,
             customerId,
@@ -207,6 +240,13 @@
           problem = "";
           await load();
         } else {
+          const refused = (error as { problem?: string } | undefined)?.problem;
+
+          if (refused === "VatRate") {
+            problem = await ratesChanged();
+            return;
+          }
+
           problem =
             response.status === 409
               ? "One of the trays doesn't have that many plants. Check the numbers."
@@ -382,8 +422,8 @@
                         vatRegistered,
                       ))}
                   >
-                    {#each vatRates as rate (rate)}<option value={rate}
-                        >{rate}%</option
+                    {#each vatChoices(standardRate, reducedRate) as choice (choice.label)}<option
+                        value={choice.rate}>{choice.label}</option
                       >{/each}
                   </select>
                 </label>
