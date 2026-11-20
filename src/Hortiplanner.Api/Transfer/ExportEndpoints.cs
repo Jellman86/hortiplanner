@@ -93,6 +93,17 @@ internal static class ExportEndpoints
             (await db.Plants.AsNoTracking().OrderBy(plant => plant.CommonName).ThenBy(plant => plant.Variety).ToListAsync(cancellationToken))
                 .Select(plant => new object?[] { plant.CommonName, plant.Variety, plant.BotanicalName, plant.Category, plant.Position, plant.Watering, plant.Hardiness, plant.XylellaHost, plant.ProtectedVariety, VatRateWord(plant.VatBand), plant.ArchivedAt != null }));
 
+    /// <summary>Who said what VAT was in a cost, or that it was assumed. Nothing for a cost with no amount.</summary>
+    private static string? VatSaidBy(BatchCost cost, Names names)
+    {
+        if (cost.Answer != CostAnswer.Amount)
+        {
+            return null;
+        }
+
+        return cost.VatSaid ? names.People.GetValueOrDefault(cost.RecordedBy) : "Assumed";
+    }
+
     /// <summary>The word the plant import reads back.</summary>
     private static string VatRateWord(VatBand band) => band switch
     {
@@ -122,7 +133,7 @@ internal static class ExportEndpoints
                 cost.AmountPaid,
                 cost.IncludesVat,
                 cost.VatRate,
-                cost.Answer != CostAnswer.Amount ? null : cost.VatSaid ? names.People.GetValueOrDefault(cost.RecordedBy) : "Assumed",
+                VatSaidBy(cost, names),
                 cost.NetCost + cost.Vat,
                 cost.NetCost,
                 cost.Vat,

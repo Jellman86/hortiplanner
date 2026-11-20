@@ -9896,6 +9896,7 @@ export interface components {
             /** Format: date */
             purchasedOn: string;
             shared: boolean;
+            equally: boolean;
             share: components["schemas"]["MoneyPair"];
         };
         QrCode: {

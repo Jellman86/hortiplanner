@@ -6,7 +6,7 @@
     moneyProblem,
     readMoney,
   } from "../../lib/costs";
-  import { recordWork } from "../../lib/queue";
+  import { describeWaiting, recordWork } from "../../lib/queue";
   import type { Schemas } from "../../lib/types";
   import { isRecorded, outcomeProblem, plantName } from "../../lib/work";
   import ActionFrame from "./ActionFrame.svelte";
@@ -52,6 +52,14 @@
     );
     busy = false;
 
+    if (outcome.kind === "queued") {
+      // Named, so it's recognisable if it later can't be sent.
+      describeWaiting(
+        outcome.eventId,
+        `What batch ${line.traceabilityCode}'s ${what} cost`,
+      );
+    }
+
     if (isRecorded(outcome)) {
       onSaved(
         outcome.kind === "queued"
@@ -85,7 +93,7 @@
     <p class="muted" id="cost-help">
       {plants
         ? "Put in what was paid for all of them, not for one of them, with any VAT included."
-        : "Put in what was paid for the seed that went into this tray, with any VAT included, as it's printed on the packet or the receipt. If only part of a packet went in, put in roughly that part of its price."}
+        : "Put in what was paid for the seed this batch was sown from, with any VAT included, as it's printed on the packet or the receipt. If only part of a packet was sown, put in roughly that part of its price."}
     </p>
     <label class="tick"
       ><input type="checkbox" bind:checked={nothing} />

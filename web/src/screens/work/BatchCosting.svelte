@@ -17,7 +17,7 @@
     moneyProblem,
     otherSentence,
     readMoney,
-    replacedSentence,
+    replacedParts,
     rowName,
     supersededSentence,
     type CostEntry,
@@ -35,27 +35,33 @@
     onBack,
   }: {
     line: Schemas["ContainerLine"];
-    /** Opens Purchases, where a purchase's cost comes from. */
+    /** Opens Purchases, where a purchase's cost comes from, while Purchases is on. */
     onPurchases?: () => void;
     onBack: () => void;
   } = $props();
 
+  // Each form names the entry it replaces, if any, so nobody's answer is overwritten unseen.
   type Form =
-    | { kind: "material" }
+    | { kind: "material"; entry: CostEntry | null }
     | { kind: "vat"; entry: CostEntry }
     | { kind: "other"; entry: CostEntry | null };
 
   let costing = $state<Costing | null>(null);
   let problem = $state("");
+  let formProblem = $state("");
   let said = $state("");
   let busy = $state(false);
   let form = $state<Form | null>(null);
+  // Made when a form opens, so pressing save again after a lost reply doesn't store the cost twice.
+  let formId = "";
+  let opener: HTMLElement | null = null;
   let amount = $state("");
   let nothing = $state(false);
   let note = $state("");
   let band = $state<Schemas["VatBand"]>("Standard");
   let includesVat = $state(true);
   let formHeading = $state<HTMLHeadingElement>();
+  let costHeading = $state<HTMLHeadingElement>();
 
   const what = $derived(costing ? materialWord(costing.source) : "seed");
   const withFirst = $derived(costing?.counts !== "BeforeVat");
@@ -86,11 +92,14 @@
   async function open(next: Form) {
     said = "";
     problem = "";
+    formProblem = "";
+    opener = document.activeElement as HTMLElement | null;
+    formId = crypto.randomUUID();
     form = next;
     nothing = false;
     note = next.kind === "other" ? (next.entry?.note ?? "") : "";
     amount =
-      next.kind === "other" && next.entry
+      next.kind !== "vat" && next.entry?.answer === "Amount"
         ? String(Number(next.entry.amountPaid))
         : "";
 
@@ -103,30 +112,38 @@
     formHeading?.focus();
   }
 
+  async function close() {
+    form = null;
+    await tick();
+    (opener?.isConnected ? opener : costHeading)?.focus();
+  }
+
   async function send(
-    body: Omit<Schemas["CostRequest"], "eventId" | "occurredAt"> & {
-      occurredAt?: string;
-    },
+    body: Omit<Schemas["CostRequest"], "eventId" | "occurredAt">,
     done: string | ((after: Costing) => string),
+    eventId = formId,
   ) {
     busy = true;
 
     try {
       const { response } = await api.POST("/api/batches/{id}/costs", {
         params: { path: { id: line.batchId } },
-        body: {
-          ...body,
-          eventId: crypto.randomUUID(),
-          occurredAt: body.occurredAt ?? new Date().toISOString(),
-        },
+        body: { ...body, eventId, occurredAt: new Date().toISOString() },
       });
 
       if (!response.ok) {
-        problem =
-          response.status === 409
-            ? "Someone changed that cost in the meantime. Here is how it stands now."
-            : "That cost couldn't be saved. Please check it and try again.";
-        await load();
+        const stale = response.status === 409;
+        problem = stale
+          ? "Someone changed that cost in the meantime. Here is how it stands now."
+          : "That cost couldn't be saved. Please check it and try again.";
+
+        if (stale) {
+          form = null;
+          await load();
+          await tick();
+          costHeading?.focus();
+        }
+
         return;
       }
 
@@ -137,6 +154,8 @@
           ? done
           : done(costing)
         : "Saved.";
+      await tick();
+      costHeading?.focus();
     } catch {
       problem =
         "This device can't reach Hortiplanner. Please check the connection and try again.";
@@ -145,17 +164,25 @@
     }
   }
 
+  /** What VAT the owner said, carried over when only the amount changes. */
+  const saidVat = (entry: CostEntry | null) =>
+    entry?.vatSaid && entry.answer === "Amount"
+      ? { vatBand: entry.vatBand, includesVat: entry.includesVat }
+      : {};
+
   function saveAmount(event: SubmitEvent) {
     event.preventDefault();
     const paid = nothing ? 0 : readMoney(amount);
 
     if (paid === null || (form?.kind === "other" && paid === 0)) {
-      problem = moneyProblem;
+      formProblem = moneyProblem;
       return;
     }
 
+    formProblem = "";
+    const entry = form?.kind === "vat" ? null : (form?.entry ?? null);
+
     if (form?.kind === "other") {
-      const entry = form.entry;
       void send(
         {
           kind: "Other",
@@ -163,6 +190,7 @@
           amount: paid,
           note,
           replacesId: entry?.id ?? null,
+          ...saidVat(entry),
         },
         entry ? "The cost is changed." : "The cost is added.",
       );
@@ -174,6 +202,8 @@
         kind: "Material",
         answer: paid === 0 ? "Free" : "Amount",
         amount: paid === 0 ? null : paid,
+        replacesId: entry?.id ?? null,
+        ...(paid === 0 ? {} : saidVat(entry)),
       },
       "The cost is saved.",
     );
@@ -187,17 +217,16 @@
     }
 
     const entry = form.entry;
-    // Kept on the day it was for, so it keeps that day's rate.
+    // The server keeps the day the cost was for, and so that day's rate.
     void send(
       {
         kind: entry.kind,
         answer: "Amount",
         amount: Number(entry.amountPaid),
         note: entry.note,
-        occurredAt: entry.occurredAt,
         vatBand: band,
-        includesVat,
-        replacesId: entry.kind === "Other" ? entry.id : null,
+        includesVat: band === "Zero" ? true : includesVat,
+        replacesId: entry.id,
       },
       (after) => {
         const now =
@@ -212,7 +241,8 @@
   function notKnown() {
     void send(
       { kind: "Material", answer: "NotKnown" },
-      "It's saved that nobody knows what it cost.",
+      `You've said nobody knows what the ${what} cost.`,
+      crypto.randomUUID(),
     );
   }
 
@@ -225,15 +255,16 @@
       void send(
         { kind: "Other", answer: "Removed", replacesId: entry.id },
         "The cost is removed.",
+        crypto.randomUUID(),
       );
     }
   }
 </script>
 
-{#snippet amounts(cost: MoneyPair, strong = false)}
+{#snippet amounts(cost: MoneyPair)}
   {#each pair(cost) as figure, index (index)}
     <td class="cost-amount" class:counts={index === 0}
-      >{#if strong || index === 0}<strong>{money(figure)}</strong>{:else}{money(
+      >{#if index === 0}<strong>{money(figure)}</strong>{:else}{money(
           figure,
         )}{/if}</td
     >
@@ -242,21 +273,16 @@
 
 {#snippet entryButtons(entry: CostEntry)}
   <div class="row">
-    {#if entry.kind === "Other"}
-      <button
-        type="button"
-        class="secondary"
-        onclick={() => open({ kind: "other", entry })}
-        ><Pencil size={16} aria-hidden="true" /> Change the cost</button
-      >
-    {:else}
-      <button
-        type="button"
-        class="secondary"
-        onclick={() => open({ kind: "material" })}
-        ><Pencil size={16} aria-hidden="true" /> Change the cost</button
-      >
-    {/if}
+    <button
+      type="button"
+      class="secondary"
+      onclick={() =>
+        open(
+          entry.kind === "Other"
+            ? { kind: "other", entry }
+            : { kind: "material", entry },
+        )}><Pencil size={16} aria-hidden="true" /> Change the cost</button
+    >
     <button
       type="button"
       class="secondary"
@@ -274,6 +300,12 @@
   </div>
 {/snippet}
 
+{#snippet amountProblem()}
+  {#if formProblem}<p class="problem" role="alert" id="cost-amount-problem">
+      {formProblem}
+    </p>{/if}
+{/snippet}
+
 <main class="costing">
   <h1>Costs and takings</h1>
   <p class="action-for">
@@ -287,14 +319,23 @@
   {#if costing}
     {@const material = costing.material}
     <section class="stack" aria-labelledby="cost-heading">
-      <h2 id="cost-heading" class="form-heading">What it cost</h2>
+      <h2
+        id="cost-heading"
+        class="form-heading"
+        tabindex="-1"
+        bind:this={costHeading}
+      >
+        What it cost
+      </h2>
       <p class="muted">{countsSentence(costing.vatRegistered)}</p>
 
       {#if material.state === "NoAnswer"}
         <div class="card caution stack tight">
           <p>{materialSentence(costing)}</p>
           <div class="row">
-            <button type="button" onclick={() => open({ kind: "material" })}
+            <button
+              type="button"
+              onclick={() => open({ kind: "material", entry: null })}
               ><Plus size={16} aria-hidden="true" /> Add what it cost</button
             >
             <button
@@ -315,35 +356,42 @@
         <thead>
           <tr>
             <th scope="col">What</th>
+            <!-- Which column counts is said in words, not left to bold type. -->
             {#if withFirst}
-              <!-- Which column counts is said in words, not left to bold type. -->
-              <th
-                scope="col"
-                class="counts"
-                aria-label="With VAT, the figures that count">With VAT</th
+              <th scope="col" class="counts"
+                >With VAT<span class="visually-hidden"
+                  >, the figures that count</span
+                ></th
               >
               <th scope="col">Before VAT</th>
             {:else}
-              <!-- Which column counts is said in words, not left to bold type. -->
-              <th
-                scope="col"
-                class="counts"
-                aria-label="Before VAT, the figures that count">Before VAT</th
+              <th scope="col" class="counts"
+                >Before VAT<span class="visually-hidden"
+                  >, the figures that count</span
+                ></th
               >
               <th scope="col">With VAT</th>
             {/if}
           </tr>
         </thead>
         <tbody>
-          {#if material.cost}
-            <tr>
-              <th scope="row">{rowName(null, costing.source)}</th>
+          <tr>
+            <th scope="row" id="cost-material"
+              >{rowName(null, costing.source)}</th
+            >
+            {#if material.cost}
               {@render amounts(material.cost)}
-            </tr>
-          {/if}
+            {:else}
+              <td colspan="2"
+                >{material.state === "NotKnown"
+                  ? "Not known"
+                  : "No answer yet"}</td
+              >
+            {/if}
+          </tr>
           {#if material.state !== "NoAnswer"}
             <tr class="cost-said">
-              <td colspan="3">
+              <td colspan="3" headers="cost-material">
                 {#if material.state === "Amount" && material.entry}
                   <p>
                     {entrySentence(material.entry, costing.history, what)}
@@ -365,7 +413,8 @@
                     <button
                       type="button"
                       class="secondary"
-                      onclick={() => open({ kind: "material" })}
+                      onclick={() =>
+                        open({ kind: "material", entry: material.entry })}
                       ><Pencil size={16} aria-hidden="true" /> Change the cost</button
                     >
                   {/if}
@@ -375,11 +424,13 @@
           {/if}
           {#each costing.others as entry (entry.id)}
             <tr>
-              <th scope="row">{rowName(entry, costing.source)}</th>
+              <th scope="row" id="cost-{entry.id}"
+                >{rowName(entry, costing.source)}</th
+              >
               {#if entry.cost}{@render amounts(entry.cost)}{/if}
             </tr>
             <tr class="cost-said">
-              <td colspan="3">
+              <td colspan="3" headers="cost-{entry.id}">
                 <p>{otherSentence(entry, costing.history)}</p>
                 {@render entryButtons(entry)}
               </td>
@@ -388,7 +439,7 @@
           {#if costing.total}
             <tr class="cost-total">
               <th scope="row">Altogether</th>
-              {@render amounts(costing.total, true)}
+              {@render amounts(costing.total)}
             </tr>
           {/if}
         </tbody>
@@ -436,7 +487,7 @@
               name="vat-band"
               value="Zero"
               bind:group={band}
-            /> None, as when the seller isn't registered for VAT</label
+            /> None. A seller who isn't registered for VAT doesn't charge any.</label
           >
         </fieldset>
         {#if band !== "Zero"}
@@ -466,8 +517,7 @@
           <button type="submit" disabled={busy}
             ><Check size={18} aria-hidden="true" /> Save the VAT</button
           >
-          <button type="button" class="secondary" onclick={() => (form = null)}
-            >Cancel</button
+          <button type="button" class="secondary" onclick={close}>Cancel</button
           >
         </div>
       </form>
@@ -495,12 +545,17 @@
             inputmode="decimal"
             autocomplete="off"
             disabled={nothing}
+            aria-invalid={formProblem ? "true" : undefined}
+            aria-describedby={formProblem ? "cost-amount-problem" : undefined}
           /></label
         >
+        {@render amountProblem()}
         {#if form.kind === "material"}
           <label class="tick"
-            ><input type="checkbox" bind:checked={nothing} /> It cost nothing, because
-            it was our own or a gift.</label
+            ><input type="checkbox" bind:checked={nothing} />
+            {costing.source === "BoughtIn"
+              ? "They cost nothing, because they were a gift."
+              : "It cost nothing, because it was our own seed or a gift."}</label
           >
         {/if}
         <div class="form-actions">
@@ -510,8 +565,7 @@
               ? "Add this cost"
               : "Save the cost"}</button
           >
-          <button type="button" class="secondary" onclick={() => (form = null)}
-            >Cancel</button
+          <button type="button" class="secondary" onclick={close}>Cancel</button
           >
         </div>
       </form>
@@ -522,7 +576,11 @@
         <h2 id="earlier-heading" class="form-heading">Earlier answers</h2>
         <ul class="plain-list stack tight">
           {#each replaced as entry (entry.id)}
-            <li class="muted replaced-cost">{replacedSentence(entry)}</li>
+            {@const parts = replacedParts(entry, costing.history)}
+            <li class="muted">
+              {parts.lead}{#if parts.struck}<s>{parts.struck}</s
+                >{/if}{parts.rest}
+            </li>
           {/each}
         </ul>
       </section>

@@ -5228,6 +5228,8 @@ button.link-button.ftree-leaf {
 
 .cost-table tbody th {
   font-weight: 600;
+  /* A long name with no spaces mustn't push the table wider than a phone. */
+  overflow-wrap: anywhere;
 }
 
 .cost-table .cost-said td {
@@ -5242,8 +5244,4 @@ button.link-button.ftree-leaf {
 .cost-table .cost-total th,
 .cost-table .cost-total td {
   border-top: 2px solid var(--border);
-}
-
-.replaced-cost {
-  text-decoration: line-through;
 }

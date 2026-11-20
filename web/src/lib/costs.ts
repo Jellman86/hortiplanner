@@ -89,7 +89,7 @@ export function entrySentence(
   what: string,
 ): string {
   const first = firstOf(entry, history);
-  return `${first.addedBy} added the ${what} cost on ${costDay(first.addedAt)}. ${vatSentence(entry, what)}`;
+  return `${first.addedBy} added the cost of the ${what} on ${costDay(first.addedAt)}. ${vatSentence(entry, what)}`;
 }
 
 /** What's said beneath anything else added to a batch. */
@@ -105,17 +105,22 @@ export function materialSentence(costing: Costing): string {
 
   switch (material.state) {
     case "Free":
-      return `${material.entry?.addedBy ?? "Someone"} said the ${what} cost nothing, on ${costDay(material.entry?.addedAt ?? "")}.`;
+      return `${material.entry?.addedBy ?? "Someone"} said on ${costDay(material.entry?.addedAt ?? "")} that the ${what} cost nothing.`;
     case "NotKnown":
-      return `You said the cost of the ${what} isn't known, so this batch is left out of the cost figures.`;
+      return `You said nobody knows what the ${what} cost, so this batch has no total.`;
     case "Cuttings":
       return "These were cuttings taken here, so they cost nothing to buy.";
     case "Purchase": {
       const purchase = material.purchase;
-      const from = `The ${what} are from the purchase from ${purchase?.supplier} on ${costDay(`${purchase?.purchasedOn}T12:00:00`)}, which gives the cost and its VAT.`;
-      return purchase?.shared
-        ? `${from} Other batches came from the same line, so this is this batch's share, by how many plants each started with.`
-        : from;
+      const from = `The ${what} ${what === "seed" ? "is" : "are"} from the purchase from ${purchase?.supplier} on ${costDay(`${purchase?.purchasedOn}T12:00:00`)}, which gives the cost and its VAT.`;
+
+      if (!purchase?.shared) {
+        return from;
+      }
+
+      return purchase.equally
+        ? `${from} Other batches were started from the same purchase, so the cost is shared equally between them, because one was sown without a count.`
+        : `${from} Other batches were started from the same purchase, so this is this batch's share of the cost, by how many plants each one started with.`;
     }
     default:
       return `Nobody has said what the ${what} for this batch cost, so we can't work out what the batch has cost.`;
@@ -131,20 +136,69 @@ export function supersededSentence(entry: CostEntry): string {
   return `The purchase now gives this batch's cost, so ${typed} is no longer counted.`;
 }
 
-/** An earlier answer, kept in the list once something has replaced it. */
-export function replacedSentence(entry: CostEntry): string {
-  const by = `${entry.addedBy} on ${costDay(entry.addedAt)}`;
+/** An amount with what VAT was in it: "£2.99 including VAT at 20%", "£2.49 before VAT at 20%" or "£2.99 with no VAT". */
+export function amountWithVat(entry: CostEntry): string {
+  const paid = money(Number(entry.amountPaid));
+  const rate = Number(entry.vatRate ?? 0);
+
+  if (rate === 0) {
+    return `${paid} with no VAT`;
+  }
+
+  return entry.includesVat
+    ? `${paid} including VAT at ${percent(rate)}`
+    : `${paid} before VAT at ${percent(rate)}`;
+}
+
+/**
+ * An earlier answer, kept in the list once something has replaced it, in three parts so only the amount is
+ * struck through: the word before it, the amount, and the rest.
+ */
+export function replacedParts(
+  entry: CostEntry,
+  history: CostEntry[],
+): { lead: string; struck: string; rest: string } {
+  const day = costDay(entry.addedAt);
 
   switch (entry.answer) {
-    case "Amount":
-      return `Replaced: ${money(Number(entry.amountPaid))}${entry.note ? ` for ${entry.note}` : ""}, added by ${by}.`;
+    case "Amount": {
+      const removed = history.some(
+        (later) => later.replacesId === entry.id && later.answer === "Removed",
+      );
+      return {
+        lead: removed ? "Removed: " : "Replaced: ",
+        struck: amountWithVat(entry),
+        rest: `${entry.note ? ` for ${entry.note}` : ""}, added by ${entry.addedBy} on ${day}.`,
+      };
+    }
     case "Free":
-      return `Replaced: that it cost nothing, said by ${by}.`;
+      return {
+        lead: `Replaced: ${entry.addedBy} said on ${day} that it cost nothing.`,
+        struck: "",
+        rest: "",
+      };
     case "NotKnown":
-      return `Replaced: that the cost isn't known, said by ${by}.`;
+      return {
+        lead: `Replaced: ${entry.addedBy} said on ${day} that nobody knows what it cost.`,
+        struck: "",
+        rest: "",
+      };
     default:
-      return `Replaced: a removal by ${by}.`;
+      return {
+        lead: `Replaced: ${entry.addedBy} removed the cost on ${day}.`,
+        struck: "",
+        rest: "",
+      };
   }
+}
+
+/** The same, as one sentence. */
+export function replacedSentence(
+  entry: CostEntry,
+  history: CostEntry[] = [],
+): string {
+  const parts = replacedParts(entry, history);
+  return `${parts.lead}${parts.struck}${parts.rest}`;
 }
 
 /** The row's name in the table. */

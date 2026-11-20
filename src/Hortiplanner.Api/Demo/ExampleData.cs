@@ -206,7 +206,8 @@ internal sealed class ExampleData(HortiplannerDbContext db, EventStore store)
         }
 
         var paid = seed.Source == BatchSource.SeedLot ? 2.49m + (seed.Quantity % 4) : Math.Round(seed.Quantity * 0.65m, 2);
-        var (net, vat) = CostEndpoints.Split(paid, 20m, includesVat: true);
+        var rate = await Settings.VatRates.PercentAsync(db, VatBand.Standard, DateOnly.FromDateTime(startedAt.UtcDateTime), cancellationToken);
+        var (net, vat) = CostEndpoints.Split(paid, rate, includesVat: true);
         db.BatchCosts.Add(new BatchCost
         {
             Id = Guid.CreateVersion7(),
@@ -216,7 +217,7 @@ internal sealed class ExampleData(HortiplannerDbContext db, EventStore store)
             AmountPaid = paid,
             IncludesVat = true,
             VatBand = VatBand.Standard,
-            VatRate = 20m,
+            VatRate = rate,
             NetCost = net,
             Vat = vat,
             OccurredAt = startedAt,

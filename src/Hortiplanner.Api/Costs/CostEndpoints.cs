@@ -79,7 +79,9 @@ internal static class CostEndpoints
             return TypedResults.Conflict(new CostRefused(refused));
         }
 
-        var cost = await BuildAsync(id, batch.PlantId, request, person, OnServerClock(request.OccurredAt, device, clock), replaces.Id, device, db, clock, cancellationToken);
+        // A correction keeps the day the cost was for, and so that day's VAT rate.
+        var occurredAt = replaces.Replaced is { Answer: CostAnswer.Amount } amount ? amount.OccurredAt : OnServerClock(request.OccurredAt, device, clock);
+        var cost = await BuildAsync(id, batch.PlantId, request, person, occurredAt, replaces.Replaced?.Id, device, db, clock, cancellationToken);
         db.BatchCosts.Add(cost);
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -96,40 +98,42 @@ internal static class CostEndpoints
         && (request.VatBand is null || request.Answer == CostAnswer.Amount)
         && (request.Kind == CostKind.Material || request.Answer is CostAnswer.Amount or CostAnswer.Removed)
         && (request.Kind == CostKind.Material || request.Answer == CostAnswer.Removed || Clean(request.Note) is not null)
-        && (request.Kind == CostKind.Material || request.Answer != CostAnswer.Removed || request.ReplacesId is not null)
+        && (request.Answer != CostAnswer.Removed || request.ReplacesId is not null)
         && (request.Note is null || request.Note.Trim().Length <= LongestNote);
 
-    /// <summary>Saying a cost isn't known, removing one, changing anything else added, or saying what VAT was in it.</summary>
+    /// <summary>Saying a cost isn't known, removing or changing one, adding anything else, or saying what VAT was in it.</summary>
     private static bool IsOwnersOnly(CostRequest request) =>
         request.Answer is CostAnswer.NotKnown or CostAnswer.Removed
         || request.VatBand is not null
-        || (request.Kind == CostKind.Other && request.ReplacesId is not null);
+        || request.Kind == CostKind.Other
+        || request.ReplacesId is not null;
 
     /// <summary>
-    /// The entry this one takes the place of. The seed or plants have one answer, so a new one replaces whatever
-    /// stands. Anything else added stands beside the rest until it is changed or removed, and only one that still
-    /// stands can be.
+    /// The entry this one takes the place of, which must still stand, so nobody's answer is overwritten by one given
+    /// without seeing it, such as a cost that waited days on a phone. Without one, the seed or plants can only be
+    /// answered while nothing stands for them.
     /// </summary>
-    private static async Task<(Guid? Id, string? Refused)> ReplacesAsync(Guid batchId, CostRequest request, HortiplannerDbContext db, CancellationToken cancellationToken)
+    private static async Task<(BatchCost? Replaced, string? Refused)> ReplacesAsync(Guid batchId, CostRequest request, HortiplannerDbContext db, CancellationToken cancellationToken)
     {
         var standing = await BatchCostings.Standing(db.BatchCosts.AsNoTracking().Where(cost => cost.BatchId == batchId && cost.Kind == request.Kind))
-            .Select(cost => new { cost.Id, cost.Answer })
+            .Where(cost => cost.Answer != CostAnswer.Removed)
             .ToListAsync(cancellationToken);
 
-        if (request.Kind == CostKind.Material)
+        if (request.ReplacesId is { } replaces)
         {
-            var current = standing.FirstOrDefault();
-            return request.Answer == CostAnswer.Removed && current is not { Answer: not CostAnswer.Removed }
-                ? (null, "NothingToRemove")
-                : (current?.Id, null);
+            return standing.Find(cost => cost.Id == replaces) is { } replaced ? (replaced, null) : (null, "Replaced");
         }
 
-        if (request.ReplacesId is not { } replaces)
+        if (request.Kind == CostKind.Other)
         {
             return (null, null);
         }
 
-        return standing.Any(cost => cost.Id == replaces && cost.Answer != CostAnswer.Removed) ? (replaces, null) : (null, "Replaced");
+        // The removed answer that stands, if any, is what a new one follows on from.
+        var removed = await BatchCostings.Standing(db.BatchCosts.AsNoTracking().Where(cost => cost.BatchId == batchId && cost.Kind == CostKind.Material))
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return standing.Count > 0 ? (null, "Answered") : (removed, null);
     }
 
     private static async Task<BatchCost> BuildAsync(
@@ -222,6 +226,6 @@ internal static class CostEndpoints
 
     internal sealed record CostRecorded(Guid EventId);
 
-    /// <param name="Problem">IdInUse, NothingToRemove or Replaced.</param>
+    /// <param name="Problem">IdInUse, Replaced (what it replaces no longer stands) or Answered (someone has already said).</param>
     internal sealed record CostRefused(string Problem);
 }

@@ -28,6 +28,19 @@ public sealed class CostTests(PostgresFixture database)
     private static async Task<HttpStatusCode> AddCostAsync(HttpClient client, Guid batch, object body) =>
         await PostStatusAsync(client, $"/api/batches/{batch}/costs", body);
 
+    private static async Task<(HttpStatusCode Status, string? Problem)> AddCostForProblemAsync(HttpClient client, Guid batch, object body)
+    {
+        using var response = await client.PostAsJsonAsync(Route($"/api/batches/{batch}/costs"), body, Cancellation);
+        var text = await response.Content.ReadAsStringAsync(Cancellation);
+        return (response.StatusCode, response.StatusCode == HttpStatusCode.Conflict ? Json(text).GetProperty("problem").GetString() : null);
+    }
+
+    /// <summary>The seed or plants' answer that stands now, for the next answer to replace.</summary>
+    private static async Task<Guid> StandingAsync(HttpClient owner, Guid batch) =>
+        (await CostingAsync(owner, batch)).GetProperty("history").EnumerateArray()
+            .Last(entry => string.Equals(entry.GetProperty("kind").GetString(), "Material", StringComparison.Ordinal) && !entry.GetProperty("replaced").GetBoolean())
+            .GetProperty("id").GetGuid();
+
     private static Task<JsonElement> CostingAsync(HttpClient owner, Guid batch) =>
         owner.GetFromJsonAsync<JsonElement>(Route($"/api/batches/{batch}/costing"), Cancellation);
 
@@ -122,12 +135,19 @@ public sealed class CostTests(PostgresFixture database)
 
         await AddCostAsync(nursery.Staff, batch, Cost(amount: 2.50m));
         Assert.False(await CostMissingAsync(nursery.Staff, tray));
-        await AddCostAsync(nursery.Owner, batch, Cost(answer: "Free", amount: null));
+
+        // A second answer given without seeing the first is refused, so nobody's answer is overwritten.
+        Assert.Equal((HttpStatusCode.Conflict, "Answered"), await AddCostForProblemAsync(nursery.Staff, batch, Cost(amount: 3m)));
+        Assert.Equal((HttpStatusCode.Conflict, "Answered"), await AddCostForProblemAsync(nursery.Owner, batch, Cost(answer: "NotKnown", amount: null)));
+
+        var first = await StandingAsync(nursery.Owner, batch);
+        Assert.Equal(HttpStatusCode.Created, await AddCostAsync(nursery.Owner, batch, Cost(answer: "Free", amount: null, replacesId: first)));
+        Assert.Equal((HttpStatusCode.Conflict, "Replaced"), await AddCostForProblemAsync(nursery.Owner, batch, Cost(amount: 4m, replacesId: first)));
         var costing = await CostingAsync(nursery.Owner, batch);
         Assert.Equal("Free", costing.GetProperty("material").GetProperty("state").GetString());
         Assert.Equal((0m, 0m), Pair(costing.GetProperty("total")));
 
-        await AddCostAsync(nursery.Owner, batch, Cost(answer: "NotKnown", amount: null));
+        await AddCostAsync(nursery.Owner, batch, Cost(answer: "NotKnown", amount: null, replacesId: await StandingAsync(nursery.Owner, batch)));
         costing = await CostingAsync(nursery.Owner, batch);
         Assert.Equal("NotKnown", costing.GetProperty("material").GetProperty("state").GetString());
         Assert.Equal(JsonValueKind.Null, costing.GetProperty("total").ValueKind);
@@ -139,10 +159,17 @@ public sealed class CostTests(PostgresFixture database)
         Assert.Equal(history[0].GetProperty("id").GetGuid(), history[1].GetProperty("replacesId").GetGuid());
 
         // Removed, it goes back to having no answer, and the tray asks again.
-        Assert.Equal(HttpStatusCode.Created, await AddCostAsync(nursery.Owner, batch, Cost(answer: "Removed", amount: null)));
+        var notKnown = await StandingAsync(nursery.Owner, batch);
+        Assert.Equal(HttpStatusCode.Created, await AddCostAsync(nursery.Owner, batch, Cost(answer: "Removed", amount: null, replacesId: notKnown)));
         Assert.Equal("NoAnswer", (await CostingAsync(nursery.Owner, batch)).GetProperty("material").GetProperty("state").GetString());
         Assert.True(await CostMissingAsync(nursery.Staff, tray));
-        Assert.Equal(HttpStatusCode.Conflict, await AddCostAsync(nursery.Owner, batch, Cost(answer: "Removed", amount: null)));
+        Assert.Equal(HttpStatusCode.Conflict, await AddCostAsync(nursery.Owner, batch, Cost(answer: "Removed", amount: null, replacesId: notKnown)));
+
+        // After a removal anyone can answer again, and the chain of answers carries on.
+        Assert.Equal(HttpStatusCode.Created, await AddCostAsync(nursery.Staff, batch, Cost(amount: 1.99m)));
+        var chain = (await CostingAsync(nursery.Owner, batch)).GetProperty("history").EnumerateArray().ToList();
+        Assert.Equal(chain[^2].GetProperty("id").GetGuid(), chain[^1].GetProperty("replacesId").GetGuid());
+        Assert.Equal("Amount", (await CostingAsync(nursery.Owner, batch)).GetProperty("material").GetProperty("state").GetString());
     }
 
     [Fact]
@@ -188,9 +215,10 @@ public sealed class CostTests(PostgresFixture database)
         Assert.Equal(HttpStatusCode.Created, await AddCostAsync(nursery.Staff, batch, Cost(answer: "Free", amount: null)));
         Assert.Equal(HttpStatusCode.Forbidden, await GetStatusAsync(nursery.Staff, $"/api/batches/{batch}/costing"));
         Assert.Equal(HttpStatusCode.Forbidden, await AddCostAsync(nursery.Staff, batch, Cost(answer: "NotKnown", amount: null)));
-        Assert.Equal(HttpStatusCode.Forbidden, await AddCostAsync(nursery.Staff, batch, Cost(answer: "Removed", amount: null)));
+        Assert.Equal(HttpStatusCode.Forbidden, await AddCostAsync(nursery.Staff, batch, Cost(answer: "Removed", amount: null, replacesId: Guid.NewGuid())));
         Assert.Equal(HttpStatusCode.Forbidden, await AddCostAsync(nursery.Staff, batch, Cost(vatBand: "Zero", includesVat: true)));
-        Assert.Equal(HttpStatusCode.Forbidden, await AddCostAsync(nursery.Staff, batch, Cost(kind: "Other", amount: 1m, note: "Feed", replacesId: Guid.NewGuid())));
+        Assert.Equal(HttpStatusCode.Forbidden, await AddCostAsync(nursery.Staff, batch, Cost(kind: "Other", amount: 1m, note: "Feed")));
+        Assert.Equal(HttpStatusCode.Forbidden, await AddCostAsync(nursery.Staff, batch, Cost(amount: 1m, replacesId: Guid.NewGuid())));
     }
 
     [Fact]
@@ -208,6 +236,7 @@ public sealed class CostTests(PostgresFixture database)
         Assert.Equal(HttpStatusCode.BadRequest, await AddCostAsync(nursery.Owner, batch, Cost(kind: "Other", amount: 1m)));
         Assert.Equal(HttpStatusCode.BadRequest, await AddCostAsync(nursery.Owner, batch, Cost(kind: "Other", answer: "Free", amount: null, note: "Feed")));
         Assert.Equal(HttpStatusCode.BadRequest, await AddCostAsync(nursery.Owner, batch, Cost(kind: "Other", answer: "Removed", amount: null)));
+        Assert.Equal(HttpStatusCode.BadRequest, await AddCostAsync(nursery.Owner, batch, Cost(answer: "Removed", amount: null)));
         Assert.Equal(HttpStatusCode.BadRequest, await AddCostAsync(nursery.Owner, batch, Cost(kind: "Other", amount: 1m, note: new string('x', 201))));
         Assert.Equal(HttpStatusCode.NotFound, await AddCostAsync(nursery.Owner, Guid.NewGuid(), Cost()));
     }
@@ -220,14 +249,16 @@ public sealed class CostTests(PostgresFixture database)
         var at = DateTimeOffset.UtcNow.AddDays(-1);
         await AddCostAsync(nursery.Staff, batch, Cost(amount: 2.49m, occurredAt: at));
 
-        Assert.Equal(HttpStatusCode.Created, await AddCostAsync(nursery.Owner, batch, Cost(amount: 2.49m, occurredAt: at, vatBand: "Standard", includesVat: false)));
+        // Sent with today's time, it still keeps the day the cost was for.
+        Assert.Equal(HttpStatusCode.Created, await AddCostAsync(nursery.Owner, batch, Cost(amount: 2.49m, vatBand: "Standard", includesVat: false, replacesId: await StandingAsync(nursery.Owner, batch))));
 
         var costing = await CostingAsync(nursery.Owner, batch);
         Assert.Equal((2.99m, 2.49m), Pair(costing.GetProperty("material").GetProperty("cost")));
         Assert.True(costing.GetProperty("material").GetProperty("entry").GetProperty("vatSaid").GetBoolean());
+        Assert.Equal(at.UtcDateTime, costing.GetProperty("material").GetProperty("entry").GetProperty("occurredAt").GetDateTimeOffset().UtcDateTime, TimeSpan.FromMilliseconds(1));
         Assert.Equal(2, costing.GetProperty("history").GetArrayLength());
 
-        await AddCostAsync(nursery.Owner, batch, Cost(amount: 2.49m, occurredAt: at, vatBand: "Zero", includesVat: true));
+        await AddCostAsync(nursery.Owner, batch, Cost(amount: 2.49m, vatBand: "Zero", includesVat: true, replacesId: await StandingAsync(nursery.Owner, batch)));
         Assert.Equal((2.49m, 2.49m), Pair((await CostingAsync(nursery.Owner, batch)).GetProperty("material").GetProperty("cost")));
     }
 
@@ -255,6 +286,116 @@ public sealed class CostTests(PostgresFixture database)
 
         Assert.Equal(HttpStatusCode.NoContent, await PostStatusAsync(nursery.Owner, $"/api/purchases/{purchase}/void"));
         Assert.Equal("Amount", (await CostingAsync(nursery.Owner, first)).GetProperty("material").GetProperty("state").GetString());
+    }
+
+    private static async Task<(Guid Supplier, Guid Purchase, Guid Line)> BuyAsync(HttpClient owner, decimal net, decimal vat)
+    {
+        var supplier = Json(await PostForTextAsync(owner, "/api/suppliers", new { name = "Example Plugs" })).GetProperty("id").GetGuid();
+        var purchase = Json(await PostForTextAsync(owner, "/api/purchases", new { supplierId = supplier, purchasedOn = DateOnly.FromDateTime(DateTime.UtcNow), lines = new[] { new { description = "Plugs", quantity = 40, netCost = net, vat, isPlants = true } } })).GetProperty("id").GetGuid();
+        var line = (await owner.GetFromJsonAsync<JsonElement>(Route("/api/purchases"), Cancellation))[0].GetProperty("lines")[0].GetProperty("id").GetGuid();
+        return (supplier, purchase, line);
+    }
+
+    private static async Task<(Guid Batch, Guid Start)> StartFromAsync(HttpClient client, Guid plant, Guid line, Guid supplier, int quantity, string source = "BoughtIn", string? sownAs = null)
+    {
+        var start = Guid.NewGuid();
+        var started = Json(await PostForTextAsync(client, "/api/batches", new { eventId = start, occurredAt = DateTimeOffset.UtcNow.AddDays(-5), plantId = plant, quantity, source, supplierId = supplier, originCountry = "GB", containerKind = "Tray", purchaseLineId = line, sownAs }));
+        return (started.GetProperty("batchId").GetGuid(), start);
+    }
+
+    [Fact]
+    public async Task A_start_that_was_undone_takes_no_share_and_a_corrected_count_shares_by_the_new_count()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var (supplier, _, line) = await BuyAsync(nursery.Owner, 30m, 6m);
+        var plant = await AddPlantAsync(nursery.Owner);
+        var (undone, undoneStart) = await StartFromAsync(nursery.Owner, plant, line, supplier, 40);
+        var (first, firstStart) = await StartFromAsync(nursery.Owner, plant, line, supplier, 30);
+        var (second, _) = await StartFromAsync(nursery.Owner, plant, line, supplier, 10);
+
+        Assert.Equal(HttpStatusCode.Created, await PostStatusAsync(nursery.Owner, $"/api/events/{undoneStart}/correct", new { eventId = Guid.NewGuid(), occurredAt = DateTimeOffset.UtcNow }));
+        Assert.Equal(HttpStatusCode.Created, await PostStatusAsync(nursery.Owner, $"/api/events/{firstStart}/correct", new { eventId = Guid.NewGuid(), occurredAt = DateTimeOffset.UtcNow, quantity = 20 }));
+
+        Assert.Equal("NoAnswer", (await CostingAsync(nursery.Owner, undone)).GetProperty("material").GetProperty("state").GetString());
+        Assert.Equal((24m, 20m), Pair((await CostingAsync(nursery.Owner, first)).GetProperty("material").GetProperty("cost")));
+        Assert.Equal((12m, 10m), Pair((await CostingAsync(nursery.Owner, second)).GetProperty("material").GetProperty("cost")));
+    }
+
+    [Fact]
+    public async Task Shares_are_equal_when_a_batch_was_sown_uncounted_and_always_add_up_to_the_line()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var (supplier, _, line) = await BuyAsync(nursery.Owner, 10m, 0m);
+        var plant = await AddPlantAsync(nursery.Owner);
+        var batches = new List<Guid>
+        {
+            (await StartFromAsync(nursery.Owner, plant, line, supplier, 0, "SeedLot", "Unknown")).Batch,
+            (await StartFromAsync(nursery.Owner, plant, line, supplier, 50, "SeedLot")).Batch,
+            (await StartFromAsync(nursery.Owner, plant, line, supplier, 25, "SeedLot")).Batch,
+        };
+
+        var materials = new List<JsonElement>();
+        foreach (var batch in batches)
+        {
+            materials.Add((await CostingAsync(nursery.Owner, batch)).GetProperty("material"));
+        }
+
+        Assert.All(materials, material => Assert.True(material.GetProperty("purchase").GetProperty("equally").GetBoolean()));
+        Assert.Equal(10m, materials.Sum(material => material.GetProperty("cost").GetProperty("beforeVat").GetDecimal()));
+        Assert.All(materials, material => Assert.InRange(material.GetProperty("cost").GetProperty("beforeVat").GetDecimal(), 3.33m, 3.34m));
+    }
+
+    [Fact]
+    public async Task A_voided_purchase_leaves_the_tray_asking_again()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var (supplier, purchase, line) = await BuyAsync(nursery.Owner, 30m, 6m);
+        var plant = await AddPlantAsync(nursery.Owner);
+        await StartFromAsync(nursery.Owner, plant, line, supplier, 40);
+        var tray = (await nursery.Staff.GetFromJsonAsync<JsonElement>(Route("/api/containers/active"), Cancellation))[0].GetProperty("id").GetGuid();
+        Assert.False(await CostMissingAsync(nursery.Staff, tray));
+
+        Assert.Equal(HttpStatusCode.NoContent, await PostStatusAsync(nursery.Owner, $"/api/purchases/{purchase}/void"));
+
+        Assert.True(await CostMissingAsync(nursery.Staff, tray));
+    }
+
+    [Fact]
+    public async Task Two_answers_at_once_leave_one_standing()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var (batch, _) = await StartAsync(nursery.Staff, await AddPlantAsync(nursery.Owner));
+
+        var results = await Task.WhenAll(
+            AddCostForProblemAsync(nursery.Staff, batch, Cost(amount: 2.99m)),
+            AddCostForProblemAsync(nursery.Owner, batch, Cost(amount: 3.49m)));
+
+        Assert.Single(results, result => result.Status == HttpStatusCode.Created);
+        Assert.Single(results, result => result == (HttpStatusCode.Conflict, "Answered"));
+        Assert.Single((await CostingAsync(nursery.Owner, batch)).GetProperty("history").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task A_cost_dated_ahead_is_taken_as_now_and_a_resend_from_a_wrong_clock_is_still_the_same_cost()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var (batch, _) = await StartAsync(nursery.Staff, await AddPlantAsync(nursery.Owner));
+        var id = Guid.NewGuid();
+        var body = Cost(id: id, occurredAt: DateTimeOffset.UtcNow.AddDays(2));
+
+        async Task<HttpStatusCode> SendAsync(TimeSpan clockOut)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, Route($"/api/batches/{batch}/costs")) { Content = JsonContent.Create(body) };
+            request.Headers.Add("X-Device-Time", (DateTimeOffset.UtcNow + clockOut).ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+            using var response = await nursery.Staff.SendAsync(request, Cancellation);
+            return response.StatusCode;
+        }
+
+        Assert.Equal(HttpStatusCode.Created, await SendAsync(TimeSpan.Zero));
+        Assert.Equal(HttpStatusCode.OK, await SendAsync(TimeSpan.FromHours(3)));
+
+        var stored = (await CostingAsync(nursery.Owner, batch)).GetProperty("material").GetProperty("entry").GetProperty("occurredAt").GetDateTimeOffset();
+        Assert.InRange(stored, DateTimeOffset.UtcNow.AddMinutes(-5), DateTimeOffset.UtcNow.AddMinutes(1));
     }
 
     [Fact]

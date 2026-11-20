@@ -31,7 +31,7 @@
   import { api } from "../../api/client";
   import type { Schemas } from "../../lib/types";
   import { rememberedContainer } from "../../lib/offline";
-  import { recordWork } from "../../lib/queue";
+  import { recordWork, waitingFor } from "../../lib/queue";
   import { stageLabel, timeAtStage } from "../../lib/production";
   import { seedAmount } from "../../lib/sowing";
   import {
@@ -156,6 +156,19 @@
       addingCost = batchId;
       pushStep("trayAddCost", batchId);
     }
+    void focusHeading();
+  }
+
+  // The tray asks only while nobody has answered, here or in a cost still waiting on this device.
+  const asksCost = (line: Schemas["ContainerLine"]) =>
+    line.costMissing &&
+    isOn("Costs") &&
+    !waitingFor(`/api/batches/${line.batchId}/costs`);
+
+  /** Back from the costing to the tray, which may no longer need to ask. */
+  function costingClosed() {
+    back();
+    void load();
   }
 
   function costSaved(message: string) {
@@ -353,7 +366,7 @@
     />
   {/key}
 {:else if costing && lineOf(costing)}
-  <BatchCosting line={lineOf(costing)!} {onPurchases} onBack={back} />
+  <BatchCosting line={lineOf(costing)!} {onPurchases} onBack={costingClosed} />
 {:else if addingCost && lineOf(addingCost)}
   <AddCost line={lineOf(addingCost)!} onSaved={costSaved} onCancel={back} />
 {:else if editing}
@@ -419,7 +432,7 @@
               {plantName(line.commonName, line.variety)}
             </p>
             <span class="muted credit">Batch {line.traceabilityCode}</span>
-            {#if line.costMissing && isOn("Costs")}
+            {#if asksCost(line)}
               <div class="card caution stack tight">
                 <p>
                   Nobody has said what this batch's {line.source === "BoughtIn"

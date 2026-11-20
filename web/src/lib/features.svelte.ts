@@ -148,8 +148,8 @@ export const featureInfo: FeatureInfo[] = [
     feature: "Costs",
     label: "Costs",
     hides:
-      "Costs and takings on each tray, and the question on a tray asking what a batch's seed or plants cost",
-    note: "While it's off, a cost already waiting on a phone is still taken when it's sent.",
+      "Costs and takings on each tray and the notice asking what a batch's seed or plants cost",
+    note: "While it's off, a cost already waiting on a phone is still saved when it's sent.",
   },
   {
     feature: "BenchStations",

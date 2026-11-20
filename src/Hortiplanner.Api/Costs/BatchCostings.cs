@@ -119,26 +119,54 @@ internal static class BatchCostings
             return null;
         }
 
-        var started = await db.Batches.AsNoTracking()
-            .Where(batch => batch.PurchaseLineId == lineId)
-            .Select(batch => new
-            {
-                batch.Id,
-                Quantity = db.EventLines
-                    .Where(eventLine => eventLine.BatchId == batch.Id && eventLine.QuantityChange > 0)
-                    .Join(db.Events, eventLine => eventLine.EventId, e => e.Id, (eventLine, e) => new { eventLine.QuantityChange, e.OccurredAt, e.Type })
-                    .Where(row => row.Type == EventType.Received || row.Type == EventType.Sown)
-                    .Sum(row => (int?)row.QuantityChange) ?? 0,
-            })
+        var started = await StartedAsync(lineId, db, cancellationToken);
+
+        // A batch whose start was undone takes no share.
+        if (!started.ContainsKey(batchId))
+        {
+            return null;
+        }
+
+        var equally = started.Values.Any(quantity => quantity == 0);
+        var net = Share(line.NetCost, started, batchId, equally);
+        var vat = Share(line.Vat, started, batchId, equally);
+
+        return new PurchaseSource(line.Id, line.Supplier, line.PurchasedOn, started.Count > 1, equally, new MoneyPair(net + vat, net));
+    }
+
+    /// <summary>
+    /// How many plants each batch from a purchase line started with, leaving out a start that was undone and taking a
+    /// corrected start's new count, as Figures does. Nought for a batch sown without a count.
+    /// </summary>
+    private static async Task<Dictionary<Guid, int>> StartedAsync(Guid lineId, HortiplannerDbContext db, CancellationToken cancellationToken)
+    {
+        var linked = db.Batches.Where(batch => batch.PurchaseLineId == lineId).Select(batch => batch.Id);
+        var rows = await db.EventLines.AsNoTracking()
+            .Where(eventLine => linked.Contains(eventLine.BatchId))
+            .Join(db.Events, eventLine => eventLine.EventId, e => e.Id, (eventLine, e) => new { eventLine.BatchId, eventLine.QuantityChange, e.Id, e.Type, e.CorrectsEventId })
             .ToListAsync(cancellationToken);
+        var touched = rows.Select(row => row.Id).Distinct().ToList();
+        var reversed = (await db.Events.AsNoTracking()
+            .Where(e => e.CorrectsEventId != null && touched.Contains(e.CorrectsEventId.Value))
+            .Select(e => e.CorrectsEventId!.Value)
+            .ToListAsync(cancellationToken)).ToHashSet();
+        var starts = rows.Where(row => row.Type is EventType.Sown or EventType.Received).Select(row => row.Id).ToHashSet();
 
-        var equally = started.Exists(batch => batch.Quantity == 0);
-        var mine = equally ? 1 : started.Single(batch => batch.Id == batchId).Quantity;
-        var all = equally ? started.Count : started.Sum(batch => batch.Quantity);
-        var net = Math.Round(line.NetCost * mine / all, 2, MidpointRounding.AwayFromZero);
-        var vat = Math.Round(line.Vat * mine / all, 2, MidpointRounding.AwayFromZero);
+        return rows
+            .Where(row => !reversed.Contains(row.Id))
+            .Where(row => starts.Contains(row.Id) || (row.Type == EventType.Corrected && row.CorrectsEventId is { } corrected && starts.Contains(corrected)))
+            .GroupBy(row => row.BatchId)
+            .ToDictionary(group => group.Key, group => Math.Max(0, group.Sum(row => row.QuantityChange)));
+    }
 
-        return new PurchaseSource(line.Id, line.Supplier, line.PurchasedOn, started.Count > 1, new MoneyPair(net + vat, net));
+    /// <summary>A batch's part of an amount, to the penny, with the last batch taking what rounding leaves so the parts add up.</summary>
+    private static decimal Share(decimal amount, Dictionary<Guid, int> started, Guid batchId, bool equally)
+    {
+        var order = started.Keys.Order().ToList();
+        var all = equally ? started.Count : started.Values.Sum();
+        decimal Part(Guid id) => Math.Round(amount * (equally ? 1 : started[id]) / all, 2, MidpointRounding.AwayFromZero);
+
+        return batchId == order[^1] ? amount - order.SkipLast(1).Sum(Part) : Part(batchId);
     }
 
     /// <summary>The seed or plants: a purchase first, then what someone said, then cuttings costing nothing.</summary>
@@ -189,7 +217,8 @@ internal static class BatchCostings
         Guid? ReplacesId);
 
     /// <param name="Shared">Whether other batches were started from the same line, so this is a share of it.</param>
-    internal sealed record PurchaseSource(Guid PurchaseId, string Supplier, DateOnly PurchasedOn, bool Shared, MoneyPair Share);
+    /// <param name="Equally">Shared equally, because a batch from the line was sown without a count.</param>
+    internal sealed record PurchaseSource(Guid PurchaseId, string Supplier, DateOnly PurchasedOn, bool Shared, bool Equally, MoneyPair Share);
 
     /// <param name="Superseded">A cost typed in before the purchase gave the batch its cost, which is no longer counted.</param>
     internal sealed record MaterialCost(MaterialState State, MoneyPair? Cost, CostEntry? Entry, PurchaseSource? Purchase, CostEntry? Superseded);

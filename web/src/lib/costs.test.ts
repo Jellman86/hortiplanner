@@ -5,6 +5,7 @@ import {
   firstOf,
   materialSentence,
   readMoney,
+  replacedParts,
   replacedSentence,
   rowName,
   supersededSentence,
@@ -114,7 +115,7 @@ describe("the words for a cost", () => {
 
     expect(firstOf(second, [first, second])).toBe(first);
     expect(entrySentence(second, [first, second], "seed")).toMatch(
-      /^Alex Moss added the seed cost on 3 March\. You said it included VAT at 20%\.$/,
+      /^Alex Moss added the cost of the seed on 3 March\. You said it included VAT at 20%\.$/,
     );
   });
 
@@ -127,6 +128,29 @@ describe("the words for a cost", () => {
   });
 
   it("says where the seed or plants' cost comes from when nobody typed one", () => {
+    const shared = (equally: boolean) =>
+      materialSentence(
+        costing({
+          material: {
+            ...costing().material,
+            state: "Purchase",
+            purchase: {
+              purchaseId: "p",
+              supplier: "Example Seeds",
+              purchasedOn: "2026-03-03",
+              shared: true,
+              equally,
+              share: { withVat: 1, beforeVat: 1 },
+            },
+          },
+        }),
+      );
+    expect(shared(false)).toMatch(
+      /^The seed is from the purchase from Example Seeds on 3 March( 2026)?, which gives the cost and its VAT\. Other batches were started from the same purchase, so this is this batch's share of the cost, by how many plants each one started with\.$/,
+    );
+    expect(shared(true)).toMatch(
+      /so the cost is shared equally between them, because one was sown without a count\.$/,
+    );
     expect(materialSentence(costing())).toBe(
       "Nobody has said what the seed for this batch cost, so we can't work out what the batch has cost.",
     );
@@ -150,6 +174,7 @@ describe("the words for a cost", () => {
               supplier: "Example Plugs",
               purchasedOn: "2026-03-03",
               shared: false,
+              equally: false,
               share: { withVat: 18, beforeVat: 15 },
             },
           },
@@ -160,12 +185,39 @@ describe("the words for a cost", () => {
     );
   });
 
-  it("keeps earlier answers in words", () => {
+  it("keeps earlier answers in words, saying what VAT was in them", () => {
     expect(replacedSentence(entry({ amountPaid: 2.5 }))).toMatch(
-      /^Replaced: £2\.50, added by Alex Moss on 3 March( 2026)?\.$/,
+      /^Replaced: £2\.50 including VAT at 20%, added by Alex Moss on 3 March( 2026)?\.$/,
     );
+    expect(
+      replacedSentence(entry({ includesVat: false, vatSaid: true })),
+    ).toMatch(/^Replaced: £2\.99 before VAT at 20%, added by/);
+    expect(replacedSentence(entry({ vatRate: 0 }))).toMatch(
+      /^Replaced: £2\.99 with no VAT, added by/,
+    );
+    const slugs = entry({
+      id: "s",
+      kind: "Other",
+      amountPaid: 3,
+      note: "slug pellets",
+    });
+    expect(
+      replacedParts(slugs, [
+        slugs,
+        entry({ id: "r", answer: "Removed", replacesId: "s" }),
+      ]),
+    ).toEqual({
+      lead: "Removed: ",
+      struck: "£3.00 including VAT at 20%",
+      rest: expect.stringMatching(
+        /^ for slug pellets, added by Alex Moss on 3 March( 2026)?\.$/,
+      ),
+    });
     expect(replacedSentence(entry({ answer: "Free" }))).toMatch(
-      /^Replaced: that it cost nothing, said by Alex Moss on 3 March( 2026)?\.$/,
+      /^Replaced: Alex Moss said on 3 March( 2026)? that it cost nothing\.$/,
+    );
+    expect(replacedSentence(entry({ answer: "NotKnown" }))).toMatch(
+      /^Replaced: Alex Moss said on 3 March( 2026)? that nobody knows what it cost\.$/,
     );
     expect(supersededSentence(entry())).toMatch(
       /^The purchase now gives this batch's cost, so the £2\.99 typed in on 3 March( 2026)? is no longer counted\.$/,

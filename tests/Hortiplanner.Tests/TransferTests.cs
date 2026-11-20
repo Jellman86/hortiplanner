@@ -113,7 +113,8 @@ public sealed class TransferTests(PostgresFixture database)
         var started = Json(await PostForTextAsync(nursery.Staff, "/api/batches", new { eventId = Guid.NewGuid(), occurredAt = DateTimeOffset.UtcNow.AddDays(-3), plantId = plant, quantity = 40, source = "SeedLot", originCountry = "GB", containerKind = "Tray" }));
         var batch = started.GetProperty("batchId").GetGuid();
         await PostForTextAsync(nursery.Staff, $"/api/batches/{batch}/costs", new { eventId = Guid.NewGuid(), occurredAt = DateTimeOffset.UtcNow, kind = "Material", answer = "Amount", amount = 2.99m });
-        await PostForTextAsync(nursery.Owner, $"/api/batches/{batch}/costs", new { eventId = Guid.NewGuid(), occurredAt = DateTimeOffset.UtcNow, kind = "Material", answer = "Amount", amount = 2.99m, vatBand = "Zero", includesVat = true });
+        var first = (await nursery.Owner.GetFromJsonAsync<JsonElement>(Route($"/api/batches/{batch}/costing"), Cancellation)).GetProperty("material").GetProperty("entry").GetProperty("id").GetGuid();
+        await PostForTextAsync(nursery.Owner, $"/api/batches/{batch}/costs", new { eventId = Guid.NewGuid(), occurredAt = DateTimeOffset.UtcNow, kind = "Material", answer = "Amount", amount = 2.99m, vatBand = "Zero", includesVat = true, replacesId = first });
 
         using var response = await nursery.Owner.GetAsync(Route("/api/export"), Cancellation);
         await using var zipped = await response.Content.ReadAsStreamAsync(Cancellation);

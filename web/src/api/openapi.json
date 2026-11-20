@@ -13046,6 +13046,7 @@
           "supplier",
           "purchasedOn",
           "shared",
+          "equally",
           "share"
         ],
         "type": "object",
@@ -13062,6 +13063,9 @@
             "format": "date"
           },
           "shared": {
+            "type": "boolean"
+          },
+          "equally": {
             "type": "boolean"
           },
           "share": {

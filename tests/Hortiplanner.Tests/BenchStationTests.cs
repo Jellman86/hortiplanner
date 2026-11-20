@@ -262,6 +262,12 @@ public sealed class BenchStationTests(PostgresFixture database)
         Assert.Equal(HttpStatusCode.Forbidden, await GetStatusAsync(nursery.Bench, "/api/staff"));
         Assert.Equal(HttpStatusCode.OK, await GetStatusAsync(nursery.Bench, "/api/containers/active"));
 
+        // At a bench the owner can say what a batch cost, as anyone can, but sees no costs and can't do the owner's part.
+        var started = Json(await PostForTextAsync(nursery.Bench, "/api/batches", new { eventId = Guid.NewGuid(), occurredAt = DateTimeOffset.UtcNow, plantId = Json(await PostForTextAsync(nursery.Owner, "/api/plants", new { commonName = "Thyme", protectedVariety = false })).GetProperty("id").GetGuid(), quantity = 10, source = "SeedLot", originCountry = "GB", containerKind = "Tray" })).GetProperty("batchId").GetGuid();
+        Assert.Equal(HttpStatusCode.Created, await PostStatusAsync(nursery.Bench, $"/api/batches/{started}/costs", new { eventId = Guid.NewGuid(), occurredAt = DateTimeOffset.UtcNow, kind = "Material", answer = "Amount", amount = 2.99m }));
+        Assert.Equal(HttpStatusCode.Forbidden, await GetStatusAsync(nursery.Bench, $"/api/batches/{started}/costing"));
+        Assert.Equal(HttpStatusCode.Forbidden, await PostStatusAsync(nursery.Bench, $"/api/batches/{started}/costs", new { eventId = Guid.NewGuid(), occurredAt = DateTimeOffset.UtcNow, kind = "Other", answer = "Amount", amount = 1m, note = "Feed" }));
+
         // A plant added at the bench is standard rate, as anyone's but the owner's own is.
         var plant = Json(await PostForTextAsync(nursery.Bench, "/api/plants", new { commonName = "Basil", protectedVariety = false, vatBand = "Zero" })).GetProperty("id").GetGuid();
         var band = (await nursery.Owner.GetFromJsonAsync<JsonElement>(Route("/api/plants"), Cancellation)).EnumerateArray()

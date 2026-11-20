@@ -202,6 +202,8 @@ export function outcomeProblem(outcome: Outcome): string {
           return "Nobody has counted this tray yet. Open it again and say how many you took and how many are left.";
         case "NowCounted":
           return "Someone has counted this tray since. Open it again and say how many were lost.";
+        case "Answered":
+          return "Someone has already said what this batch cost, so yours wasn't saved. The owner can change it if it's wrong.";
         case "ExaminedForPassport":
           return "That examination belongs to a plant passport, so it can't be undone.";
         default:
