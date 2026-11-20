@@ -1,4 +1,7 @@
 <script lang="ts">
+  import Archive from "@lucide/svelte/icons/archive";
+  import Hash from "@lucide/svelte/icons/hash";
+  import Pencil from "@lucide/svelte/icons/pencil";
   import FormPanel from "../FormPanel.svelte";
   import EntryPhotos from "../manage/EntryPhotos.svelte";
   import { onMount } from "svelte";
@@ -107,75 +110,78 @@
   <div class="split">
     <section>
       <FormPanel label="Add a pot size">
-        <form class="stack" onsubmit={add}>
+        <form class="form-card stack" onsubmit={add}>
+          <h2 class="form-heading">Add a pot size</h2>
           <label>New pot size <input bind:value={name} required /></label>
           <label>
             How many we've got (optional)
             <input bind:value={quantity} inputmode="numeric" />
           </label>
-          <button type="submit">Add</button>
+          <button type="submit">Add this pot size</button>
         </form>
       </FormPanel>
     </section>
     <section>
       {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
 
-      {#each sizes as size (size.id)}
-        <div class="card">
-          {#if renaming === size.id}
-            <form class="stack" onsubmit={(event) => rename(event, size.id)}>
-              <label>Name <input bind:value={newName} required /></label>
-              <button type="submit">Save</button>
-            </form>
-          {:else}
-            <strong>{size.name}</strong>
-            <span class="muted">
-              {size.quantityInStock === null ||
-              size.quantityInStock === undefined
-                ? "Not counted yet"
-                : `${size.quantityInStock} in stock`}
-            </span>
-            <EntryPhotos
-              entry="PotSize"
-              id={size.id}
-              photoIds={size.photoIds as string[]}
-              onChanged={load}
-              onProblem={setProblem}
-            />
-            {#if counting === size.id}
-              <form
-                class="stack"
-                onsubmit={(event) => saveCount(event, size.id)}
-              >
-                <label>
-                  How many we've got
-                  <input bind:value={newCount} inputmode="numeric" />
-                </label>
-                <button type="submit">Save count</button>
+      <div class="card-grid record-grid">
+        {#each sizes as size (size.id)}
+          <div class="card">
+            {#if renaming === size.id}
+              <form class="stack" onsubmit={(event) => rename(event, size.id)}>
+                <label>Name <input bind:value={newName} required /></label>
+                <button type="submit">Save</button>
               </form>
+            {:else}
+              <strong>{size.name}</strong>
+              <span class="muted">
+                {size.quantityInStock === null ||
+                size.quantityInStock === undefined
+                  ? "These haven't been counted yet."
+                  : `${size.quantityInStock} in stock`}
+              </span>
+              <EntryPhotos
+                entry="PotSize"
+                id={size.id}
+                photoIds={size.photoIds as string[]}
+                onChanged={load}
+                onProblem={setProblem}
+              />
+              {#if counting === size.id}
+                <form
+                  class="stack"
+                  onsubmit={(event) => saveCount(event, size.id)}
+                >
+                  <label>
+                    How many we've got
+                    <input bind:value={newCount} inputmode="numeric" />
+                  </label>
+                  <button type="submit">Save count</button>
+                </form>
+              {/if}
+              <div class="row card-actions">
+                <button
+                  class="link-button"
+                  onclick={() => {
+                    counting = size.id;
+                    newCount = size.quantityInStock?.toString() ?? "";
+                  }}><Hash size={16} aria-hidden="true" />Count</button
+                >
+                <button
+                  class="link-button"
+                  onclick={() => {
+                    renaming = size.id;
+                    newName = size.name;
+                  }}><Pencil size={16} aria-hidden="true" />Rename</button
+                >
+                <button class="link-button" onclick={() => archive(size)}
+                  ><Archive size={16} aria-hidden="true" />Stop using</button
+                >
+              </div>
             {/if}
-            <div class="row">
-              <button
-                class="secondary"
-                onclick={() => {
-                  counting = size.id;
-                  newCount = size.quantityInStock?.toString() ?? "";
-                }}>Count</button
-              >
-              <button
-                class="secondary"
-                onclick={() => {
-                  renaming = size.id;
-                  newName = size.name;
-                }}>Rename</button
-              >
-              <button class="secondary" onclick={() => archive(size)}
-                >Stop using</button
-              >
-            </div>
-          {/if}
-        </div>
-      {/each}
+          </div>
+        {/each}
+      </div>
       <ArchivedEntries list="pot-sizes" onRestored={load} />
     </section>
   </div>

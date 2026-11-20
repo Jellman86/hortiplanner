@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Archive from "@lucide/svelte/icons/archive";
+  import Pencil from "@lucide/svelte/icons/pencil";
   import FormPanel from "../FormPanel.svelte";
   import { onMount } from "svelte";
   import { api } from "../../api/client";
@@ -114,7 +116,10 @@
   <div class="split">
     <section>
       <FormPanel label="Add a supplier" bind:open={panelOpen}>
-        <form class="stack" onsubmit={save}>
+        <form class="form-card stack" onsubmit={save}>
+          <h2 class="form-heading">
+            {editing ? "Change the supplier" : "Add a supplier"}
+          </h2>
           <label>Name <input bind:value={form.name} required /></label>
           <label>Contact name <input bind:value={form.contactName} /></label>
           <label>Phone <input bind:value={form.phone} inputmode="tel" /></label>
@@ -141,7 +146,9 @@
             <textarea bind:value={form.otherRegistrations} rows="2"></textarea>
           </label>
           <label>Notes <input bind:value={form.notes} /></label>
-          <button type="submit">{editing ? "Save changes" : "Add"}</button>
+          <button type="submit"
+            >{editing ? "Save changes" : "Add this supplier"}</button
+          >
           {#if editing}
             <button type="button" class="secondary" onclick={reset}
               >Cancel</button
@@ -153,25 +160,27 @@
     <section>
       {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
 
-      {#each suppliers as supplier (supplier.id)}
-        <div class="card">
-          <strong>{supplier.name}</strong>
-          {#if supplier.passportRegistrationNumber}<span class="muted"
-              >Passport number {supplier.passportRegistrationNumber}</span
-            >{/if}
-          {#if supplier.otherRegistrations}<span class="muted"
-              >{supplier.otherRegistrations}</span
-            >{/if}
-          <div class="row">
-            <button class="secondary" onclick={() => edit(supplier)}
-              >Change</button
-            >
-            <button class="secondary" onclick={() => archive(supplier)}
-              >Stop using</button
-            >
+      <div class="card-grid record-grid">
+        {#each suppliers as supplier (supplier.id)}
+          <div class="card">
+            <strong>{supplier.name}</strong>
+            {#if supplier.passportRegistrationNumber}<span class="muted"
+                >Passport number {supplier.passportRegistrationNumber}</span
+              >{/if}
+            {#if supplier.otherRegistrations}<span class="muted"
+                >{supplier.otherRegistrations}</span
+              >{/if}
+            <div class="row card-actions">
+              <button class="link-button" onclick={() => edit(supplier)}
+                ><Pencil size={16} aria-hidden="true" />Change</button
+              >
+              <button class="link-button" onclick={() => archive(supplier)}
+                ><Archive size={16} aria-hidden="true" />Stop using</button
+              >
+            </div>
           </div>
-        </div>
-      {/each}
+        {/each}
+      </div>
       <ArchivedEntries list="suppliers" onRestored={load} />
     </section>
   </div>

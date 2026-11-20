@@ -105,23 +105,26 @@
     <div class="split">
       <section>
         <FormPanel label="Add a place">
-          <AddPlaces
-            {places}
-            onAdded={async (added) => {
-              await load();
+          <div class="form-card stack">
+            <h2 class="form-heading">Add a place</h2>
+            <AddPlaces
+              {places}
+              onAdded={async (added) => {
+                await load();
 
-              // The map is the next step for a single new place.
-              if (added && isOn("PlacesMap")) {
-                drawOnMap(added, null);
-              }
-            }}
-          />
+                // The map is the next step for a single new place.
+                if (added && isOn("PlacesMap")) {
+                  drawOnMap(added, null);
+                }
+              }}
+            />
+          </div>
         </FormPanel>
       </section>
       <section>
         {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
 
-        <ul class="place-tree">
+        <ul class="place-tree place-list">
           {#each nested as { place, depth } (place.id)}
             <li style:--depth={depth}>
               <button class="place-row" onclick={() => (openId = place.id)}>
@@ -158,12 +161,13 @@
                 <ChevronRight size={18} />
               </button>
             </li>
-          {:else}
-            <li class="muted">
-              No places yet. Start with the site, such as the farm.
-            </li>
           {/each}
         </ul>
+        {#if nested.length === 0}
+          <p class="note-empty muted">
+            There are no places yet. Start with the site, such as the farm.
+          </p>
+        {/if}
         <ArchivedEntries list="locations" onRestored={load} />
       </section>
     </div>

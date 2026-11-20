@@ -2421,7 +2421,8 @@ button.danger:hover:not(:disabled) {
 }
 
 .day-choices button {
-  flex: 1 1 7rem;
+  flex: 1 1 auto;
+  white-space: nowrap;
 }
 
 .calendar {
@@ -3769,25 +3770,6 @@ button.ask-card:hover:not(:disabled) {
     padding-right: 1.25rem;
   }
 
-  /* In the narrow column beside a list, controls line up at the column's width. */
-  .with-sidebar
-    .split
-    > :first-child
-    > :is(button, a.button):not(.link-button, .back),
-  .with-sidebar
-    .split
-    > :first-child
-    :is(form, .stack, section)
-    > :is(button, a.button):not(
-      .link-button,
-      .back,
-      .plant-card,
-      .place-row,
-      .menu-item
-    ) {
-    align-self: stretch;
-  }
-
   /* A list to pick one from, such as why plants were lost or where they're going: one width for every choice. */
   .with-sidebar .choices {
     width: fit-content;
@@ -5043,4 +5025,18 @@ button.link-button.ftree-leaf {
     grid-template-areas: "details history actions";
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(18rem, 24rem);
   }
+}
+
+/* A form beside a list: records that are cards sit side by side; Places' tree keeps to a readable width. */
+.record-grid {
+  --card-min: 18rem;
+}
+
+.place-list {
+  max-width: 48rem;
+}
+
+/* A record's small buttons, such as a supplier's Change and Stop using, are as wide as their words on a desk. */
+.with-sidebar .row.card-actions > button.link-button {
+  min-width: 0;
 }

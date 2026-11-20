@@ -18,7 +18,7 @@
   type="button"
   class="secondary panel-toggle"
   aria-expanded={open}
-  onclick={() => (open = !open)}>{open ? "Hide form" : label}</button
+  onclick={() => (open = !open)}>{open ? "Hide the form" : label}</button
 >
 <div class="panel-body" class:closed={!open}>
   {@render children()}

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Pencil from "@lucide/svelte/icons/pencil";
+  import ArrowRight from "@lucide/svelte/icons/arrow-right";
   import Camera from "@lucide/svelte/icons/camera";
   import Music from "@lucide/svelte/icons/music";
   import { shrinkPhoto } from "../../lib/photo";
@@ -98,26 +98,26 @@
 
   function signsInWith(member: Member) {
     if (everyoneTaps && !member.isOwner) {
-      return "Taps their name";
+      return "They tap their name.";
     }
 
     if (member.nameOnly) {
       return allowNameOnly
-        ? "Signs in by tapping their name"
-        : "Tapping their name is turned off, so give them a password or PIN";
+        ? "They sign in by tapping their name."
+        : "Tapping their name is turned off, so give them a password or a PIN.";
     }
 
     const ways = [
-      member.hasPassword ? "password" : null,
-      member.hasPasskey ? "passkey" : null,
-      member.hasExternalLogin ? "staff login" : null,
+      member.hasPassword ? "a password" : null,
+      member.hasPasskey ? "a passkey" : null,
+      member.hasExternalLogin ? "the staff login" : null,
     ].filter((item) => item !== null);
 
     return ways.length > 0
-      ? `Signs in with ${ways.join(" or ")}`
+      ? `They sign in with ${ways.join(" or ")}.`
       : member.hasPin
-        ? "Signs in with a bench PIN only"
-        : "Can't sign in yet";
+        ? "They sign in with a bench PIN only."
+        : "They can't sign in yet.";
   }
 
   const add = (event: SubmitEvent) => {
@@ -332,11 +332,16 @@
 
 <main>
   <h1>Staff</h1>
+  <p class="muted">{levels[level]}</p>
+  <button class="link-button" onclick={onSigningIn}
+    ><ArrowRight size={16} aria-hidden="true" />Go to Signing in</button
+  >
 
   <div class="split">
     <section>
       <FormPanel label="Add a person">
-        <form class="stack" onsubmit={add}>
+        <form class="form-card stack" onsubmit={add}>
+          <h2 class="form-heading">Add a person</h2>
           <label>Name <input bind:value={name} required /></label>
           <label>
             How they sign in
@@ -365,7 +370,7 @@
               <input bind:value={pin} inputmode="numeric" autocomplete="off" />
             </label>
           {/if}
-          <button type="submit">Add</button>
+          <button type="submit">Add this person</button>
         </form>
       </FormPanel>
     </section>
@@ -398,13 +403,6 @@
           </div>
         </div>
       {/if}
-
-      <p class="muted">
-        {levels[level]}
-        <button class="link-button" onclick={onSigningIn}
-          ><Pencil size={16} aria-hidden="true" />Change under Signing in</button
-        >
-      </p>
 
       {#each staff.filter((member) => !member.archived) as member (member.id)}
         <div class="card">

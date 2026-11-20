@@ -1,5 +1,6 @@
 <script lang="ts">
   import { showForm } from "../../lib/showForm";
+  import FormPanel from "../FormPanel.svelte";
   import { onMount } from "svelte";
   import { api } from "../../api/client";
   import { dayLabel } from "../../lib/dates";
@@ -26,6 +27,8 @@
   let places = $state<{ id: string; label: string }[]>([]);
   let form = $state(empty());
   let editing = $state<string | null>(null);
+  // On a phone the form waits behind a button, and Change opens it.
+  let formOpen = $state(false);
   let problem = $state("");
   let saved = $state("");
 
@@ -47,6 +50,7 @@
 
   function edit(job: Job) {
     editing = job.id;
+    formOpen = true;
     void showForm();
     const weeks = Number(job.everyDays) % 7 === 0;
     form = {
@@ -141,57 +145,62 @@
 
   <div class="split">
     <section>
-      <form class="form-card stack" onsubmit={save} data-edit-form>
-        <h2 class="form-heading">{editing ? "Change the job" : "Add a job"}</h2>
-        <label
-          >What <input
-            bind:value={form.title}
-            required
-            maxlength="120"
-            placeholder="Water house 1"
-          /></label
-        >
-        <div class="field-grid pair">
+      <FormPanel bind:open={formOpen} label="Add a job">
+        <form class="form-card stack" onsubmit={save} data-edit-form>
+          <h2 class="form-heading">
+            {editing ? "Change the job" : "Add a job"}
+          </h2>
           <label
-            >Every <input
-              type="number"
-              min="1"
-              max="365"
-              inputmode="numeric"
-              bind:value={form.every}
+            >What <input
+              bind:value={form.title}
               required
+              maxlength="120"
+              placeholder="Water house 1"
             /></label
           >
+          <div class="field-grid pair">
+            <label
+              >Every <input
+                type="number"
+                min="1"
+                max="365"
+                inputmode="numeric"
+                bind:value={form.every}
+                required
+              /></label
+            >
+            <label
+              >&nbsp;<select bind:value={form.unit} aria-label="Days or weeks">
+                <option value="days">days</option>
+                <option value="weeks">weeks</option>
+              </select></label
+            >
+          </div>
+          <DayPicker bind:value={form.nextDue} label="Next due" max={null} />
           <label
-            >&nbsp;<select bind:value={form.unit} aria-label="Days or weeks">
-              <option value="days">days</option>
-              <option value="weeks">weeks</option>
+            >Where (optional) <select bind:value={form.locationId}>
+              <option value="">Anywhere</option>
+              {#each places as place (place.id)}
+                <option value={place.id}>{place.label}</option>
+              {/each}
             </select></label
           >
-        </div>
-        <DayPicker bind:value={form.nextDue} label="Next due" max={null} />
-        <label
-          >Where (optional) <select bind:value={form.locationId}>
-            <option value="">Anywhere</option>
-            {#each places as place (place.id)}
-              <option value={place.id}>{place.label}</option>
-            {/each}
-          </select></label
-        >
-        <label
-          >Notes (optional) <textarea
-            bind:value={form.notes}
-            rows="2"
-            maxlength="500"></textarea></label
-        >
-        <button type="submit" disabled={everyDays < 1 || everyDays > 365}
-          >{editing ? "Save" : "Add job"}</button
-        >
-        {#if editing}
-          <button type="button" class="secondary" onclick={reset}>Cancel</button
+          <label
+            >Notes (optional) <textarea
+              bind:value={form.notes}
+              rows="2"
+              maxlength="500"></textarea></label
           >
-        {/if}
-      </form>
+          <button type="submit" disabled={everyDays < 1 || everyDays > 365}
+            >{editing ? "Save" : "Add this job"}</button
+          >
+          {#if editing}
+            <button type="button" class="secondary" onclick={reset}
+              >Cancel</button
+            >
+          {/if}
+        </form>
+      </FormPanel>
     </section>
 
     <section class="stack">

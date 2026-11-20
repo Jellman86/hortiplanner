@@ -216,7 +216,7 @@ automation:
           </select></label
         >
         <div class="row">
-          <button type="submit">{editing ? "Save" : "Add sensor"}</button>
+          <button type="submit">{editing ? "Save" : "Add this sensor"}</button>
           {#if editing}
             <button type="button" class="secondary" onclick={reset}
               >Cancel</button
@@ -255,7 +255,7 @@ automation:
           </div>
         </div>
       {:else}
-        <p class="muted">There are no sensors yet.</p>
+        <p class="note-empty muted">There are no sensors yet.</p>
       {/each}
     </section>
   </div>
