@@ -13,7 +13,7 @@ type Alert = {
 
 const jobsDue: Alert = {
   kind: "JobsDue",
-  title: "1 job is due today",
+  title: "1 job is due",
   why: "It's on Record work, ready to tick off once it's done.",
   where: "record",
   count: 1,
