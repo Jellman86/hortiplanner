@@ -246,9 +246,12 @@ test("ticking a job lowers the bell, and work that wasn't saved is on it", async
   const bell = page.getByRole("button", { name: "Needs a look, 3 things" });
   await expect(bell).toBeVisible();
 
-  // It's reached from the keyboard, by its name.
-  await bell.focus();
-  await expect(bell).toBeFocused();
+  // It can take the keyboard's focus. Record work puts the cursor in its scan box as it opens, so this waits for
+  // the page to settle.
+  await expect(async () => {
+    await bell.focus();
+    await expect(bell).toBeFocused({ timeout: 500 });
+  }).toPass();
 
   // From Settings too, and Back returns there.
   await page
