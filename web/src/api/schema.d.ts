@@ -5959,6 +5959,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/settings/vat-rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VatRatesSummary"];
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["VatRatesRequest"];
+                };
+            };
+            responses: {
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VatRatesRefused"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/settings/features": {
         parameters: {
             query?: never;
@@ -7967,6 +8025,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["InvoiceIssued"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["IssueRefused"];
                     };
                 };
                 /** @description Conflict */
@@ -10173,6 +10240,34 @@ export interface components {
         };
         UsePictureRequest: {
             use: boolean;
+        };
+        /** @enum {unknown} */
+        VatBand: "Standard" | "Reduced" | "Zero";
+        VatRateHistory: {
+            band: components["schemas"]["VatBand"];
+            /** Format: double */
+            percent: number | string;
+            /** Format: date */
+            from: string;
+            setBy: null | string;
+            /** Format: date-time */
+            setAt: string;
+        };
+        VatRatesRefused: {
+            problem: string;
+        };
+        VatRatesRequest: {
+            /** Format: double */
+            standard: number | string;
+            /** Format: double */
+            reduced: number | string;
+        };
+        VatRatesSummary: {
+            /** Format: double */
+            standard: number | string;
+            /** Format: double */
+            reduced: number | string;
+            changes: components["schemas"]["VatRateHistory"][];
         };
         WorkRecorded: {
             /** Format: uuid */

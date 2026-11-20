@@ -1,0 +1,89 @@
+using System.Security.Claims;
+using Hortiplanner.Api.Accounts;
+using Hortiplanner.Api.Data;
+using Microsoft.EntityFrameworkCore;
+
+namespace Hortiplanner.Api.Settings;
+
+/// <summary>
+/// The VAT rates, set under Settings, Nursery details. Separate from the nursery's details, so an older app saving
+/// those can't send the rates back as nothing. A change starts today and never rewrites anything already recorded.
+/// </summary>
+internal static class VatRateEndpoints
+{
+    public static void MapVatRateEndpoints(this IEndpointRouteBuilder app)
+    {
+        var rates = app.MapGroup("/api/settings/vat-rates").RequireAuthorization(AccountServices.OwnerPolicy);
+        rates.MapGet("/", GetAsync);
+        rates.MapPut("/", SaveAsync).Produces<VatRatesRefused>(StatusCodes.Status400BadRequest);
+    }
+
+    private static DateOnly Today(TimeProvider clock) => DateOnly.FromDateTime(clock.GetLocalNow().DateTime);
+
+    private static async Task<VatRatesSummary> GetAsync(HortiplannerDbContext db, TimeProvider clock, CancellationToken cancellationToken)
+    {
+        var today = Today(clock);
+        var changes = await db.VatRateChanges.AsNoTracking()
+            .OrderBy(change => change.From)
+            .ThenBy(change => change.SetAt)
+            .Select(change => new VatRateHistory(
+                change.Band,
+                change.Percent,
+                change.From,
+                change.SetBy == null ? null : db.Users.Where(person => person.Id == change.SetBy).Select(person => person.UserName).FirstOrDefault(),
+                change.SetAt))
+            .ToListAsync(cancellationToken);
+
+        return new VatRatesSummary(
+            await VatRates.PercentAsync(db, VatBand.Standard, today, cancellationToken),
+            await VatRates.PercentAsync(db, VatBand.Reduced, today, cancellationToken),
+            changes);
+    }
+
+    private static bool IsRate(decimal percent) => percent is >= 0 and <= 100 && decimal.Round(percent, 2) == percent;
+
+    private static async Task<IResult> SaveAsync(VatRatesRequest request, ClaimsPrincipal user, HortiplannerDbContext db, TimeProvider clock, CancellationToken cancellationToken)
+    {
+        if (!IsRate(request.Standard) || !IsRate(request.Reduced))
+        {
+            return TypedResults.BadRequest(new VatRatesRefused("Rate"));
+        }
+
+        if (request.Reduced > request.Standard)
+        {
+            return TypedResults.BadRequest(new VatRatesRefused("ReducedAboveStandard"));
+        }
+
+        var today = Today(clock);
+        var setBy = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var changed = new List<VatBand>();
+
+        foreach (var (band, percent) in new[] { (VatBand.Standard, request.Standard), (VatBand.Reduced, request.Reduced) })
+        {
+            if (await VatRates.PercentAsync(db, band, today, cancellationToken) != percent)
+            {
+                db.VatRateChanges.Add(new VatRateChange { Band = band, Percent = percent, From = today, SetBy = setBy, SetAt = clock.GetUtcNow() });
+                changed.Add(band);
+            }
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        return TypedResults.Ok(new VatRatesSaved(changed));
+    }
+
+    internal sealed record VatRatesRequest(decimal Standard, decimal Reduced);
+
+    /// <param name="Changed">Which rates changed, so the screen can say so: none when they were already in use.</param>
+    internal sealed record VatRatesSaved(IReadOnlyList<VatBand> Changed);
+
+    /// <param name="Problem">"Rate" (not a percentage from 0 to 100) or "ReducedAboveStandard".</param>
+    internal sealed record VatRatesRefused(string Problem);
+
+    /// <param name="SetBy">Who changed it; nobody for the starting rates.</param>
+    internal sealed record VatRateHistory(VatBand Band, decimal Percent, DateOnly From, string? SetBy, DateTimeOffset SetAt);
+
+    /// <param name="Standard">The standard rate in use today.</param>
+    /// <param name="Reduced">The reduced rate in use today.</param>
+    /// <param name="Changes">Every rate, oldest first, with who set it and from when.</param>
+    internal sealed record VatRatesSummary(decimal Standard, decimal Reduced, IReadOnlyList<VatRateHistory> Changes);
+}

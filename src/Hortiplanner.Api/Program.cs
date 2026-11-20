@@ -138,6 +138,7 @@ app.MapMapPictureEndpoints();
 app.MapAssistantEndpoints();
 app.MapPrinterEndpoints();
 app.MapNurserySettingsEndpoints();
+app.MapVatRateEndpoints();
 app.MapFeatureEndpoints();
 app.MapClearRecordsEndpoints();
 app.MapProductionEndpoints();

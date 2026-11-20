@@ -1,4 +1,4 @@
-import { catalogueNet, changeRate } from "./invoices";
+import { catalogueNet, changeRate, vatChoices } from "./invoices";
 import { describe, expect, it } from "vitest";
 import { invoiceNumber, standing, totals, type DraftLine } from "./invoices";
 
@@ -79,5 +79,15 @@ describe("catalogue prices", () => {
       changeRate({ ...line, unitPrice: 3, catalogueGross: null }, 5, true)
         .unitPrice,
     ).toBe(3);
+  });
+});
+
+describe("VAT choices", () => {
+  it("come from the rates set under Settings, with none always offered", () => {
+    expect(vatChoices(17.5, 5)).toEqual([
+      { rate: 17.5, label: "Standard, 17.5%" },
+      { rate: 5, label: "Reduced, 5%" },
+      { rate: 0, label: "None, 0%" },
+    ]);
   });
 });

@@ -2639,6 +2639,48 @@ namespace Hortiplanner.Api.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Hortiplanner.Api.Data.VatRateChange", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Band")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("band");
+
+                    b.Property<DateOnly>("From")
+                        .HasColumnType("date")
+                        .HasColumnName("from");
+
+                    b.Property<decimal>("Percent")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("percent");
+
+                    b.Property<DateTimeOffset>("SetAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("set_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<Guid?>("SetBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("set_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_vat_rate_changes");
+
+                    b.HasIndex("SetBy")
+                        .HasDatabaseName("ix_vat_rate_changes_set_by");
+
+                    b.HasIndex("Band", "From")
+                        .HasDatabaseName("ix_vat_rate_changes_band_from");
+
+                    b.ToTable("vat_rate_changes", (string)null);
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.DataProtectionKey", b =>
                 {
                     b.Property<int>("Id")
@@ -3462,6 +3504,15 @@ namespace Hortiplanner.Api.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_till_takings_asp_net_users_recorded_by");
+                });
+
+            modelBuilder.Entity("Hortiplanner.Api.Data.VatRateChange", b =>
+                {
+                    b.HasOne("Hortiplanner.Api.Accounts.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("SetBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_vat_rate_changes_asp_net_users_set_by");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>

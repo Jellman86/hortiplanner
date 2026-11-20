@@ -88,6 +88,31 @@ public sealed class InvoiceTests(PostgresFixture database)
     }
 
     [Fact]
+    public async Task Lines_use_the_rates_set_under_settings_and_issued_invoices_keep_theirs()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        await SetVatAsync(nursery.Owner, registered: true);
+        var customer = await AddCustomerAsync(nursery.Owner);
+        var before = await IssuedAsync(nursery.Owner, customer, Line("Lavender 9cm", 10, 3m, vatRate: 20));
+
+        using var changed = await nursery.Owner.PutAsJsonAsync(Route("/api/settings/vat-rates"), new { standard = 17.5m, reduced = 5m }, Cancellation);
+        changed.EnsureSuccessStatusCode();
+
+        var after = await IssuedAsync(nursery.Owner, customer, Line("Lavender 9cm", 10, 3m, vatRate: 17.5m));
+        using var old = await IssueAsync(nursery.Owner, customer, Line("Lavender 9cm", 10, 3m, vatRate: 20));
+        Assert.Equal(HttpStatusCode.BadRequest, old.StatusCode);
+        Assert.Equal("VatRate", Json(await old.Content.ReadAsStringAsync(Cancellation)).GetProperty("problem").GetString());
+
+        // The invoice from before keeps 20%, and so does its credit note.
+        Assert.Equal(36m, (await InvoiceAsync(nursery.Owner, before.GetProperty("id").GetGuid())).GetProperty("total").GetDecimal());
+        Assert.Equal(35.25m, (await InvoiceAsync(nursery.Owner, after.GetProperty("id").GetGuid())).GetProperty("total").GetDecimal());
+        using var credit = await PostAsync(nursery.Owner, $"/api/invoices/{before.GetProperty("id").GetGuid()}/credit");
+        Assert.Equal(HttpStatusCode.Created, credit.StatusCode);
+        var creditId = Json(await credit.Content.ReadAsStringAsync(Cancellation)).GetProperty("id").GetGuid();
+        Assert.Equal(36m, Math.Abs((await InvoiceAsync(nursery.Owner, creditId)).GetProperty("total").GetDecimal()));
+    }
+
+    [Fact]
     public async Task Plants_taken_from_a_tray_leave_its_stock_and_a_credit_note_puts_them_back()
     {
         await using var nursery = await TwoPersonNursery.CreateAsync(database);
