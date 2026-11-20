@@ -462,6 +462,16 @@ a {
   flex: 1 1 8rem;
 }
 
+/* An icon keeps its size when a button's words wrap. */
+:is(button, a.button) > svg {
+  flex: none;
+}
+
+/* A plant's Change and No longer grown: one to a line on a phone, as their words don't fit side by side. */
+.plant-actions .row > button {
+  flex-basis: 14rem;
+}
+
 .card.recent .row button {
   flex: 0 0 auto;
 }
@@ -1439,7 +1449,7 @@ label.tick {
   background: var(--line);
 }
 
-/* A plant's page: its picture and details beside what you do with it. */
+/* A place's page and the plant form: a side column beside the main one. A plant's own page is .plant-page. */
 .plant-layout,
 .plant-side,
 .plant-main {
@@ -1533,6 +1543,20 @@ label.tick {
   overflow: hidden;
   max-height: 9.5em;
   mask-image: linear-gradient(to bottom, #000 55%, transparent);
+}
+
+/* Wherever the notes sit beside the picture there is room to read a plant's articles in full; a phone or a narrow
+   window keeps Read more. */
+@container page (min-width: 56rem) {
+  .plant-page .article-text.clamped {
+    overflow: visible;
+    max-height: none;
+    mask-image: none;
+  }
+
+  .plant-page .article-toggle {
+    display: none;
+  }
 }
 
 .form-card {
@@ -4399,7 +4423,6 @@ button.link-button:disabled {
   flex-direction: column;
   gap: 1.25rem;
   min-width: 0;
-  margin-top: 1.25rem;
 }
 
 .ftree {
@@ -4547,7 +4570,7 @@ button.link-button.ftree-leaf {
 
   .ftree .ftree-node {
     flex: none;
-    width: 8.75rem;
+    width: clamp(8.75rem, 15cqi, 15rem);
   }
 
   .ftree .ftree-children {
@@ -4595,7 +4618,7 @@ button.link-button.ftree-leaf {
   }
 
   .ftree-leaf {
-    max-width: 22rem;
+    max-width: 30rem;
   }
 }
 
@@ -4650,4 +4673,122 @@ button.link-button.ftree-leaf {
     position: sticky;
     top: 1rem;
   }
+}
+
+/* A plant's page. From top to bottom on a phone: the picture, the facts and what can be done with it, the photos,
+   the notes and articles, then the family tree. With a little more room the facts and actions sit beside the picture;
+   with room for two columns the picture, facts, actions and photos sit beside the notes; with room for three the
+   facts and actions take a column of their own. The tree runs across the page beneath. */
+.plant-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "hero" "aside" "photos" "read" "wide";
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.plant-page-hero {
+  grid-area: hero;
+}
+
+.plant-page-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  grid-area: aside;
+  min-width: 0;
+}
+
+.plant-page-photos {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  grid-area: photos;
+  min-width: 0;
+}
+
+.plant-page-read {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  grid-area: read;
+  min-width: 0;
+  max-width: var(--measure);
+}
+
+.plant-page > .plant-wide {
+  grid-area: wide;
+}
+
+.plant-find {
+  max-width: var(--measure);
+}
+
+/* A tablet or a small window: the facts and actions beside the picture rather than a picture the page's width. */
+@container page (min-width: 36rem) and (max-width: 55.99rem) {
+  .plant-page {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas: "hero aside" "photos photos" "read read" "wide wide";
+    column-gap: 1.5rem;
+  }
+}
+
+@container page (min-width: 56rem) {
+  .plant-page {
+    grid-template-columns: minmax(17rem, 22rem) minmax(0, 1fr);
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas:
+      "hero read"
+      "aside read"
+      "photos read"
+      "wide wide";
+    column-gap: 2.5rem;
+  }
+
+  /* The notes' heading lines up with the top of the picture. */
+  .plant-page-read > :first-child > h2 {
+    margin-top: 0;
+  }
+
+  /* A mouse doesn't scroll sideways easily, so every photo shows, a few to a row. */
+  .plant-page .photo-strip {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+}
+
+@container page (min-width: 80rem) {
+  .plant-page {
+    /* The notes keep a reading width; spare room goes beyond the facts, so they sit beside the notes. */
+    grid-template-columns:
+      minmax(17rem, 22rem) minmax(0, var(--measure))
+      minmax(17rem, 1fr);
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      "hero read aside"
+      "photos read aside"
+      "wide wide wide";
+  }
+
+  .plant-page-aside {
+    max-width: 22rem;
+  }
+}
+
+/* Adding a photo of a plant: small buttons, two or three to a row, one tap each. */
+.photo-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 8.5rem), 1fr));
+  gap: 0.5rem;
+}
+
+.photo-choices .photo-choice {
+  gap: 0.5rem;
+  min-height: max(2.75rem, 44px);
+  padding: 0.4rem 0.75rem;
+}
+
+.photo-choices .photo-choice > svg {
+  flex: none;
+  color: var(--muted);
 }

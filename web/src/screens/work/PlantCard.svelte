@@ -155,8 +155,10 @@
       </p>
     {/if}
 
-    <div class="plant-layout">
-      <aside class="plant-side">
+    <!-- One grid. On a phone: the picture, the facts and actions, the photos, the notes, then the tree; with more
+         room the facts and actions move beside the picture, then the notes beside them all. -->
+    <div class="plant-page">
+      <div class="plant-page-hero">
         {#key photoVersion}
           <PlantHero
             url={card.hasPhoto
@@ -165,15 +167,11 @@
             credit={card.photoCredit}
           />
         {/key}
+      </div>
 
-        <PlantPhotos
-          {plantId}
-          plant={plantName(card.commonName, card.variety)}
-          hasPicture={card.hasPhoto}
-          {onAsk}
-          onChanged={photosChanged}
-        />
-
+      <!-- The facts and what can be done with the plant: in the flow of the page on a phone, a column of their
+           own on a wide desk. -->
+      <div class="plant-page-aside">
         {#if facts.length > 0}
           <dl class="facts card">
             {#each facts as [name, value] (name)}
@@ -182,9 +180,30 @@
             {/each}
           </dl>
         {/if}
-      </aside>
 
-      <div class="plant-main">
+        <div class="plant-actions">
+          <AskAboutButton
+            about={aboutPlant(
+              plantId,
+              plantName(card.commonName, card.variety),
+            )}
+            {onAsk}
+          />
+          {@render actions?.()}
+        </div>
+      </div>
+
+      <div class="plant-page-photos">
+        <PlantPhotos
+          {plantId}
+          plant={plantName(card.commonName, card.variety)}
+          hasPicture={card.hasPhoto}
+          {onAsk}
+          onChanged={photosChanged}
+        />
+      </div>
+
+      <div class="plant-page-read">
         <section class="stack">
           <h2>Growing notes</h2>
           <form class="card note-form" onsubmit={addNote}>
@@ -214,50 +233,44 @@
           <ArticleSection title="Growing it" article={card.growing} />
         {/if}
       </div>
-    </div>
 
-    <!-- Below the photos and notes, across the whole page, so the tree can branch across it. -->
-    <div class="plant-wide">
-      <!-- Fetched again once the plant is matched to a species from this page. -->
-      {#key card.linkedToSpecies}
-        <FamilyTree
-          {plantId}
-          plantName={plantName(card.commonName, card.variety)}
-          photoUrl={card.hasPhoto
-            ? `/api/plants/${plantId}/photo?v=${photoVersion}`
-            : null}
-          {canManage}
-          {onOpenPlant}
-        />
-      {/key}
-
-      {#if !card.linkedToSpecies && canManage}
-        <section class="stack">
-          <h2>Find this plant's details</h2>
-          <PlantSearch
-            recent={[]}
-            onPick={link}
-            speciesOnly
-            label="Search for this plant"
+      <!-- Across the whole page, so the tree can branch across it. -->
+      <div class="plant-wide">
+        <!-- Fetched again once the plant is matched to a species from this page. -->
+        {#key card.linkedToSpecies}
+          <FamilyTree
+            {plantId}
+            plantName={plantName(card.commonName, card.variety)}
+            photoUrl={card.hasPhoto
+              ? `/api/plants/${plantId}/photo?v=${photoVersion}`
+              : null}
+            {canManage}
+            {onOpenPlant}
           />
-        </section>
-      {/if}
+        {/key}
 
-      <div class="plant-actions">
-        <AskAboutButton
-          about={aboutPlant(plantId, plantName(card.commonName, card.variety))}
-          {onAsk}
-        />
-        {@render actions?.()}
+        {#if !card.linkedToSpecies && canManage}
+          <section class="stack plant-find">
+            <h2>Find this plant's details</h2>
+            <PlantSearch
+              recent={[]}
+              onPick={link}
+              speciesOnly
+              label="Search for this plant"
+            />
+          </section>
+        {/if}
       </div>
     </div>
   {:else if problem}
     <p class="problem" role="alert">{problem}</p>
   {:else}
     <Loading text="Opening this plant…" />
-    <div class="plant-layout" aria-hidden="true">
-      <div class="plant-side"><span class="skeleton skeleton-hero"></span></div>
-      <div class="plant-main">
+    <div class="plant-page" aria-hidden="true">
+      <div class="plant-page-hero">
+        <span class="skeleton skeleton-hero"></span>
+      </div>
+      <div class="plant-page-read">
         <span class="skeleton-lines">
           <span class="skeleton"></span>
           <span class="skeleton"></span>
