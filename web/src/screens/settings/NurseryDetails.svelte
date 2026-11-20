@@ -173,8 +173,8 @@
         <p class="muted">
           A one-colour logo prints best on a thermal label printer.
         </p>
-        <label class="photo-choice">
-          <ImageUp size={20} />
+        <label class="file-link">
+          <ImageUp size={16} aria-hidden="true" />
           <span>{details.hasLogo ? "Change the logo" : "Add a logo"}</span>
           <input
             type="file"

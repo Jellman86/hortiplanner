@@ -213,8 +213,8 @@
           Staff.</span
         >
       </div>
-      <label class="photo-choice">
-        <Camera size={20} />
+      <label class="file-link">
+        <Camera size={16} aria-hidden="true" />
         <span>{pictureAt ? "Change your picture" : "Choose a picture"}</span>
         <input type="file" accept="image/*" onchange={choosePicture} />
       </label>

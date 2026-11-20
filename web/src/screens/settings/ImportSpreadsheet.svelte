@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FileUp from "@lucide/svelte/icons/file-up";
   import { onMount } from "svelte";
   import { api } from "../../api/client";
   import {
@@ -176,8 +177,10 @@
       {/each}
     </div>
   </fieldset>
-  <label
-    >Spreadsheet (CSV) <input
+  <label class="file-link">
+    <FileUp size={16} aria-hidden="true" />
+    Choose the spreadsheet (CSV)
+    <input
       type="file"
       accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values"
       onchange={read}

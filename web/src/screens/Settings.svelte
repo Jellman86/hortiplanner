@@ -62,20 +62,28 @@
 {#snippet list(asMenu: boolean)}
   {#each groups as group (group.heading)}
     {#if asMenu}
+      <!-- On a phone, a menu: each group's buttons under its heading, two to a row on a tablet. -->
       <h2 class="settings-heading">{group.heading}</h2>
+      <div class="menu-grid">
+        {#each group.items as item (item.page)}
+          <button class="secondary menu-item" onclick={() => onPage(item.page)}>
+            <item.icon size={20} />
+            {item.label}
+          </button>
+        {/each}
+      </div>
     {:else}
       <p class="settings-nav-heading">{group.heading}</p>
+      {#each group.items as item (item.page)}
+        <button
+          aria-current={shown === item.page ? "page" : undefined}
+          onclick={() => onPage(item.page)}
+        >
+          <item.icon size={20} />
+          {item.label}
+        </button>
+      {/each}
     {/if}
-    {#each group.items as item (item.page)}
-      <button
-        class={asMenu ? "secondary menu-item" : ""}
-        aria-current={!asMenu && shown === item.page ? "page" : undefined}
-        onclick={() => onPage(item.page)}
-      >
-        <item.icon size={20} />
-        {item.label}
-      </button>
-    {/each}
   {/each}
 {/snippet}
 

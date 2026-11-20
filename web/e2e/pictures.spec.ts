@@ -58,8 +58,7 @@ test("your picture stays after leaving My account", async ({ page }) => {
     .first()
     .click();
   await page
-    .locator(".photo-choice input[type=file]")
-    .first()
+    .getByLabel("Choose a picture")
     .setInputFiles({ name: "me.png", mimeType: "image/png", buffer: png });
   await expect(page.getByRole("status")).toContainText(
     "Your picture has been saved.",

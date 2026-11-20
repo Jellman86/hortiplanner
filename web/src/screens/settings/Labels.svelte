@@ -169,17 +169,21 @@
   <h1>Labels</h1>
   <p class="muted">
     This sets how each kind of label looks. A change applies to every label
-    printed after you save it. Which printer prints each kind is under <button
-      class="link-button"
-      onclick={onPrinters}
-      ><ArrowRight size={16} aria-hidden="true" />Printers</button
-    >.
+    printed after you save it. Which printer prints each kind is set under
+    Printers.
   </p>
+  <button class="link-button" onclick={onPrinters}
+    ><ArrowRight size={16} aria-hidden="true" />Go to Printers</button
+  >
   {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
   {#if saved}<p class="card done" role="status">{saved}</p>{/if}
 
   <section class="stack">
-    <div class="segmented four" role="group" aria-label="Which label">
+    <div
+      class="segmented four label-kinds"
+      role="group"
+      aria-label="Which label"
+    >
       {#each kindsOfLabel.filter((item) => item.kind !== "PlantPassport" || isOn("Passports")) as item (item.kind)}
         <button
           class:secondary={kind !== item.kind}

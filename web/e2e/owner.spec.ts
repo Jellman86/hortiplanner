@@ -684,7 +684,11 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(climateSwitch).toBeChecked();
   await climateSwitch.click();
   await expect(climateSwitch).not.toBeChecked();
-  await expect(page.getByText("It's off, so these are hidden:")).toBeVisible();
+  await expect(
+    page.getByText(
+      "It's off. Turning it on brings back Climate under Manage and Sensors under Settings.",
+    ),
+  ).toBeVisible();
   await expectAccessible(page, "Features");
   await leaveManage(page);
   await button(page, "Manage").click();

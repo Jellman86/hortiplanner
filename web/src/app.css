@@ -1113,7 +1113,7 @@ button.place-row:hover:not(:disabled) {
 }
 
 /* With room to spare, the sample stays in view beside the choices while they change. */
-@media (min-width: 1500px) {
+@container page (min-width: 56rem) {
   .with-sidebar .label-editor {
     display: grid;
     grid-template-columns: minmax(22rem, 28rem) minmax(0, 1fr);
@@ -3692,6 +3692,14 @@ button.ask-card:hover:not(:disabled) {
   gap: 0.5rem;
 }
 
+/* A tablet has room for the menus' buttons two to a row. */
+@media (min-width: 640px) and (max-width: 899.98px) {
+  .with-sidebar .menu-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .menu-group .settings-heading {
   margin-top: 0.25rem;
 }
@@ -5043,4 +5051,14 @@ button.link-button.ftree-leaf {
 
 .row.card-actions > .link-button + .link-button {
   margin-left: 0;
+}
+
+/* The kinds of label on one row where they fit, rather than one left alone on a second row. */
+.segmented.label-kinds {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+}
+
+/* Features: a card for each part of Hortiplanner, two to a row on a desk. */
+.feature-list {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 26rem), 1fr));
 }
