@@ -93,7 +93,7 @@
   {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
   {#if saved}<p class="card done" role="status">{saved}</p>{/if}
 
-  <div class="split">
+  <div class="split even">
     <section>
       <form class="form-card stack" onsubmit={saveDetails}>
         <h2 class="form-heading">The nursery</h2>

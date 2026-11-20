@@ -112,7 +112,7 @@
   {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
   {#if saved}<p class="card done" role="status">{saved}</p>{/if}
 
-  <form class="split" onsubmit={(event) => save(event)}>
+  <form class="split even" onsubmit={(event) => save(event)}>
     <section class="stack">
       <div class="form-card stack">
         <h2 class="form-heading">OpenRouter key</h2>
