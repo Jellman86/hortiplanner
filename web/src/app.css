@@ -46,6 +46,11 @@
   --shadow: 0 1px 2px rgb(31 42 27 / 8%), 0 2px 8px rgb(31 42 27 / 5%);
   --target: 4rem;
   --radius: 0.6rem;
+  /* Forms, prose, notices and page introductions keep a readable measure; grids, tables and dashboards grow to the
+     page's width; a card in a grid gets no narrower than --card-min. */
+  --measure: 44rem;
+  --page-max: 120rem;
+  --card-min: 16rem;
   --heading: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
   font-family:
     system-ui,
@@ -244,7 +249,7 @@ a.button {
 }
 
 /* Navigation and pressed-flat buttons stay flat: only buttons that stand on the page lift off it. */
-:is(.sidebar, .bottom-nav, .breadcrumbs) :is(button, a),
+:is(.sidebar, .bottom-nav, .breadcrumbs, .settings-nav) :is(button, a),
 button:is(.icon-button, .back, .crumb),
 button:disabled {
   box-shadow: none;
@@ -486,14 +491,19 @@ a {
 }
 
 .split,
-.split > section,
-.card-grid {
+.split > section {
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
 
+/* Cards side by side wherever there's room for two, from a tablet up; one column on a phone. */
 .card-grid {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(min(100%, var(--card-min)), 1fr)
+  );
   gap: 0.75rem;
 }
 
@@ -1279,10 +1289,23 @@ label.tick {
 
 .bottom-nav span {
   font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+/* What was just done, then its buttons, which wrap beneath it on the right when the card is narrow. */
+.card.recent {
+  flex-wrap: wrap;
+}
+
+.card.recent > :first-child {
+  flex: 1 1 12rem;
+  min-width: 0;
 }
 
 .card.recent .row {
+  flex: 0 0 auto;
   flex-wrap: nowrap;
+  margin-left: auto;
 }
 
 /* Values used before, to choose with one press. */
@@ -1582,7 +1605,7 @@ label.tick {
 }
 
 .note-empty {
-  padding: 0.9rem;
+  padding: 0.55rem 0.85rem;
   border: 1px dashed var(--border);
   border-radius: 0.75rem;
   text-align: center;
@@ -1599,6 +1622,11 @@ label.tick {
 /* Nothing to show, such as for someone who can't ask: no rule with nothing under it. */
 .plant-actions:not(:has(*)) {
   display: none;
+}
+
+/* A row of actions with the rule above it, such as on a place's page: still a row. */
+.plant-actions.row {
+  flex-direction: row;
 }
 
 .loading-line {
@@ -1980,7 +2008,7 @@ label.tick {
 
   .with-sidebar main {
     width: 100%;
-    max-width: 96rem;
+    max-width: var(--page-max);
     margin: 0;
     padding: 2rem 2.5rem 3rem;
   }
@@ -2027,18 +2055,6 @@ label.tick {
   .with-sidebar .note-form button {
     align-self: flex-end;
     min-width: 9rem;
-  }
-
-  .with-sidebar .split {
-    display: grid;
-    grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr);
-    gap: 2.5rem;
-    align-items: start;
-  }
-
-  .with-sidebar .card-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
   }
 
   .with-sidebar .filters {
@@ -3149,7 +3165,7 @@ button.production-row.chosen:hover:not(:disabled) {
 
 @media (min-width: 900px) {
   .with-sidebar .breadcrumbs {
-    max-width: 96rem;
+    max-width: var(--page-max);
     margin: 0;
     padding: 1.25rem 2.5rem 0;
   }
@@ -3556,7 +3572,7 @@ button.ask-card:hover:not(:disabled) {
 
 @media (min-width: 900px) {
   .with-sidebar main.page-form {
-    max-width: 44rem;
+    max-width: var(--measure);
   }
 
   .with-sidebar
@@ -3571,7 +3587,19 @@ button.ask-card:hover:not(:disabled) {
       [role="status"],
       .ask-card
     ) {
-    max-width: 44rem;
+    max-width: var(--measure);
+  }
+
+  /* A page's introduction reads at the same measure as its notices, however wide the page. */
+  .with-sidebar main > p {
+    max-width: var(--measure);
+  }
+
+  /* Nothing here yet: a quiet dashed note the size of its sentence, not a box across the page. */
+  .with-sidebar .note-empty {
+    width: fit-content;
+    max-width: min(100%, var(--measure));
+    text-align: start;
   }
 
   .with-sidebar
@@ -3829,7 +3857,7 @@ button.secondary.destructive:hover:not(:disabled) {
   /* Everything but the lines keeps to the form's width. */
   .with-sidebar main.invoice-page > :not(form),
   .with-sidebar main.invoice-page > form > :not(.invoice-line) {
-    max-width: 44rem;
+    max-width: var(--measure);
   }
 
   .with-sidebar .invoice-line > .line-fields {
@@ -3935,17 +3963,6 @@ button:disabled:is(.link-button, .back, .danger-link):hover {
   text-decoration: none;
 }
 
-/* Pages whose list is a table: below a wide desk, the form sits above the table so every column fits. */
-@media (min-width: 900px) and (max-width: 1439px) {
-  .with-sidebar .split.wide-list {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .with-sidebar .split.wide-list > :first-child {
-    max-width: 30rem;
-  }
-}
-
 /* Each purchase's actions stacked, so the table fits its column and What keeps room to read. */
 .purchases-table .cell-actions {
   flex-direction: column;
@@ -3973,10 +3990,91 @@ select:not([multiple]) {
   background-repeat: no-repeat;
 }
 
-/* Settings pages sit beside their own menu, so a form and its list share the space evenly and stack when tight. */
+/* Page layout by the room the page has, not the window: the sidebar, Settings' own menu and a tablet's width all
+   change how much there is. The page is its own size container, so its own widths stay on the media queries. Nothing
+   inside main may be position: fixed, as a size container would become its containing block. */
+.with-sidebar main {
+  container: page / inline-size;
+}
+
+@media (min-width: 640px) {
+  .with-sidebar main,
+  .with-sidebar .breadcrumbs {
+    max-width: 46rem;
+  }
+
+  .with-sidebar main:is(.action-frame, .page-form) {
+    max-width: 36rem;
+  }
+}
+
 @media (min-width: 900px) {
-  .with-sidebar .settings-layout .split {
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  .with-sidebar main,
+  .with-sidebar .breadcrumbs,
+  .with-sidebar .settings-layout {
+    max-width: var(--page-max);
+  }
+
+  .with-sidebar main.page-form {
+    max-width: var(--measure);
+  }
+
+  .with-sidebar main.action-frame {
+    max-width: 40rem;
+  }
+
+  .with-sidebar main.action-frame:has(.action-columns) {
+    max-width: 56rem;
+  }
+}
+
+/* A form or summary beside a list: one column, the form at a comfortable width, until the page has room for both. */
+.with-sidebar .split > :first-child {
+  max-width: 30rem;
+}
+
+@container page (min-width: 56rem) {
+  .with-sidebar .split {
+    display: grid;
+    grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr);
+    gap: 2.5rem;
+    align-items: start;
+  }
+
+  .with-sidebar .split > :first-child {
+    max-width: none;
+  }
+
+  /* Two cards of equal standing, such as the nursery's details beside its logo. */
+  .with-sidebar .split.even {
+    grid-template-columns: repeat(2, minmax(0, 34rem));
+  }
+}
+
+/* A list that is a wide table: the form sits above it until the page has room for both side by side. */
+@container page (max-width: 79.99rem) {
+  .with-sidebar .split.wide-list {
+    display: flex;
+    align-items: stretch;
+  }
+
+  .with-sidebar .split.wide-list > :first-child {
+    max-width: 30rem;
+  }
+}
+
+/* A table or its cards, by the room the page has rather than the window. */
+.wide-only {
+  display: none;
+}
+
+@container page (min-width: 56rem) {
+  .wide-only {
+    display: block;
+  }
+
+  .narrow-only {
+    display: none;
   }
 }
 

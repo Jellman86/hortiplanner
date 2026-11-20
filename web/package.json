@@ -12,6 +12,7 @@
     "format": "prettier --write .",
     "test": "vitest run --passWithNoTests",
     "e2e": "playwright test",
+    "e2e:layout": "E2E_LAYOUT=1 playwright test layout --project chromium",
     "generate:api": "openapi-typescript src/api/openapi.json --output src/api/schema.d.ts"
   },
   "overrides": {

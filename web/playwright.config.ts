@@ -9,6 +9,8 @@ const postgres =
 // Runs the real application and a throwaway database. http://localhost counts as secure for passkeys.
 export default defineConfig({
   testDir: "e2e",
+  // The layout check needs example data, which the rest must not have: it runs on its own, with npm run e2e:layout.
+  testIgnore: process.env.E2E_LAYOUT ? [] : /layout\.spec\.ts$/,
   workers: 1,
   forbidOnly: !!process.env.CI,
   // One long story that grows with Hortiplanner, including a phone waiting for its signal back.
@@ -58,6 +60,7 @@ export default defineConfig({
         Passkeys__Origin: `http://localhost:${port}`,
         Setup__Token: "e2e-setup-code",
         Species__Online: process.env.E2E_SPECIES_ONLINE ?? "false",
+        Demo__Enabled: process.env.E2E_LAYOUT ? "true" : "false",
       },
     },
   ],

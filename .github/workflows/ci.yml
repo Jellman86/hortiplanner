@@ -131,6 +131,8 @@ jobs:
         run: npx playwright install --with-deps chromium webkit
       - name: Test in a real browser
         run: npm run e2e
+      - name: Check every screen fits phones, tablets and desks
+        run: npm run e2e:layout
 
   image:
     runs-on: ubuntu-latest

@@ -52,7 +52,7 @@
   <h1>About Hortiplanner</h1>
   {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
 
-  <div class="split">
+  <div class="split even">
     <section class="stack">
       <div class="about-intro">
         <img

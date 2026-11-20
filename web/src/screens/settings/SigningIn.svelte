@@ -12,7 +12,7 @@
     invitation are under Staff.
   </p>
 
-  <div class="split">
+  <div class="split even">
     <section>
       <SignInLevel />
     </section>
