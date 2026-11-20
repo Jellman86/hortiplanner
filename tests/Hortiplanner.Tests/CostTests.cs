@@ -460,8 +460,32 @@ public sealed class CostTests(PostgresFixture database)
         Assert.Single(costing.GetProperty("history").EnumerateArray());
         Assert.False(await CostMissingAsync(nursery.Staff, started.GetProperty("containerId").GetGuid()));
 
+        // The same id with a different cost is a different request, and the first cost stands.
+        Assert.Equal(HttpStatusCode.Conflict, await PostStatusAsync(nursery.Staff, "/api/batches", NewBatch(plant, id, costAmount: 3.50m)));
+        Assert.Equal(2.99m, (await CostingAsync(nursery.Owner, started.GetProperty("batchId").GetGuid())).GetProperty("material").GetProperty("entry").GetProperty("amountPaid").GetDecimal());
+
         var free = Json(await PostForTextAsync(nursery.Staff, "/api/batches", NewBatch(plant, costNothing: true))).GetProperty("batchId").GetGuid();
         Assert.Equal("Free", (await CostingAsync(nursery.Owner, free)).GetProperty("material").GetProperty("state").GetString());
+    }
+
+    [Fact]
+    public async Task Bought_in_plants_not_from_a_purchase_keep_the_cost_typed_at_New_batch()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var supplier = Json(await PostForTextAsync(nursery.Owner, "/api/suppliers", new { name = "Example Plugs" })).GetProperty("id").GetGuid();
+        var plant = await AddPlantAsync(nursery.Owner);
+
+        var batch = Json(await PostForTextAsync(nursery.Staff, "/api/batches", NewBatch(plant, source: "BoughtIn", costAmount: 24m, supplierId: supplier))).GetProperty("batchId").GetGuid();
+
+        Assert.Equal((24m, 20m), Pair((await CostingAsync(nursery.Owner, batch)).GetProperty("material").GetProperty("cost")));
+    }
+
+    [Fact]
+    public async Task A_cost_for_a_plant_that_doesnt_exist_is_refused_not_a_crash()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+
+        Assert.Equal(HttpStatusCode.BadRequest, await PostStatusAsync(nursery.Staff, "/api/batches", NewBatch(Guid.NewGuid(), costAmount: 2.99m)));
     }
 
     [Fact]

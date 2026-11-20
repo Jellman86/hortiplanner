@@ -92,7 +92,7 @@
     >
     <p class="muted" id="cost-help">
       {plants
-        ? "Put in what was paid for all of them, not for one of them, with any VAT included."
+        ? "Put in what was paid for all of them, with any VAT included, and not the price of one."
         : "Put in what was paid for the seed this batch was sown from, with any VAT included, as it's printed on the packet or the receipt. If only part of a packet was sown, put in roughly that part of its price."}
     </p>
     <label class="tick"

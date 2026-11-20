@@ -135,6 +135,7 @@ internal static class WorkEndpoints
         if ((counted && !IsValidQuantity(request.Quantity))
             || (request.Source == BatchSource.BoughtIn && request.SupplierId is null)
             || !IsSensibleSowing(request)
+            // Checked whatever the source, though cuttings and purchase batches keep no cost: the app never sends one.
             || !CostEndpoints.IsValidStartingCost(request.CostAmount, request.CostNothing)
             || (request.MotherPlantId is not null && request.Source != BatchSource.Cuttings))
         {
@@ -184,7 +185,11 @@ internal static class WorkEndpoints
     /// </summary>
     private static async Task AddStartingCostAsync(StartBatchRequest request, Batch batch, ClaimsPrincipal user, HortiplannerDbContext db, DeviceClock device, TimeProvider clock, CancellationToken cancellationToken)
     {
-        if ((request.CostAmount is null && !request.CostNothing) || request.Source == BatchSource.Cuttings || request.PurchaseLineId is not null)
+        // An unknown plant is left to the save, which refuses it, so nothing is worked out for it here.
+        if ((request.CostAmount is null && !request.CostNothing)
+            || request.Source == BatchSource.Cuttings
+            || request.PurchaseLineId is not null
+            || !await db.Plants.AnyAsync(plant => plant.Id == request.PlantId, cancellationToken))
         {
             return;
         }

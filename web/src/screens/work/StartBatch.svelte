@@ -108,6 +108,9 @@
   // What the seed or plants cost, if anyone knows. Optional, and the owner can add it later.
   let cost = $state("");
   let costNothing = $state(false);
+  // A cost that isn't money is pointed out only once Next is pressed, not while it's being typed.
+  let costChecked = $state(false);
+  let costBox = $state<HTMLInputElement>();
   // Cuttings: the mother plant they're taken from, for plants already on the list.
   let mothers = $state<Schemas["MotherSummary"][]>([]);
   let motherId = $state("");
@@ -200,6 +203,13 @@
   };
 
   function chooseSource(chosen: Schemas["BatchSource"]) {
+    // A cost given for seed isn't the cost of bought-in plants, nor the other way round.
+    if (chosen !== source) {
+      cost = "";
+      costNothing = false;
+      costChecked = false;
+    }
+
     source = chosen;
 
     // Only seed can go in uncounted: plants and cuttings are always a number.
@@ -478,6 +488,12 @@
       return;
     }
 
+    if (stage === 3 && costProblem) {
+      costChecked = true;
+      costBox?.focus();
+      return;
+    }
+
     goTo(stage + 1);
   }
 
@@ -504,6 +520,9 @@
   const costProblem = $derived(
     asksCost && !costNothing && cost.trim() !== "" && paid === null,
   );
+  const showCostProblem = $derived(costProblem && costChecked);
+  // One bought-in plant is "it", not "all 1 of them".
+  const onePlant = $derived(source === "BoughtIn" && quantity === 1);
 
   // The answers on "Where from?" must be complete, even if the browser's Forward skipped past it.
   const whereFromDone = $derived(
@@ -586,13 +605,19 @@
       ...(asksCost
         ? [
             {
-              name: seed ? "Seed cost" : "Cost of the plants",
+              name: seed
+                ? "Seed cost"
+                : onePlant
+                  ? "Cost of the plant"
+                  : "Cost of the plants",
               value:
                 paid === 0
                   ? "Nothing"
-                  : paid === null
-                    ? "Not added yet"
-                    : money(paid),
+                  : costProblem
+                    ? `"${cost.trim()}", which isn't an amount`
+                    : paid === null
+                      ? "Not added yet"
+                      : money(paid),
               stage: 3,
             },
           ]
@@ -1083,31 +1108,38 @@
       <label
         >{seed
           ? "What did this seed cost? (£, optional)"
-          : "What did these plants cost altogether? (£, optional)"}
+          : onePlant
+            ? "What did this plant cost? (£, optional)"
+            : "What did these plants cost altogether? (£, optional)"}
         <input
+          bind:this={costBox}
           bind:value={cost}
           inputmode="decimal"
           autocomplete="off"
           disabled={costNothing}
-          aria-describedby={costProblem
+          aria-describedby={showCostProblem
             ? "new-cost-problem new-cost-help"
             : "new-cost-help"}
-          aria-invalid={costProblem ? "true" : undefined}
+          aria-invalid={showCostProblem ? "true" : undefined}
         /></label
       >
-      {#if costProblem}<p class="problem" id="new-cost-problem">
+      {#if showCostProblem}<p class="problem" id="new-cost-problem">
           {moneyProblem}
         </p>{/if}
       <p class="muted" id="new-cost-help">
         {seed
           ? "Put in what was paid for the seed this batch is sown from, with any VAT included, as it's printed on the packet or the receipt. If only part of a packet is sown, put in roughly that part of its price. You can leave this empty and add it later."
-          : `Put in what was paid for all ${quantity} of them, not for one of them, with any VAT included. You can leave this empty and add it later.`}
+          : onePlant
+            ? "Put in what was paid for it, with any VAT included. You can leave this empty and add it later."
+            : `Put in what was paid for all ${quantity} of them, with any VAT included, and not the price of one. You can leave this empty and add it later.`}
       </p>
       <label class="tick"
         ><input type="checkbox" bind:checked={costNothing} />
         {seed
           ? "It cost nothing, because it was our own seed or a gift."
-          : "They cost nothing, because they were a gift."}</label
+          : onePlant
+            ? "It cost nothing, because it was a gift."
+            : "They cost nothing, because they were a gift."}</label
       >
     {:else if isOn("Costs") && prefill?.purchaseLineId}
       <p class="muted">
@@ -1149,8 +1181,7 @@
         Bought-in plants need their supplier, for the passport record.
       </p>
     {/if}
-    <button onclick={next} disabled={!whereFromDone || costProblem}>Next</button
-    >
+    <button onclick={next} disabled={!whereFromDone}>Next</button>
   {:else if stage === 4}
     <p class="muted">
       Take a photo of anything worth keeping. They're all optional.
@@ -1215,8 +1246,8 @@
     {/if}
     {#if costProblem}
       <p class="problem" role="alert">
-        The cost on "Where from?" isn't in pounds and pence. Please change it,
-        such as to 2.99, or leave it empty.
+        The cost on "Where from?" isn't an amount in pounds and pence. Please
+        change it to one, such as 2.99, or leave it empty.
       </p>
     {/if}
     <button
