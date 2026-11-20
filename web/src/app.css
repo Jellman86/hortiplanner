@@ -800,11 +800,6 @@ button.photo-remove {
   color: var(--problem);
 }
 
-.photo-add {
-  min-height: 2.5rem;
-  padding: 0.25rem 0.75rem;
-}
-
 .stack-tight {
   display: flex;
   flex-direction: column;
@@ -2105,7 +2100,7 @@ label.tick {
     grid-template-areas:
       "details actions"
       "history actions";
-    grid-template-columns: minmax(0, 1.2fr) minmax(18rem, 1fr);
+    grid-template-columns: minmax(0, 1.2fr) minmax(18rem, 26rem);
     align-items: start;
     gap: 1.5rem 2.5rem;
   }
@@ -3553,13 +3548,10 @@ button.production-row.chosen:hover:not(:disabled) {
 }
 
 @media (min-width: 900px) {
-  .with-sidebar main.ask {
-    max-width: 84rem;
-  }
-
+  /* The conversation at its reading width with the panel beside it, rather than the panel floating off to the side. */
   .ask-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 20rem;
+    grid-template-columns: minmax(0, 52rem) 20rem;
     align-items: start;
     gap: 2rem;
   }
@@ -3672,8 +3664,10 @@ button.ask-card:hover:not(:disabled) {
   object-fit: cover;
 }
 
+/* Adding a photo to a gallery: a small button under the photos, not a tile among them. */
 .entry-photos.gallery .photo-add {
-  min-height: 6rem;
+  grid-column: 1 / -1;
+  justify-self: start;
 }
 
 @media (min-width: 900px) {
@@ -3898,6 +3892,7 @@ button.ask-card:hover:not(:disabled) {
 /* A file chooser drawn as a small button, such as adding a receipt to a purchase: the look is the small button's. */
 .file-link {
   position: relative;
+  flex-direction: row;
   cursor: pointer;
 }
 
@@ -4898,4 +4893,129 @@ button.link-button.ftree-leaf {
 .photo-choices .photo-choice > svg {
   flex: none;
   color: var(--muted);
+}
+
+/* Record work on a desk: scanning and actions beside Recent, with the owner's view of the nursery beneath as a row of
+   cards, or in a third column when there's room. */
+@container page (min-width: 56rem) {
+  .with-sidebar .split.home > .home-glance {
+    grid-column: 1 / -1;
+  }
+
+  .home-glance .overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
+    align-items: start;
+  }
+
+  .home-glance .overview > .stat-tiles {
+    grid-column: 1 / -1;
+  }
+}
+
+@container page (min-width: 80rem) {
+  .with-sidebar .split.home {
+    grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr) minmax(
+        20rem,
+        26rem
+      );
+  }
+
+  .with-sidebar .split.home > .home-glance {
+    grid-column: auto;
+  }
+
+  .home-glance .overview {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* A place's page. On a phone: what you do here, the facts, what's inside and growing here, the map and photos, then
+   changing the place. With room for two columns the actions, facts, map and photos sit beside what's here; with room
+   for three the actions and changes take a column of their own. */
+.place-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "actions" "facts" "main" "media" "manage";
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.place-page-actions {
+  grid-area: actions;
+}
+
+.place-page-facts {
+  grid-area: facts;
+}
+
+.place-page-main,
+.place-page-media {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.place-page-main {
+  grid-area: main;
+}
+
+.place-page-media {
+  grid-area: media;
+}
+
+.place-page-manage {
+  grid-area: manage;
+  min-width: 0;
+}
+
+.place-page-manage:not(:has(*)) {
+  display: none;
+}
+
+/* What's here: trays side by side, three or four across on a wide desk. */
+.place-trays {
+  --card-min: 18rem;
+}
+
+@container page (min-width: 56rem) {
+  .place-page {
+    grid-template-columns: minmax(18rem, 24rem) minmax(0, 1fr);
+    grid-template-rows: auto auto auto 1fr;
+    grid-template-areas:
+      "actions main"
+      "facts main"
+      "media main"
+      "manage main";
+    column-gap: 2.5rem;
+  }
+}
+
+@container page (min-width: 80rem) {
+  .place-page {
+    grid-template-columns: minmax(18rem, 24rem) minmax(0, 1fr) minmax(
+        18rem,
+        22rem
+      );
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      "media main actions"
+      "facts main manage";
+  }
+}
+
+/* A column of a page's everyday actions: on a desk they line up at the column's width, like a menu. */
+.with-sidebar .place-page .fill > :is(button, a.button) {
+  align-self: stretch;
+}
+
+/* A tray on a wide desk: what's in it, what's happened to it and what to do next, side by side. */
+@container page (min-width: 80rem) {
+  .with-sidebar .tray-layout {
+    grid-template-areas: "details history actions";
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(18rem, 26rem);
+  }
 }

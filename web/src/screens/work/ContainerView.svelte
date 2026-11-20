@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Flower2 from "@lucide/svelte/icons/flower-2";
   import Pencil from "@lucide/svelte/icons/pencil";
   import Route from "@lucide/svelte/icons/route";
   import Undo2 from "@lucide/svelte/icons/undo-2";
@@ -389,7 +390,7 @@
             {/if}
             <div class="row">
               <button class="link-button" onclick={() => openCard(line.plantId)}
-                >About this plant</button
+                ><Flower2 size={16} aria-hidden="true" />About this plant</button
               >
               {#if !fromDevice}
                 <button

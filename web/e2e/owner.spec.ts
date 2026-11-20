@@ -111,7 +111,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await button(page, "Add").click();
   await expect(page.getByText("9cm", { exact: true })).toBeVisible();
   await expect(page.getByText("Not counted yet")).toBeVisible();
-  await page.getByLabel("Add photo").setInputFiles({
+  await page.getByLabel("Add a photo").setInputFiles({
     name: "pot.png",
     mimeType: "image/png",
     buffer: Buffer.from(
