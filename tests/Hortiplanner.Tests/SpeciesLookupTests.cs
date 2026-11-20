@@ -552,6 +552,38 @@ public sealed class SpeciesLookupTests(PostgresFixture database)
         Assert.Equal("Wikipedia", card.GetProperty("growing").GetProperty("source").GetString());
     }
 
+    private static async Task<string?> VatBandAsync(HttpClient client, Guid plantId) =>
+        (await client.GetFromJsonAsync<JsonElement>(Route("/api/plants"), Cancellation)).EnumerateArray()
+            .Single(plant => plant.GetProperty("id").GetGuid() == plantId).GetProperty("vatBand").GetString();
+
+    [Fact]
+    public async Task A_plant_picked_from_a_species_takes_the_owners_VAT_rate_but_not_anyone_elses()
+    {
+        var world = WorldWithLavender();
+        await using var app = await CreateAsync(database, world);
+        using var owner = Client(app);
+        using var key = new TestAuthenticator();
+        await SetUpOwnerAsync(owner, key);
+        var speciesId = await FindLavenderAsync(owner);
+
+        Assert.Equal(HttpStatusCode.BadRequest, await PostStatusAsync(owner, "/api/plants/from-species", new { speciesId, vatBand = 7 }));
+
+        var owners = Json(await PostForTextAsync(owner, "/api/plants/from-species", new { speciesId, vatBand = "Zero" })).GetProperty("id").GetGuid();
+        Assert.Equal("Zero", await VatBandAsync(owner, owners));
+
+        // Picking it again finds the plant already there, and leaves its rate alone.
+        Assert.Equal(owners, Json(await PostForTextAsync(owner, "/api/plants/from-species", new { speciesId, vatBand = "Reduced" })).GetProperty("id").GetGuid());
+        Assert.Equal("Zero", await VatBandAsync(owner, owners));
+
+        await AllowNameOnlyAsync(owner);
+        var staffId = Json(await PostForTextAsync(owner, "/api/staff", new { name = "Jo Reed", nameOnly = true })).GetProperty("id").GetGuid();
+        using var staff = Client(app);
+        await PostStatusAsync(staff, "/api/account/sign-in/name", new { userId = staffId });
+
+        var staffs = Json(await PostForTextAsync(staff, "/api/plants/from-species", new { speciesId, variety = "Hidcote", vatBand = "Zero" })).GetProperty("id").GetGuid();
+        Assert.Equal("Standard", await VatBandAsync(owner, staffs));
+    }
+
     [Fact]
     public async Task Staff_can_add_growing_notes_which_show_newest_first_with_who_wrote_them()
     {

@@ -86,21 +86,23 @@ public sealed class TransferTests(PostgresFixture database)
             Row(2, new Dictionary<string, string?>(StringComparer.Ordinal) { ["commonName"] = "Parsley", ["vatBand"] = "zero rated" }),
             Row(3, new Dictionary<string, string?>(StringComparer.Ordinal) { ["commonName"] = "Compost", ["vatBand"] = "Reduced" }),
             Row(4, new Dictionary<string, string?>(StringComparer.Ordinal) { ["commonName"] = "Lavender" }),
-            Row(5, new Dictionary<string, string?>(StringComparer.Ordinal) { ["commonName"] = "Rose", ["vatBand"] = "luxury" }),
+            Row(5, new Dictionary<string, string?>(StringComparer.Ordinal) { ["commonName"] = "Mint", ["vatBand"] = "0%" }),
+            Row(6, new Dictionary<string, string?>(StringComparer.Ordinal) { ["commonName"] = "Rose", ["vatBand"] = "luxury" }),
         ];
 
         var checkedRows = Json(await PostForTextAsync(nursery.Owner, "/api/import/Plants", new { rows, save = false }));
         var problem = Assert.Single(checkedRows.GetProperty("problems").EnumerateArray());
-        Assert.Equal(5, problem.GetProperty("row").GetInt32());
+        Assert.Equal(6, problem.GetProperty("row").GetInt32());
         Assert.Equal("VAT rate should be standard, reduced or zero, not \"luxury\".", problem.GetProperty("problem").GetString());
 
-        Assert.True(Json(await PostForTextAsync(nursery.Owner, "/api/import/Plants", new { rows = rows[..3], save = true })).GetProperty("saved").GetBoolean());
+        Assert.True(Json(await PostForTextAsync(nursery.Owner, "/api/import/Plants", new { rows = rows[..4], save = true })).GetProperty("saved").GetBoolean());
 
         var bands = (await nursery.Owner.GetFromJsonAsync<JsonElement>(Route("/api/plants"), Cancellation)).EnumerateArray()
             .ToDictionary(plant => plant.GetProperty("commonName").GetString()!, plant => plant.GetProperty("vatBand").GetString(), StringComparer.Ordinal);
         Assert.Equal("Zero", bands["Parsley"]);
         Assert.Equal("Reduced", bands["Compost"]);
         Assert.Equal("Standard", bands["Lavender"]);
+        Assert.Equal("Zero", bands["Mint"]);
     }
 
     [Fact]

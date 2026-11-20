@@ -1,4 +1,95 @@
+import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
+
+const nursery = (vatRegistered: boolean) => ({
+  name: "Croft View",
+  address: null,
+  phone: null,
+  email: null,
+  website: null,
+  registrationNumber: null,
+  vatNumber: vatRegistered ? "GB123456789" : null,
+  hasLogo: false,
+  vatRegistered,
+  paymentTermsDays: 30,
+  authorisationRenewsOn: null,
+});
+
+/** Stands in for the server: the person, whether the nursery is registered, and no plants yet. */
+async function standIn(page: Page, isOwner: boolean, vatRegistered: boolean) {
+  await page.route("**/api/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const data: Record<string, unknown> = {
+      "/api/account/me": {
+        id: "person",
+        name: isOwner ? "Sam Fielding" : "Jo Reed",
+        isOwner,
+        isTeam: false,
+      },
+      "/api/bench/people": null,
+      "/api/backups/status": { known: true, healthy: true },
+      "/api/species/search": {
+        plants: [],
+        species: [],
+        onlineUnavailable: false,
+      },
+      "/api/settings/vat-rates": { standard: 20, reduced: 5, changes: [] },
+      "/api/settings/nursery": nursery(vatRegistered),
+    };
+    await route.fulfill({ json: Object.hasOwn(data, path) ? data[path] : [] });
+  });
+}
+
+async function addByHand(page: Page, plants: string) {
+  await page.goto("/");
+  await page
+    .locator(".sidebar")
+    .getByRole("button", { name: plants, exact: true })
+    .click();
+  await page.getByLabel("Find or add a plant").fill("Basil");
+  await page
+    .getByRole("button", { name: "Not listed? Add it by hand" })
+    .click();
+  await page.getByRole("button", { name: "Next" }).click();
+}
+
+const unregistered =
+  "The nursery isn't registered for VAT, so no VAT is charged on anything it sells. You can still choose the rate now, and it will be used if the nursery registers later.";
+
+test("only the owner chooses a plant's VAT rate, told when the nursery isn't registered", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  // A registered nursery: the choice, without the note that nothing is charged.
+  await standIn(page, true, true);
+  await addByHand(page, "Plants");
+  const group = page.getByRole("group", { name: "VAT when it's sold" });
+  await expect(
+    group.getByRole("radio", { name: "The standard rate, 20%" }),
+  ).toBeChecked();
+  await expect(group).toHaveAccessibleDescription(
+    "Most plants are sold at the standard rate. Please ask your accountant if you aren't sure which rate a plant should have.",
+  );
+  await expect(page.getByText(unregistered)).toHaveCount(0);
+
+  // Not registered: the note is there, and read with the choice.
+  await page.unrouteAll();
+  await standIn(page, true, false);
+  await addByHand(page, "Plants");
+  await expect(page.getByText(unregistered)).toBeVisible();
+
+  // Staff add plants too, but the rate isn't theirs to choose.
+  await page.unrouteAll();
+  await standIn(page, false, false);
+  await addByHand(page, "Plants");
+  await expect(
+    page.getByRole("button", { name: "Add this plant" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("group", { name: "VAT when it's sold" }),
+  ).toHaveCount(0);
+});
 
 // A plant carries its own VAT rate, so an invoice line for it starts at that rate, with the price worked back from it.
 test("an invoice line for a plant starts at the plant's own VAT rate", async ({
@@ -49,19 +140,7 @@ test("an invoice line for a plant starts at the plant's own VAT rate", async ({
         },
       ],
       "/api/settings/vat-rates": { standard: 20, reduced: 5, changes: [] },
-      "/api/settings/nursery": {
-        name: "Croft View",
-        address: null,
-        phone: null,
-        email: null,
-        website: null,
-        registrationNumber: null,
-        vatNumber: "GB123456789",
-        hasLogo: false,
-        vatRegistered: true,
-        paymentTermsDays: 30,
-        authorisationRenewsOn: null,
-      },
+      "/api/settings/nursery": nursery(true),
     };
     await route.fulfill({ json: Object.hasOwn(data, path) ? data[path] : [] });
   });
@@ -90,5 +169,10 @@ test("an invoice line for a plant starts at the plant's own VAT rate", async ({
 
   await what.selectOption({ label: "Compost, 9cm" });
   await expect(vat.locator("option:checked")).toHaveText("Reduced, 5%");
+  await expect(price).toHaveValue("5.71");
+
+  // Back to something not on the plant list: the line goes back to the standard rate, keeping the price.
+  await what.selectOption({ label: "Something else" });
+  await expect(vat.locator("option:checked")).toHaveText("Standard, 20%");
   await expect(price).toHaveValue("5.71");
 });

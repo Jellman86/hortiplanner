@@ -253,6 +253,11 @@ internal static class SpeciesEndpoints
         TimeProvider clock,
         CancellationToken cancellationToken)
     {
+        if (!Enum.IsDefined(request.VatBand))
+        {
+            return TypedResults.BadRequest();
+        }
+
         if (await db.Species.FirstOrDefaultAsync(species => species.Id == request.SpeciesId, cancellationToken) is not { } species)
         {
             return TypedResults.NotFound();
@@ -325,11 +330,11 @@ internal static class SpeciesEndpoints
         bool? XylellaHost,
         bool ProtectedVariety,
         IReadOnlyList<CatalogueEndpoints.PlantPriceDto>? Prices,
-        VatBand? VatBand = null);
+        VatBand VatBand = VatBand.Standard);
 
     internal sealed record PlantFromSpecies(Guid Id);
 
     /// <summary>The VAT rate is the owner's to choose, as it is for any plant. Anyone else's plant is standard rate.</summary>
-    private static VatBand ChosenVatBand(VatBand? asked, ClaimsPrincipal user) =>
-        asked is { } band && Enum.IsDefined(band) && AccountServices.IsOwner(user) ? band : VatBand.Standard;
+    private static VatBand ChosenVatBand(VatBand asked, ClaimsPrincipal user) =>
+        AccountServices.IsOwner(user) ? asked : VatBand.Standard;
 }

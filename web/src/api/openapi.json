@@ -11738,6 +11738,9 @@
             "items": {
               "$ref": "#/components/schemas/PlantPriceDto"
             }
+          },
+          "vatBand": {
+            "$ref": "#/components/schemas/VatBand"
           }
         }
       },
@@ -14768,7 +14771,8 @@
           "Standard",
           "Reduced",
           "Zero"
-        ]
+        ],
+        "default": "Standard"
       },
       "VatRateHistory": {
         "required": [

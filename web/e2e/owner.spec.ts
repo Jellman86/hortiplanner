@@ -166,6 +166,11 @@ test("the owner sets up the nursery and staff can sign in", async ({
     vatBand.getByRole("radio", { name: "The standard rate, 20%" }),
   ).toBeChecked();
   await vatBand.getByRole("radio", { name: "No VAT (the zero rate)" }).check();
+  await expect(
+    page.getByText(
+      "The nursery isn't registered for VAT, so no VAT is charged on anything it sells.",
+    ),
+  ).toBeVisible();
   await expectAccessible(page, "Plant details, VAT when it's sold");
   await button(page, "Save changes").click();
   await expect(page.getByText("Lavender 'Munstead'")).toBeVisible();

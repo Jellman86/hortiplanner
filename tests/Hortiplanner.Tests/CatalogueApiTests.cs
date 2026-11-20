@@ -150,6 +150,9 @@ public sealed class CatalogueApiTests(PostgresFixture database)
 
         Assert.Equal(HttpStatusCode.BadRequest, await PostStatusAsync(nursery.Owner, "/api/plants", new { commonName = "Basil", protectedVariety = false, vatBand = "Luxury" }));
         Assert.Equal(HttpStatusCode.BadRequest, await PostStatusAsync(nursery.Owner, "/api/plants", new { commonName = "Basil", protectedVariety = false, vatBand = 7 }));
+
+        var id = await AddAsync(nursery.Owner, "/api/plants", PlantBody("Lavender"));
+        Assert.Equal(HttpStatusCode.BadRequest, await PutStatusAsync(nursery.Owner, $"/api/plants/{id}", new { commonName = "Lavender", protectedVariety = false, vatBand = 7 }));
     }
 
     [Fact]

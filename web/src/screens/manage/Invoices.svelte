@@ -147,9 +147,13 @@
     const plant = plants.find((item) => item.id === plantId);
 
     if (!plant) {
+      // Back to something that isn't on the plant list: the line goes back to the rate a new line starts at, and
+      // keeps what was typed.
       lines[index] = {
         ...lines[index],
         plantId: null,
+        vatRate: vatRegistered ? standardRate : 0,
+        catalogueGross: null,
         containerId: null,
         batchId: null,
       };

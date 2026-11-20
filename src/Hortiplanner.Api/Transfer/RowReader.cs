@@ -25,6 +25,8 @@ internal sealed class RowReader(IReadOnlyDictionary<string, string?> values, Imp
         ["z"] = VatBand.Zero,
         ["none"] = VatBand.Zero,
         ["no vat"] = VatBand.Zero,
+        ["0"] = VatBand.Zero,
+        ["0%"] = VatBand.Zero,
     };
 
     public List<string> Problems { get; } = [];

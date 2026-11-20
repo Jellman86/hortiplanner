@@ -9516,6 +9516,7 @@ export interface components {
             xylellaHost: null | boolean;
             protectedVariety: boolean;
             prices: null | components["schemas"]["PlantPriceDto"][];
+            vatBand?: components["schemas"]["VatBand"];
         };
         PlantMatch: {
             /** Format: uuid */
@@ -10243,7 +10244,10 @@ export interface components {
         UsePictureRequest: {
             use: boolean;
         };
-        /** @enum {unknown} */
+        /**
+         * @default Standard
+         * @enum {unknown}
+         */
         VatBand: "Standard" | "Reduced" | "Zero";
         VatRateHistory: {
             band: components["schemas"]["VatBand"];

@@ -55,7 +55,8 @@
   let problem = $state("");
   // For the VAT choice, which only the owner sees.
   let vatRates = $state<{ standard: number; reduced: number } | null>(null);
-  let vatRegistered = $state(false);
+  // Null until it's known, so a registered nursery is never told it isn't.
+  let vatRegistered = $state<boolean | null>(null);
 
   const setProblem = (message: string) => (problem = message);
 
@@ -81,7 +82,7 @@
         ? { standard: Number(rates.standard), reduced: Number(rates.reduced) }
         : null;
       vatRegistered =
-        (await api.GET("/api/settings/nursery")).data?.vatRegistered ?? false;
+        (await api.GET("/api/settings/nursery")).data?.vatRegistered ?? null;
     }
   }
 
@@ -449,7 +450,12 @@
         </fieldset>
 
         {#if canManage}
-          <fieldset class="form-card vat-band">
+          <fieldset
+            class="form-card"
+            aria-describedby={vatRegistered === false
+              ? "vat-band-hint vat-band-unregistered"
+              : "vat-band-hint"}
+          >
             <legend>VAT when it's sold</legend>
             <div class="stack tight">
               {#each vatOptions as option (option.band)}
@@ -464,15 +470,15 @@
                 >
               {/each}
             </div>
-            <p class="muted">
-              Most plants are at the standard rate. Please ask your accountant
-              which of yours aren't.
+            <p class="muted" id="vat-band-hint">
+              Most plants are sold at the standard rate. Please ask your
+              accountant if you aren't sure which rate a plant should have.
             </p>
-            {#if !vatRegistered}
-              <p class="muted">
-                The nursery isn't registered for VAT, so nothing is charged on
-                sales yet. Choosing the right rate now means it's ready for when
-                it is.
+            {#if vatRegistered === false}
+              <p class="muted" id="vat-band-unregistered">
+                The nursery isn't registered for VAT, so no VAT is charged on
+                anything it sells. You can still choose the rate now, and it
+                will be used if the nursery registers later.
               </p>
             {/if}
           </fieldset>
