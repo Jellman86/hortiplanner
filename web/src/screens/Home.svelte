@@ -787,7 +787,7 @@
       {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
 
       <div class="split home">
-        <section>
+        <section class="fill">
           {#if assistant.canAsk && !atBench}
             <button class="ask-card" onclick={() => (view = { name: "ask" })}>
               <Sparkles size={22} aria-hidden="true" />
@@ -896,9 +896,9 @@
 
         <!-- The owner's view of the whole nursery: beneath on a smaller desk, a column of its own on a wide one. -->
         {#if me.isOwner && !atBench}
-          <section class="desktop-only home-glance">
+          <div class="desktop-only home-glance">
             <Overview onOpen={(code) => open(code)} />
-          </section>
+          </div>
         {/if}
       </div>
 

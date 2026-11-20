@@ -88,6 +88,10 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(
     page.getByRole("heading", { name: "Hello, Sam Fielding" }),
   ).toBeVisible();
+  // The owner's view of the whole nursery is for a desk, not a phone.
+  await expect(
+    page.getByRole("region", { name: "The nursery at a glance" }),
+  ).toBeHidden();
   await expectAccessible(page, "Record work");
 
   // Signing out and back in uses the passkey just made.

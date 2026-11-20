@@ -2100,7 +2100,7 @@ label.tick {
     grid-template-areas:
       "details actions"
       "history actions";
-    grid-template-columns: minmax(0, 1.2fr) minmax(18rem, 26rem);
+    grid-template-columns: minmax(0, 1fr) clamp(18rem, 42%, 26rem);
     align-items: start;
     gap: 1.5rem 2.5rem;
   }
@@ -4914,10 +4914,11 @@ button.link-button.ftree-leaf {
 }
 
 @container page (min-width: 80rem) {
-  .with-sidebar .split.home {
-    grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr) minmax(
-        20rem,
-        26rem
+  /* Only with the owner's view in it: anyone else keeps two columns, with Recent across the rest. */
+  .with-sidebar .split.home:has(> .home-glance) {
+    grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr) minmax(
+        18rem,
+        22rem
       );
   }
 
@@ -4933,8 +4934,8 @@ button.link-button.ftree-leaf {
 }
 
 /* A place's page. On a phone: what you do here, the facts, what's inside and growing here, the map and photos, then
-   changing the place. With room for two columns the actions, facts, map and photos sit beside what's here; with room
-   for three the actions and changes take a column of their own. */
+   changing the place. With room for two columns the actions, facts, map, photos and changes sit beside what's here;
+   with room for three the map and photos take a column of their own. */
 .place-page {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -4976,9 +4977,9 @@ button.link-button.ftree-leaf {
   display: none;
 }
 
-/* What's here: trays side by side, three or four across on a wide desk. */
+/* What's here: trays side by side, two across on a desk and three on a wide one. */
 .place-trays {
-  --card-min: 18rem;
+  --card-min: 16rem;
 }
 
 @container page (min-width: 56rem) {
@@ -4996,26 +4997,50 @@ button.link-button.ftree-leaf {
 
 @container page (min-width: 80rem) {
   .place-page {
-    grid-template-columns: minmax(18rem, 24rem) minmax(0, 1fr) minmax(
-        18rem,
-        22rem
+    /* The map and photos take the third column to themselves, so nothing in one side column pushes the other. */
+    grid-template-columns: minmax(16rem, 20rem) minmax(0, 1fr) minmax(
+        16rem,
+        20rem
       );
-    grid-template-rows: auto 1fr;
+    grid-template-rows: auto auto 1fr;
     grid-template-areas:
-      "media main actions"
-      "facts main manage";
+      "actions main media"
+      "facts main media"
+      "manage main media";
   }
 }
 
-/* A column of a page's everyday actions: on a desk they line up at the column's width, like a menu. */
-.with-sidebar .place-page .fill > :is(button, a.button) {
+/* A column of a page's everyday actions, such as on Record work or a place's page: on a desk they line up at the
+   column's width, like a menu. It ties with the desk's word-width button rule and wins by coming after it, so it must
+   stay later in this file. */
+.with-sidebar .fill > :is(button, a.button):not(.link-button, .back) {
   align-self: stretch;
+}
+
+/* Recent's small buttons are as wide as their words on a desk. */
+.with-sidebar .card.recent .row > button {
+  min-width: 0;
+}
+
+/* Below two columns, a place's actions, facts and forms keep a comfortable width rather than the page's. */
+.place-page-actions,
+.place-page-facts,
+.place-page-manage > :is(form, .card) {
+  max-width: 30rem;
+}
+
+@container page (min-width: 56rem) {
+  .place-page-actions,
+  .place-page-facts,
+  .place-page-manage > :is(form, .card) {
+    max-width: none;
+  }
 }
 
 /* A tray on a wide desk: what's in it, what's happened to it and what to do next, side by side. */
 @container page (min-width: 80rem) {
   .with-sidebar .tray-layout {
     grid-template-areas: "details history actions";
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(18rem, 26rem);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(18rem, 24rem);
   }
 }
