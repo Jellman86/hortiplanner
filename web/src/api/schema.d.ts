@@ -8767,7 +8767,7 @@ export interface components {
             on: boolean;
         };
         /** @enum {unknown} */
-        FieldType: "Text" | "YesNo" | "Number";
+        FieldType: "Text" | "YesNo" | "Number" | "VatRate";
         Figures: {
             plants: components["schemas"]["PlantFigures"][];
             losses: components["schemas"]["LossFigures"][];
@@ -9567,6 +9567,7 @@ export interface components {
             xylellaHost: null | boolean;
             protectedVariety: boolean;
             prices: null | components["schemas"]["PlantPriceDto"][];
+            vatBand?: null | components["schemas"]["VatBand"];
         };
         PlantResponse: {
             /** Format: uuid */
@@ -9580,6 +9581,7 @@ export interface components {
             hardiness: null | string;
             xylellaHost: null | boolean;
             protectedVariety: boolean;
+            vatBand: components["schemas"]["VatBand"];
             archived: boolean;
             prices: components["schemas"]["PlantPriceDto"][];
             hasPhoto: boolean;

@@ -8671,7 +8671,8 @@
         "enum": [
           "Text",
           "YesNo",
-          "Number"
+          "Number",
+          "VatRate"
         ]
       },
       "Figures": {
@@ -11958,6 +11959,16 @@
             "items": {
               "$ref": "#/components/schemas/PlantPriceDto"
             }
+          },
+          "vatBand": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/VatBand"
+              }
+            ]
           }
         }
       },
@@ -11973,6 +11984,7 @@
           "hardiness",
           "xylellaHost",
           "protectedVariety",
+          "vatBand",
           "archived",
           "prices",
           "hasPhoto"
@@ -12030,6 +12042,9 @@
           },
           "protectedVariety": {
             "type": "boolean"
+          },
+          "vatBand": {
+            "$ref": "#/components/schemas/VatBand"
           },
           "archived": {
             "type": "boolean"

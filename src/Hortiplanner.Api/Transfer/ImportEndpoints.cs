@@ -112,6 +112,7 @@ internal static class ImportEndpoints
             Hardiness = read.Text("hardiness"),
             XylellaHost = read.YesNo("xylellaHost"),
             ProtectedVariety = read.YesNo("protectedVariety") ?? false,
+            VatBand = read.VatRate("vatBand") ?? VatBand.Standard,
         }) : null,
         ImportKind.Suppliers => read.Required("name") is { } name ? (name, new Supplier
         {

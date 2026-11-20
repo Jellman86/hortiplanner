@@ -160,8 +160,21 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await button(page, "Change this plant's details").click();
   await expect(page.getByLabel("Price for 9cm (£)")).toHaveValue("4.5");
   await page.getByLabel("Variety", { exact: true }).fill("Munstead");
+  // Every plant starts at the standard rate of VAT, and the owner can change it.
+  const vatBand = page.getByRole("group", { name: "VAT when it's sold" });
+  await expect(
+    vatBand.getByRole("radio", { name: "The standard rate, 20%" }),
+  ).toBeChecked();
+  await vatBand.getByRole("radio", { name: "No VAT (the zero rate)" }).check();
+  await expectAccessible(page, "Plant details, VAT when it's sold");
   await button(page, "Save changes").click();
   await expect(page.getByText("Lavender 'Munstead'")).toBeVisible();
+  await page.locator(".plant-card", { hasText: "Lavender 'Munstead'" }).click();
+  await button(page, "Change this plant's details").click();
+  await expect(
+    page.getByRole("radio", { name: "No VAT (the zero rate)" }),
+  ).toBeChecked();
+  await button(page, "Cancel").click();
   await leaveManage(page);
 
   await openManage(page, "Suppliers");

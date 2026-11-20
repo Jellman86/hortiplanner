@@ -17,6 +17,7 @@ internal static class ImportFields
             new("hardiness", "Hardiness", FieldType.Text, false, ["hardy", "rhs hardiness"]),
             new("xylellaHost", "Xylella host", FieldType.YesNo, false, ["xylella"]),
             new("protectedVariety", "Protected variety", FieldType.YesNo, false, ["pbr", "plant breeders rights", "protected"]),
+            new("vatBand", "VAT rate", FieldType.VatRate, false, ["vat", "vat band", "vat code", "tax rate"]),
         ]),
         new(ImportKind.Suppliers,
         [

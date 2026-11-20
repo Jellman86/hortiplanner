@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Security.Claims;
+using Hortiplanner.Api.Accounts;
 using Hortiplanner.Api.Catalogue;
 using Hortiplanner.Api.Data;
 using Microsoft.EntityFrameworkCore;
@@ -244,6 +246,7 @@ internal static class SpeciesEndpoints
     /// <summary>A person has picked this species, so it joins the nursery's own plants, or finds the entry already there.</summary>
     private static async Task<IResult> AddPlantFromSpeciesAsync(
         PlantFromSpeciesRequest request,
+        ClaimsPrincipal user,
         HortiplannerDbContext db,
         SpeciesSources sources,
         IConfiguration configuration,
@@ -280,6 +283,7 @@ internal static class SpeciesEndpoints
                 Hardiness = Clean(request.Hardiness),
                 XylellaHost = request.XylellaHost,
                 ProtectedVariety = request.ProtectedVariety,
+                VatBand = ChosenVatBand(request.VatBand, user),
             };
 
             foreach (var price in request.Prices ?? [])
@@ -320,7 +324,12 @@ internal static class SpeciesEndpoints
         string? Hardiness,
         bool? XylellaHost,
         bool ProtectedVariety,
-        IReadOnlyList<CatalogueEndpoints.PlantPriceDto>? Prices);
+        IReadOnlyList<CatalogueEndpoints.PlantPriceDto>? Prices,
+        VatBand? VatBand = null);
 
     internal sealed record PlantFromSpecies(Guid Id);
+
+    /// <summary>The VAT rate is the owner's to choose, as it is for any plant. Anyone else's plant is standard rate.</summary>
+    private static VatBand ChosenVatBand(VatBand? asked, ClaimsPrincipal user) =>
+        asked is { } band && Enum.IsDefined(band) && AccountServices.IsOwner(user) ? band : VatBand.Standard;
 }

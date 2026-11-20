@@ -39,6 +39,7 @@
     hardiness: "",
     xylellaHost: null as boolean | null,
     protectedVariety: false,
+    vatBand: "Standard" as Schemas["VatBand"],
   };
 
   let plants = $state<Plant[]>([]);
@@ -52,6 +53,9 @@
   let showForm = $state(false);
   let cardId = $state<string | null>(null);
   let problem = $state("");
+  // For the VAT choice, which only the owner sees.
+  let vatRates = $state<{ standard: number; reduced: number } | null>(null);
+  let vatRegistered = $state(false);
 
   const setProblem = (message: string) => (problem = message);
 
@@ -70,7 +74,33 @@
   async function load() {
     plants = (await api.GET("/api/plants")).data ?? [];
     potSizes = (await api.GET("/api/pot-sizes")).data ?? [];
+
+    if (canManage) {
+      const rates = (await api.GET("/api/settings/vat-rates")).data;
+      vatRates = rates
+        ? { standard: Number(rates.standard), reduced: Number(rates.reduced) }
+        : null;
+      vatRegistered =
+        (await api.GET("/api/settings/nursery")).data?.vatRegistered ?? false;
+    }
   }
+
+  // The rate is named with its percentage when the rates could be fetched.
+  const vatOptions = $derived<{ band: Schemas["VatBand"]; label: string }[]>([
+    {
+      band: "Standard",
+      label: vatRates
+        ? `The standard rate, ${vatRates.standard}%`
+        : "The standard rate",
+    },
+    {
+      band: "Reduced",
+      label: vatRates
+        ? `The reduced rate, ${vatRates.reduced}%`
+        : "The reduced rate",
+    },
+    { band: "Zero", label: "No VAT (the zero rate)" },
+  ]);
 
   onMount(() => void attempt(load, setProblem));
 
@@ -149,6 +179,7 @@
       hardiness: plant.hardiness ?? "",
       xylellaHost: plant.xylellaHost,
       protectedVariety: plant.protectedVariety,
+      vatBand: plant.vatBand,
     };
     prices = Object.fromEntries(
       plant.prices.map((price) => [price.potSizeId, String(price.price)]),
@@ -168,6 +199,8 @@
       hardiness: optional(form.hardiness),
       xylellaHost: form.xylellaHost,
       protectedVariety: form.protectedVariety,
+      // Only the owner chooses it. Left out otherwise, so the plant stays as it is.
+      vatBand: canManage ? form.vatBand : undefined,
       prices: Object.entries(prices)
         .filter(([, price]) => price.trim() !== "")
         .map(([potSizeId, price]) => ({ potSizeId, price: Number(price) })),
@@ -414,6 +447,36 @@
             </label>
           </div>
         </fieldset>
+
+        {#if canManage}
+          <fieldset class="form-card vat-band">
+            <legend>VAT when it's sold</legend>
+            <div class="stack tight">
+              {#each vatOptions as option (option.band)}
+                <label class="tick"
+                  ><input
+                    type="radio"
+                    name="vat-band"
+                    value={option.band}
+                    bind:group={form.vatBand}
+                  />
+                  {option.label}</label
+                >
+              {/each}
+            </div>
+            <p class="muted">
+              Most plants are at the standard rate. Please ask your accountant
+              which of yours aren't.
+            </p>
+            {#if !vatRegistered}
+              <p class="muted">
+                The nursery isn't registered for VAT, so nothing is charged on
+                sales yet. Choosing the right rate now means it's ready for when
+                it is.
+              </p>
+            {/if}
+          </fieldset>
+        {/if}
 
         {#if canManage && potSizes.length > 0}
           <fieldset class="form-card">

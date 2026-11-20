@@ -1680,6 +1680,11 @@ namespace Hortiplanner.Api.Data.Migrations
                         .HasColumnType("citext")
                         .HasColumnName("variety");
 
+                    b.Property<string>("VatBand")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("vat_band");
+
                     b.Property<string>("Watering")
                         .HasColumnType("text")
                         .HasColumnName("watering");

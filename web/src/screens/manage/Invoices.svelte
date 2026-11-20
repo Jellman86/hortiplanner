@@ -13,6 +13,7 @@
     changeRate,
     standing,
     totals,
+    plantRate,
     vatChoices,
     type DraftLine,
     type InvoiceSummary,
@@ -157,12 +158,20 @@
 
     const size = potSizes.find((item) => item.id === potSizeId);
     const price = plant.prices.find((item) => item.potSizeId === potSizeId);
+    // The line starts at the plant's own VAT rate, and its catalogue price is worked back from that rate.
+    const vatRate = plantRate(
+      plant.vatBand,
+      standardRate,
+      reducedRate,
+      vatRegistered,
+    );
     lines[index] = {
       ...lines[index],
       plantId: plant.id,
       description: `${plantName(plant.commonName, plant.variety)}${size ? ` ${size.name}` : ""}`,
+      vatRate,
       unitPrice: price
-        ? catalogueNet(Number(price.price), lines[index].vatRate, vatRegistered)
+        ? catalogueNet(Number(price.price), vatRate, vatRegistered)
         : lines[index].unitPrice,
       catalogueGross: price ? Number(price.price) : null,
       containerId: null,

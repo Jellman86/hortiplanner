@@ -66,6 +66,44 @@ public sealed class TransferTests(PostgresFixture database)
     }
 
     [Fact]
+    public async Task A_plants_VAT_rate_goes_out_in_the_plants_sheet_and_comes_back_in()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        await PostForTextAsync(nursery.Owner, "/api/plants", new { commonName = "Basil", protectedVariety = false, vatBand = "Zero" });
+
+        using (var response = await nursery.Owner.GetAsync(Route("/api/export"), Cancellation))
+        {
+            await using var zipped = await response.Content.ReadAsStreamAsync(Cancellation);
+            using var archive = new ZipArchive(zipped);
+            using var plants = new StreamReader(archive.GetEntry("plants.csv")!.Open(), Encoding.UTF8);
+            var lines = (await plants.ReadToEndAsync(Cancellation)).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+            Assert.Contains(",Protected variety,VAT rate,No longer used", lines[0], StringComparison.Ordinal);
+            Assert.EndsWith(",No,Zero,No", lines[1], StringComparison.Ordinal);
+        }
+
+        object[] rows =
+        [
+            Row(2, new Dictionary<string, string?>(StringComparer.Ordinal) { ["commonName"] = "Parsley", ["vatBand"] = "zero rated" }),
+            Row(3, new Dictionary<string, string?>(StringComparer.Ordinal) { ["commonName"] = "Compost", ["vatBand"] = "Reduced" }),
+            Row(4, new Dictionary<string, string?>(StringComparer.Ordinal) { ["commonName"] = "Lavender" }),
+            Row(5, new Dictionary<string, string?>(StringComparer.Ordinal) { ["commonName"] = "Rose", ["vatBand"] = "luxury" }),
+        ];
+
+        var checkedRows = Json(await PostForTextAsync(nursery.Owner, "/api/import/Plants", new { rows, save = false }));
+        var problem = Assert.Single(checkedRows.GetProperty("problems").EnumerateArray());
+        Assert.Equal(5, problem.GetProperty("row").GetInt32());
+        Assert.Equal("VAT rate should be standard, reduced or zero, not \"luxury\".", problem.GetProperty("problem").GetString());
+
+        Assert.True(Json(await PostForTextAsync(nursery.Owner, "/api/import/Plants", new { rows = rows[..3], save = true })).GetProperty("saved").GetBoolean());
+
+        var bands = (await nursery.Owner.GetFromJsonAsync<JsonElement>(Route("/api/plants"), Cancellation)).EnumerateArray()
+            .ToDictionary(plant => plant.GetProperty("commonName").GetString()!, plant => plant.GetProperty("vatBand").GetString(), StringComparer.Ordinal);
+        Assert.Equal("Zero", bands["Parsley"]);
+        Assert.Equal("Reduced", bands["Compost"]);
+        Assert.Equal("Standard", bands["Lavender"]);
+    }
+
+    [Fact]
     public async Task Everything_comes_out_in_one_download()
     {
         await using var nursery = await TwoPersonNursery.CreateAsync(database);

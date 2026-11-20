@@ -5,4 +5,5 @@ internal enum FieldType
     Text,
     YesNo,
     Number,
+    VatRate,
 }

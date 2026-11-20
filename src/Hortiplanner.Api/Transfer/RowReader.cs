@@ -1,4 +1,5 @@
 using System.Globalization;
+using Hortiplanner.Api.Data;
 
 namespace Hortiplanner.Api.Transfer;
 
@@ -8,6 +9,23 @@ internal sealed class RowReader(IReadOnlyDictionary<string, string?> values, Imp
     private static readonly string[] Yes = ["yes", "y", "true", "1", "x"];
 
     private static readonly string[] No = ["no", "n", "false", "0"];
+
+    /// <summary>The words a spreadsheet might use for each VAT rate. The plants sheet writes the first of each.</summary>
+    private static readonly Dictionary<string, VatBand> VatWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["standard"] = VatBand.Standard,
+        ["standard rate"] = VatBand.Standard,
+        ["s"] = VatBand.Standard,
+        ["reduced"] = VatBand.Reduced,
+        ["reduced rate"] = VatBand.Reduced,
+        ["r"] = VatBand.Reduced,
+        ["zero"] = VatBand.Zero,
+        ["zero rate"] = VatBand.Zero,
+        ["zero rated"] = VatBand.Zero,
+        ["z"] = VatBand.Zero,
+        ["none"] = VatBand.Zero,
+        ["no vat"] = VatBand.Zero,
+    };
 
     public List<string> Problems { get; } = [];
 
@@ -80,6 +98,24 @@ internal sealed class RowReader(IReadOnlyDictionary<string, string?> values, Imp
         }
 
         Problems.Add($"{ImportFields.Find(kind, key).Label} should be a whole number from {least} to {most}, not \"{value}\".");
+        return null;
+    }
+
+    public VatBand? VatRate(string key)
+    {
+        var value = values.GetValueOrDefault(key)?.Trim();
+
+        if (string.IsNullOrEmpty(value))
+        {
+            return null;
+        }
+
+        if (VatWords.TryGetValue(value, out var band))
+        {
+            return band;
+        }
+
+        Problems.Add($"{ImportFields.Find(kind, key).Label} should be standard, reduced or zero, not \"{value}\".");
         return null;
     }
 }
