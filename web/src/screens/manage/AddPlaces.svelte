@@ -141,6 +141,8 @@
   {/if}
   {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
   <button type="submit"
-    >{several && kind !== "Site" ? "Add them" : "Add"}</button
+    >{several && kind !== "Site"
+      ? "Add these places"
+      : "Add this place"}</button
   >
 </form>

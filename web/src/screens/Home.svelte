@@ -800,7 +800,7 @@
             </button>
           {/if}
 
-          <form class="stack" onsubmit={scan}>
+          <form class="stack fill" onsubmit={scan}>
             <label>
               Scan a label
               <input

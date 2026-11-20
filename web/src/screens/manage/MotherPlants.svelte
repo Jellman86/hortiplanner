@@ -3,6 +3,7 @@
   import { crumbs } from "../../lib/crumbs.svelte";
   import { isoDay } from "../../lib/days";
   import { showForm } from "../../lib/showForm";
+  import FormPanel from "../FormPanel.svelte";
   import { onMount } from "svelte";
   import { api } from "../../api/client";
   import { dayLabel } from "../../lib/dates";
@@ -27,6 +28,8 @@
   );
   let form = $state({ plantId: "", name: "", locationId: "", notes: "" });
   let editing = $state<string | null>(null);
+  // On a phone the form waits behind a button, and Change opens it.
+  let formOpen = $state(false);
   let problem = $state("");
 
   const setProblem = (message: string) => (problem = message);
@@ -57,6 +60,7 @@
 
   function edit(mother: Mother) {
     editing = mother.id;
+    formOpen = true;
     void showForm();
     form = {
       plantId: mother.plantId,
@@ -130,46 +134,54 @@
 
   <div class="split">
     <section>
-      <form class="form-card stack" onsubmit={save} data-edit-form>
-        <h2 class="form-heading">
-          {editing ? "Change the mother plant" : "Add a mother plant"}
-        </h2>
-        <label
-          >Plant <select bind:value={form.plantId} required>
-            <option value="">Choose…</option>
-            {#each plants as plant (plant.id)}
-              <option value={plant.id}
-                >{plantName(plant.commonName, plant.variety)}</option
-              >
-            {/each}
-          </select></label
-        >
-        <label
-          >Name <input
-            bind:value={form.name}
-            required
-            maxlength="100"
-            placeholder="By the door"
-          /></label
-        >
-        <label
-          >Where it is (optional) <select bind:value={form.locationId}>
-            <option value="">Not set</option>
-            {#each places as place (place.id)}
-              <option value={place.id}>{place.label}</option>
-            {/each}
-          </select></label
-        >
-        <label
-          >Notes (optional) <textarea bind:value={form.notes} rows="2"
-          ></textarea></label
-        >
-        <button type="submit">{editing ? "Save" : "Add mother plant"}</button>
-        {#if editing}
-          <button type="button" class="secondary" onclick={reset}>Cancel</button
+      <FormPanel
+        bind:open={formOpen}
+        label={editing ? "Change the mother plant" : "Add a mother plant"}
+      >
+        <form class="form-card stack" onsubmit={save} data-edit-form>
+          <h2 class="form-heading">
+            {editing ? "Change the mother plant" : "Add a mother plant"}
+          </h2>
+          <label
+            >Plant <select bind:value={form.plantId} required>
+              <option value="">Choose…</option>
+              {#each plants as plant (plant.id)}
+                <option value={plant.id}
+                  >{plantName(plant.commonName, plant.variety)}</option
+                >
+              {/each}
+            </select></label
           >
-        {/if}
-      </form>
+          <label
+            >Name <input
+              bind:value={form.name}
+              required
+              maxlength="100"
+              placeholder="By the door"
+            /></label
+          >
+          <label
+            >Where it is (optional) <select bind:value={form.locationId}>
+              <option value="">Not set</option>
+              {#each places as place (place.id)}
+                <option value={place.id}>{place.label}</option>
+              {/each}
+            </select></label
+          >
+          <label
+            >Notes (optional) <textarea bind:value={form.notes} rows="2"
+            ></textarea></label
+          >
+          <button type="submit"
+            >{editing ? "Save" : "Add this mother plant"}</button
+          >
+          {#if editing}
+            <button type="button" class="secondary" onclick={reset}
+              >Cancel</button
+            >
+          {/if}
+        </form>
+      </FormPanel>
     </section>
 
     <section class="stack">
@@ -224,7 +236,7 @@
           {/if}
         </div>
       {:else}
-        <p class="muted">There are no mother plants yet.</p>
+        <p class="note-empty muted">There are no mother plants yet.</p>
       {/each}
     </section>
   </div>

@@ -96,9 +96,12 @@
     <section>
       <FormPanel
         bind:open={formOpen}
-        label={editing ? "Change customer" : "Add a customer"}
+        label={editing ? "Change the customer" : "Add a customer"}
       >
-        <form class="stack" onsubmit={save} data-edit-form>
+        <form class="form-card stack" onsubmit={save} data-edit-form>
+          <h2 class="form-heading">
+            {editing ? "Change the customer" : "Add a customer"}
+          </h2>
           <label>Name <input bind:value={form.name} required /></label>
           <label
             >Address <textarea bind:value={form.address} rows="3"
@@ -112,7 +115,9 @@
           </div>
           <label>VAT number <input bind:value={form.vatNumber} /></label>
           <div class="form-actions">
-            <button type="submit">{editing ? "Save changes" : "Add"}</button>
+            <button type="submit"
+              >{editing ? "Save changes" : "Add this customer"}</button
+            >
             {#if editing}
               <button
                 type="button"

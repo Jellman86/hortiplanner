@@ -209,7 +209,8 @@
   <div class="split wide-list">
     <section>
       <FormPanel label="Add a purchase">
-        <form class="stack" onsubmit={save}>
+        <form class="form-card stack" onsubmit={save}>
+          <h2 class="form-heading">Add a purchase</h2>
           <label>
             Supplier
             <select bind:value={supplierId} required>

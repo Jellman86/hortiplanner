@@ -131,7 +131,8 @@
   <div class="split wide-list">
     <section>
       <FormPanel label="Add a day's takings">
-        <form class="stack" onsubmit={save}>
+        <form class="form-card stack" onsubmit={save}>
+          <h2 class="form-heading">Add a day's takings</h2>
           <DayPicker bind:value={takenOn} label="Date" />
           <label
             >Amount taken (£) <input

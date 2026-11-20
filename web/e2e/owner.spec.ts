@@ -112,9 +112,9 @@ test("the owner sets up the nursery and staff can sign in", async ({
   // Catalogue.
   await openSettings(page, "Pot sizes");
   await page.getByLabel("New pot size").fill("9cm");
-  await button(page, "Add").click();
+  await button(page, "Add this pot size").click();
   await expect(page.getByText("9cm", { exact: true })).toBeVisible();
-  await expect(page.getByText("Not counted yet")).toBeVisible();
+  await expect(page.getByText("These haven't been counted yet.")).toBeVisible();
   await page.getByLabel("Add a photo").setInputFiles({
     name: "pot.png",
     mimeType: "image/png",
@@ -131,7 +131,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expectAccessible(page, "Pot sizes");
   await page.screenshot({ path: "build/peek/pot-sizes.png", fullPage: true });
   await page.getByLabel("New pot size").fill("9CM");
-  await button(page, "Add").click();
+  await button(page, "Add this pot size").click();
   await expect(page.getByRole("alert")).toHaveText(
     "That pot size is already on the list.",
   );
@@ -166,7 +166,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
 
   await openManage(page, "Suppliers");
   await page.getByLabel("Name", { exact: true }).fill("Hillside Plants");
-  await button(page, "Add").click();
+  await button(page, "Add this supplier").click();
   await expect(page.getByText("Hillside Plants")).toBeVisible();
   await expectAccessible(page, "Suppliers");
   await leaveManage(page);
@@ -182,7 +182,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await openManage(page, "Places");
   await page.getByLabel("Type").selectOption("Site");
   await page.getByLabel("Name", { exact: true }).fill("Croft");
-  await button(page, "Add").click();
+  await button(page, "Add this place").click();
   await expect(
     page.getByRole("heading", { name: "Where is Croft?" }),
   ).toBeVisible();
@@ -196,7 +196,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await page.getByLabel("Type").selectOption("Greenhouse");
   await page.getByLabel("Inside").selectOption({ label: "Croft" });
   await page.getByLabel("Name", { exact: true }).fill("Greenhouse 2");
-  await button(page, "Add").click();
+  await button(page, "Add this place").click();
   await expect(
     page.getByRole("heading", { name: "Where is Greenhouse 2?" }),
   ).toBeVisible();
@@ -227,7 +227,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(page.getByLabel("Name before the number")).toHaveValue("Bench");
   await expect(page.getByLabel("From", { exact: true })).toHaveValue("1");
   await page.getByLabel("To", { exact: true }).fill("3");
-  await button(page, "Add them").click();
+  await button(page, "Add these places").click();
   await expect(
     page.locator(".place-row strong", { hasText: "Bench 3" }),
   ).toBeVisible();
@@ -316,7 +316,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await openManage(page, "Customers");
   await page.getByLabel("Name", { exact: true }).fill("Hilltop Garden Centre");
   await page.getByLabel("Address").fill("1 High Street\nBakewell");
-  await button(page, "Add").click();
+  await button(page, "Add this customer").click();
   await expect(page.getByText("Hilltop Garden Centre")).toBeVisible();
   await expectAccessible(page, "Customers");
   await leaveManage(page);
@@ -358,12 +358,12 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await openSettings(page, "Staff");
   await page.getByLabel("Name", { exact: true }).fill("Alex Moss");
   await page.getByLabel("PIN for the bench").fill("12");
-  await button(page, "Add").click();
+  await button(page, "Add this person").click();
   await expect(page.getByRole("alert")).toHaveText(
     "A PIN must be 4 to 6 digits.",
   );
   await page.getByLabel("PIN for the bench").fill("4821");
-  await button(page, "Add").click();
+  await button(page, "Add this person").click();
   await expect(page.getByText("Alex Moss", { exact: true })).toBeVisible();
   await expectAccessible(page, "Staff");
 
@@ -484,8 +484,10 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await openSettings(page, "Staff");
   await page.getByLabel("Name", { exact: true }).fill("Jo Reed");
   await chooser(page, "How they sign in").selectOption("name");
-  await button(page, "Add").click();
-  await expect(page.getByText("Signs in by tapping their name")).toBeVisible();
+  await button(page, "Add this person").click();
+  await expect(
+    page.getByText("They sign in by tapping their name."),
+  ).toBeVisible();
   await expectAccessible(page, "Staff, name tap");
   await leaveManage(page);
   await button(page, "Settings").click();
@@ -531,7 +533,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await page.getByLabel("Name", { exact: true }).fill("Potting shed");
   await page.getByLabel("IP address or network name").fill("127.0.0.1");
   await page.getByLabel("Place labels").check();
-  await button(page, "Add printer").click();
+  await button(page, "Add this printer").click();
   await expect(page.getByText("Potting shed saved.")).toBeVisible();
   await button(page, "Test print").click();
   await expect(page.getByText("belongs to the server itself")).toBeVisible();
@@ -604,7 +606,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await openSettings(page, "Sensors");
   await page.getByLabel("Name", { exact: true }).fill("Greenhouse sensor");
   await chooser(page, "Place").selectOption({ index: 1 });
-  await button(page, "Add sensor").click();
+  await button(page, "Add this sensor").click();
   const sensorKey = (await page.locator(".sensor-key").innerText()).trim();
   expect(sensorKey).toMatch(/^glk_/);
   await expectAccessible(page, "New sensor key");

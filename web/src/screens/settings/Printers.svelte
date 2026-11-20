@@ -157,12 +157,12 @@
   <p class="muted">
     These are the label printers on the nursery's network. Hortiplanner sends
     labels straight to them, and every label can still be printed as a PDF
-    through the print window. What each label looks like, and its size, is under <button
-      class="link-button"
-      onclick={onLabels}
-      ><ArrowRight size={16} aria-hidden="true" />Labels</button
-    >.
+    through the print window. What each label looks like, and its size, is set
+    under Labels.
   </p>
+  <button class="link-button" onclick={onLabels}
+    ><ArrowRight size={16} aria-hidden="true" />Go to Labels</button
+  >
   {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
   {#if saved}<p class="card done" role="status">{saved}</p>{/if}
 
@@ -232,7 +232,9 @@
           </div>
         </fieldset>
         <div class="row">
-          <button type="submit">{editingId ? "Save" : "Add printer"}</button>
+          <button type="submit"
+            >{editingId ? "Save" : "Add this printer"}</button
+          >
           {#if editingId}
             <button type="button" class="secondary" onclick={stopEditing}
               >Cancel</button
