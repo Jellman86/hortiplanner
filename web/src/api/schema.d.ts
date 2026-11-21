@@ -9673,9 +9673,9 @@ export interface components {
         };
         MoneyTotals: {
             taken: components["schemas"]["MoneyPair"];
-            spent: components["schemas"]["MoneyPair"];
-            made: components["schemas"]["MoneyPair"];
-            lost: components["schemas"]["MoneyPair"];
+            spent: null | components["schemas"]["MoneyPair"];
+            made: null | components["schemas"]["MoneyPair"];
+            lost: null | components["schemas"]["MoneyPair"];
             complete: boolean;
         };
         MonthFigures: {

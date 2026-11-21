@@ -11209,13 +11209,34 @@
             "$ref": "#/components/schemas/MoneyPair"
           },
           "spent": {
-            "$ref": "#/components/schemas/MoneyPair"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MoneyPair"
+              }
+            ]
           },
           "made": {
-            "$ref": "#/components/schemas/MoneyPair"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MoneyPair"
+              }
+            ]
           },
           "lost": {
-            "$ref": "#/components/schemas/MoneyPair"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MoneyPair"
+              }
+            ]
           },
           "complete": {
             "type": "boolean"

@@ -8,8 +8,10 @@
     costCell,
     costOrder,
     counting,
+    emptySentence,
     figureCell,
     notKnownSentence,
+    soFarNote,
     startedChoices,
     tillSentence,
     tiles,
@@ -32,7 +34,16 @@
 
   let started = $state<StartedIn>("ThisYear");
   let figures = $state<MoneyFigures | null>(null);
+  // The choice the figures on show belong to, so a slow reply never sits under another choice's words.
+  let shownFor = $state<StartedIn>("ThisYear");
   let problem = $state("");
+
+  function choose(choice: StartedIn) {
+    if (choice !== started) {
+      started = choice;
+      figures = null;
+    }
+  }
 
   async function load(chosen: StartedIn) {
     problem = "";
@@ -47,6 +58,7 @@
         // A reply for a choice no longer made is left alone.
         if (chosen === started) {
           figures = data ?? null;
+          shownFor = chosen;
         }
       },
       (message) => (problem = message),
@@ -81,6 +93,7 @@
         text: (row) => costCell(row.cost, row.complete, side),
         numeric: true,
         strong: index === 0,
+        hint: index === 0 ? "the figures that count" : undefined,
       })),
       {
         label: "Profit",
@@ -98,11 +111,19 @@
         label: "Lost plants had cost",
         value: (row) =>
           row.lostValue ? counting(row.lostValue, counts) : null,
-        text: (row) => figureCell(row.lostValue, counts),
+        text: (row) => lostCell(row, counts),
         numeric: true,
       },
     ];
   });
+
+  /** What lost plants had cost, "so far" while a batch has no answer. */
+  const lostCell = (row: PlantMoney, counts: MoneyFigures["counts"]) =>
+    costCell(
+      row.lostValue,
+      row.complete,
+      counts === "BeforeVat" ? "beforeVat" : "withVat",
+    );
 
   const groupColumns = (label: string): Column<GroupMoney>[] => {
     const counts = figures?.counts ?? "WithVat";
@@ -159,30 +180,36 @@
 <section class="stack money-figures" aria-labelledby="money-figures-heading">
   <h2 id="money-figures-heading">What the plants cost and made</h2>
 
-  <p id="started-in">Batches started in</p>
+  <p id="started-in">Batches to count</p>
   <div class="segmented" role="group" aria-labelledby="started-in">
     {#each startedChoices as choice (choice.value)}
       <button
         class={started === choice.value ? "" : "secondary"}
         aria-pressed={started === choice.value}
-        onclick={() => (started = choice.value)}>{choice.label}</button
+        onclick={() => choose(choice.value)}>{choice.label}</button
       >
     {/each}
   </div>
 
   {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
 
+  {#if !figures && !problem}
+    <p class="muted" role="status">Working out the figures…</p>
+  {/if}
+
   {#if figures}
     {@const counts = figures.counts}
     <p class="muted">{countsSentence(figures.vatRegistered)}</p>
 
     {#if figures.plants.length === 0}
-      <p class="note-empty muted">Nothing has a cost or a sale recorded yet.</p>
+      <p class="note-empty muted">{emptySentence(shownFor)}</p>
     {:else}
       <div class="stat-tiles money-tiles">
         {#each tiles(figures) as tile (tile.key)}
           <div class="stat-tile">
-            <strong>{tile.amount}</strong><span>{tile.words}</span>
+            {#if tile.amount}<strong>{tile.amount}</strong><span
+                >{tile.words}</span
+              >{:else}<p class="unknown">{tile.words}</p>{/if}
             {#if tile.compare}<span class="compare">{tile.compare}</span>{/if}
           </div>
         {/each}
@@ -191,6 +218,7 @@
       {#if Number(figures.unanswered) > 0}
         <div class="card caution stack tight">
           <p>{unansweredSentence(Number(figures.unanswered))}</p>
+          <p>{soFarNote}</p>
           <div>
             <button class="secondary" onclick={onCosts}
               >Go to Costs to fill in <ArrowRight
@@ -207,7 +235,7 @@
       {/if}
 
       {#if isOn("TraySales") && Number(figures.till.taken) > 0}
-        <p>{tillSentence(figures.till, started, counts)}</p>
+        <p>{tillSentence(figures.till, shownFor)}</p>
       {/if}
 
       <div class="wide-only stack tight">
@@ -275,7 +303,7 @@
                 <dt>Cost for each plant</dt>
                 <dd>{figureCell(plant.each, counts)}</dd>
                 <dt>Lost plants had cost</dt>
-                <dd>{figureCell(plant.lostValue, counts)}</dd>
+                <dd>{lostCell(plant, counts)}</dd>
               </dl>
               {#if plant.unbatched}
                 <p class="muted">{unbatchedSentence(plant, counts)}</p>
@@ -289,7 +317,7 @@
     <div>
       <a
         class="button secondary"
-        href="/api/figures/money.csv?started={started}"
+        href="/api/figures/money.csv?started={shownFor}"
         download
         ><FileDown size={16} aria-hidden="true" /> Download these figures (CSV)</a
       >
@@ -300,5 +328,10 @@
 <style>
   .money-tiles .compare {
     font-size: 0.8rem;
+  }
+
+  .money-tiles .unknown {
+    margin: 0;
+    color: var(--muted);
   }
 </style>

@@ -35,7 +35,7 @@ internal static class MoneyFigures
         return new Money(
             counts,
             registered,
-            Totals(batches, unbatched.Values.Select(sale => sale.Takings)),
+            Totals(batches, unbatched),
             batches.Count(batch => batch.CostKnown == CostKnown.NoAnswer),
             batches.Count(batch => batch.CostKnown == CostKnown.NotKnown),
             ByPlant(batches, unbatched),
@@ -57,9 +57,9 @@ internal static class MoneyFigures
         ];
         var rows = batches.Select(batch => (object?[])
         [
-            batch.Code, batch.CommonName, batch.Variety, Source(batch.Source), batch.Started, batch.Supplier, batch.PlantsStarted, batch.Lost,
-            batch.Invoiced, batch.FromTrays + batch.NoPrice, batch.StillGrowing, Known(batch.CostKnown),
-            .. Cells(batch.Seed), .. Cells(batch.Pots), .. Cells(batch.Others), .. Cells(batch.Total), .. Cells(batch.Each), .. Cells(batch.LostValue),
+            batch.Code, batch.CommonName, batch.Variety, Source(batch.Source), batch.Started, batch.Supplier, batch.NotCounted ? null : batch.PlantsStarted, batch.Lost,
+            batch.Invoiced, batch.FromTrays + batch.NoPrice, batch.NotCounted ? null : batch.StillGrowing, Known(batch.CostKnown),
+            .. Cells(batch.Seed), .. Cells(batch.Pots ?? Nothing(batch)), .. Cells(batch.Others ?? Nothing(batch)), .. Cells(batch.Total), .. Cells(batch.Each), .. Cells(batch.LostValue),
             .. Cells(batch.InvoiceTakings), .. Cells(batch.TrayTakings),
             batch.Profit is { } profit ? Round(registered ? profit.BeforeVat : profit.WithVat) : null,
             batch.Profit is null ? null : registered ? "Before VAT" : "With VAT",
@@ -67,6 +67,11 @@ internal static class MoneyFigures
 
         return TypedResults.File(System.Text.Encoding.UTF8.GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes(Csv.Write(header, rows))).ToArray(), "text/csv", "hortiplanner-costs.csv");
     }
+
+    /// <summary>Nothing charged, which is known to be nothing once the batch's cost is known.</summary>
+    private static MoneyPair? Nothing(BatchMoney batch) => batch.Total is null ? null : Zero;
+
+    private static readonly MoneyPair Zero = new(0, 0);
 
     private static IEnumerable<string> Pairs(params string[] names) => names.SelectMany(name => new[] { $"{name} with VAT", $"{name} before VAT" });
 
@@ -107,6 +112,8 @@ internal static class MoneyFigures
     {
         var (from, to) = Window(started, clock);
         var facts = await db.Batches.AsNoTracking()
+            // A batch whose start was undone was a mistake, with nothing to cost, as Costs to fill in has it.
+            .Where(batch => db.EventLines.Any(line => line.BatchId == batch.Id && !db.Events.Any(correction => correction.CorrectsEventId == line.EventId)))
             .Join(db.Plants, batch => batch.PlantId, plant => plant.Id, (batch, plant) => new
             {
                 batch.Id,
@@ -161,15 +168,25 @@ internal static class MoneyFigures
 
     private static MoneyPair Less(MoneyPair a, MoneyPair b) => new(a.WithVat - b.WithVat, a.BeforeVat - b.BeforeVat);
 
-    /// <summary>What the batches add up to. Profit counts only batches whose cost is known, with their takings.</summary>
-    private static MoneyTotals Totals(List<BatchMoney> batches, IEnumerable<MoneyPair> unbatched)
+    /// <summary>
+    /// What the batches add up to. What was spent and made counts only batches whose cost is known, with their takings
+    /// and the plant's sales that named no batch where the plant has such a batch; each is null when no batch's cost
+    /// is known.
+    /// </summary>
+    private static MoneyTotals Totals(List<BatchMoney> batches, Dictionary<Guid, Unbatched> unbatched)
     {
         var counted = batches.Where(batch => batch.Total is not null).ToList();
-        var others = unbatched.ToList();
-        var taken = Sum([.. batches.Select(batch => batch.Takings), .. others]);
+        var costed = counted.Select(batch => batch.PlantId).ToHashSet();
+        var taken = Sum([.. batches.Select(batch => batch.Takings), .. unbatched.Values.Select(sale => sale.Takings)]);
         var spent = Sum(counted.Select(batch => batch.Total));
-        var made = Less(Sum([.. counted.Select(batch => batch.Takings), .. others]), spent);
-        return new MoneyTotals(taken, spent, made, Sum(batches.Select(batch => batch.LostValue)), batches.TrueForAll(batch => batch.CostKnown != CostKnown.NoAnswer));
+        var made = Less(Sum([.. counted.Select(batch => batch.Takings), .. unbatched.Where(sale => costed.Contains(sale.Key)).Select(sale => sale.Value.Takings)]), spent);
+        var lost = batches.Where(batch => batch.LostValue is not null).ToList();
+        return new MoneyTotals(
+            taken,
+            counted.Count > 0 ? spent : null,
+            counted.Count > 0 ? made : null,
+            lost.Count > 0 ? Sum(lost.Select(batch => batch.LostValue)) : null,
+            batches.TrueForAll(batch => batch.CostKnown != CostKnown.NoAnswer));
     }
 
     /// <summary>
@@ -191,7 +208,10 @@ internal static class MoneyFigures
         var counted = rows.Where(row => row.Total is not null).ToList();
         var complete = rows.TrueForAll(row => row.CostKnown != CostKnown.NoAnswer);
         var cost = Sum(counted.Select(row => row.Total));
-        var alive = counted.Sum(row => Math.Max(row.Alive, 0));
+        // A tray not counted yet has a cost but no plants to share it between, so it's left out of both.
+        var shared = counted.Where(row => !row.NotCounted).ToList();
+        var sharedCost = Sum(shared.Select(row => row.Total));
+        var alive = shared.Sum(row => Math.Max(row.Alive, 0));
         return new PlantMoney(
             plantId,
             rows.Count > 0 ? rows[0].CommonName : extra!.CommonName,
@@ -203,7 +223,7 @@ internal static class MoneyFigures
             counted.Count > 0 ? cost : null,
             complete,
             complete && counted.Count > 0 ? Less(Sum([.. counted.Select(row => row.Takings), extra?.Takings]), cost) : null,
-            alive > 0 ? new MoneyPair(cost.WithVat / alive, cost.BeforeVat / alive) : null,
+            alive > 0 ? new MoneyPair(sharedCost.WithVat / alive, sharedCost.BeforeVat / alive) : null,
             rows.Any(row => row.LostValue is not null) ? Sum(rows.Select(row => row.LostValue)) : null);
     }
 
@@ -259,7 +279,7 @@ internal static class MoneyFigures
     private static DateTimeOffset StartOf(DateOnly day, TimeProvider clock)
     {
         var midnight = day.ToDateTime(TimeOnly.MinValue);
-        return new DateTimeOffset(midnight, clock.LocalTimeZone.GetUtcOffset(midnight));
+        return new DateTimeOffset(midnight, clock.LocalTimeZone.GetUtcOffset(midnight)).ToUniversalTime();
     }
 
     internal enum StartedIn
@@ -290,6 +310,7 @@ internal static class MoneyFigures
         DateOnly? Started,
         string? Supplier,
         CostKnown CostKnown,
+        bool NotCounted,
         int PlantsStarted,
         int Lost,
         int Alive,
@@ -331,6 +352,7 @@ internal static class MoneyFigures
                 started,
                 supplier,
                 known,
+                plant.NotCounted,
                 plant.Alive + plant.Lost - plant.Adjusted,
                 plant.Lost,
                 plant.Alive,
@@ -343,7 +365,8 @@ internal static class MoneyFigures
                 others,
                 costing.Total,
                 plant.Each,
-                plant.LostValue,
+                // With the cost known and nothing lost, what lost plants had cost is nothing, not unknown.
+                plant.LostValue ?? (costing.Total is not null && plant.Lost == 0 ? Zero : null),
                 takings.InvoiceTakings,
                 takings.TrayTakings,
                 takings.Total,
@@ -352,7 +375,7 @@ internal static class MoneyFigures
     }
 
     /// <param name="Complete">No batch is waiting for an answer, so the cost and profit are whole.</param>
-    internal sealed record MoneyTotals(MoneyPair Taken, MoneyPair Spent, MoneyPair Made, MoneyPair Lost, bool Complete);
+    internal sealed record MoneyTotals(MoneyPair Taken, MoneyPair? Spent, MoneyPair? Made, MoneyPair? Lost, bool Complete);
 
     /// <param name="Unbatched">Sold on invoices without saying which batch: in the takings, but not in any batch's.</param>
     /// <param name="Cost">What its batches with a known cost cost; "so far" when <paramref name="Complete"/> is false.</param>

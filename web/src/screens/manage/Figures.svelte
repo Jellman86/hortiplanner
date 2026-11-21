@@ -13,6 +13,9 @@
   let { onBack, onCosts }: { onBack: () => void; onCosts: () => void } =
     $props();
 
+  // Beneath "How the plants are growing" while the money figures sit above it, so headings stay in order.
+  const sub = $derived(isOn("Costs") ? "h3" : "h2");
+
   type PlantFigures = Schemas["PlantFigures"];
   type GroupFigures = Schemas["GroupFigures"];
 
@@ -162,7 +165,7 @@
       <div class="figure-grid">
         {#if figures.losses.length > 0}
           <section class="card">
-            <h2>Losses by reason</h2>
+            <svelte:element this={sub}>Losses by reason</svelte:element>
             <BarList
               caption="Plants lost, by reason"
               series={3}
@@ -180,7 +183,7 @@
 
         {#each breakdowns as item (item.title)}
           <section class="card">
-            <h2>{item.title}</h2>
+            <svelte:element this={sub}>{item.title}</svelte:element>
             <BarList
               caption={item.title}
               max={100}
@@ -203,7 +206,7 @@
 
       <!-- On a phone the charts come first, then each plant's figures. -->
       <div class="narrow-only stack">
-        <h2>Each plant</h2>
+        <svelte:element this={sub}>Each plant</svelte:element>
         <div class="card-grid">
           {#each figures.plants as plant (plant.plantId)}
             <section class="card stack tight">

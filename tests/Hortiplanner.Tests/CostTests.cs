@@ -1288,6 +1288,7 @@ public sealed class CostTests(PostgresFixture database)
         Assert.Equal((3m, 2.50m), Rounded(plant.GetProperty("cost")));
         Assert.Equal((25m, 25.50m), Rounded(plant.GetProperty("profit")));
         Assert.Equal((0.15m, 0.12m), Rounded(plant.GetProperty("each")));
+        Assert.Equal((0m, 0m), Rounded(plant.GetProperty("lostValue")));
 
         var unanswered = PlantNamed(money, rosemary);
         Assert.False(unanswered.GetProperty("complete").GetBoolean());
@@ -1357,10 +1358,13 @@ public sealed class CostTests(PostgresFixture database)
         Assert.Equal("3.00", lavender[Array.IndexOf(header, "Seed or plants with VAT")]);
         Assert.Equal("2.50", lavender[Array.IndexOf(header, "Seed or plants before VAT")]);
         Assert.Equal("15.00", lavender[Array.IndexOf(header, "Profit")]);
+        Assert.Equal("0.00", lavender[Array.IndexOf(header, "Pots and compost with VAT")]);
+        Assert.Equal("0.00", lavender[Array.IndexOf(header, "Lost plants had cost with VAT")]);
         Assert.Equal("With VAT", lavender[^1]);
         var rosemary = lines.Single(line => line.Contains(",Rosemary,", StringComparison.Ordinal)).Split(',');
         Assert.Equal("No answer yet", rosemary[Array.IndexOf(header, "Cost known")]);
         Assert.Equal("", rosemary[Array.IndexOf(header, "Total cost with VAT")]);
+        Assert.Equal("", rosemary[Array.IndexOf(header, "Pots and compost with VAT")]);
         Assert.Equal("", rosemary[^1]);
     }
 
@@ -1379,5 +1383,53 @@ public sealed class CostTests(PostgresFixture database)
 
         Assert.Equal(HttpStatusCode.NotFound, await GetStatusAsync(nursery.Owner, "/api/figures/money"));
         Assert.Equal(HttpStatusCode.NotFound, await GetStatusAsync(nursery.Owner, "/api/figures/money.csv"));
+    }
+
+    private static async Task<(Guid Batch, Guid Start)> SowPlantAsync(TwoPersonNursery nursery, Guid plant, int quantity, decimal? cost, string? sownAs = null)
+    {
+        var start = Guid.NewGuid();
+        var started = Json(await PostForTextAsync(nursery.Staff, "/api/batches", new { eventId = start, occurredAt = DateTimeOffset.UtcNow.AddMinutes(-5), plantId = plant, quantity, source = "SeedLot", originCountry = "GB", containerKind = "Tray", costAmount = cost, sownAs }));
+        return (started.GetProperty("batchId").GetGuid(), start);
+    }
+
+    [Fact]
+    public async Task A_batch_whose_start_was_undone_is_left_out_of_the_money_figures()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var lavender = await AddPlantAsync(nursery.Owner);
+        await SowPlantAsync(nursery, lavender, 20, 3m);
+        var (_, mistake) = await SowPlantAsync(nursery, lavender, 10, null);
+        await CorrectAsync(nursery.Staff, mistake);
+
+        var money = await MoneyAsync(nursery.Owner);
+        Assert.Equal(0, money.GetProperty("unanswered").GetInt32());
+        Assert.True(money.GetProperty("totals").GetProperty("complete").GetBoolean());
+        Assert.Equal(1, PlantNamed(money, lavender).GetProperty("batches").GetInt32());
+    }
+
+    [Fact]
+    public async Task A_tray_not_counted_yet_is_left_out_of_the_cost_for_each_plant_but_not_the_cost()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var lavender = await AddPlantAsync(nursery.Owner);
+        await SowPlantAsync(nursery, lavender, 20, 10m);
+        await SowPlantAsync(nursery, lavender, 0, 5m, "Unknown");
+
+        var plant = PlantNamed(await MoneyAsync(nursery.Owner), lavender);
+        Assert.Equal((15m, 12.50m), Rounded(plant.GetProperty("cost")));
+        Assert.Equal((0.50m, 0.42m), Rounded(plant.GetProperty("each")));
+    }
+
+    [Fact]
+    public async Task With_no_cost_known_what_was_spent_made_and_lost_is_not_known_rather_than_nothing()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var rosemary = await AddPlantAsync(nursery.Owner, "Rosemary");
+        await SowPlantAsync(nursery, rosemary, 20, null);
+
+        var totals = (await MoneyAsync(nursery.Owner)).GetProperty("totals");
+        Assert.Equal(JsonValueKind.Null, totals.GetProperty("spent").ValueKind);
+        Assert.Equal(JsonValueKind.Null, totals.GetProperty("made").ValueKind);
+        Assert.Equal(JsonValueKind.Null, totals.GetProperty("lost").ValueKind);
     }
 }

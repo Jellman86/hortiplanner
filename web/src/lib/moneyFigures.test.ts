@@ -3,6 +3,7 @@ import {
   comparedWords,
   costCell,
   costOrder,
+  emptySentence,
   figureCell,
   notKnownSentence,
   tillSentence,
@@ -107,8 +108,32 @@ describe("money figures", () => {
     );
     expect(tiles(incomplete)[2]).toMatchObject({
       amount: "£5.39",
-      words: "lost so far overall",
+      words: "more spent than taken so far",
     });
+
+    const nothingKnown = figures({
+      totals: { ...figures().totals, spent: null, made: null, lost: null },
+    });
+    expect(tiles(nothingKnown).slice(1)).toEqual([
+      {
+        key: "spent",
+        amount: "",
+        words: "What was spent on what went into them isn't known yet.",
+        compare: "",
+      },
+      {
+        key: "made",
+        amount: "",
+        words: "What was made isn't known yet.",
+        compare: "",
+      },
+      {
+        key: "lost",
+        amount: "",
+        words: "What went on plants that were lost isn't known yet.",
+        compare: "",
+      },
+    ]);
   });
 
   it("counts batches with no answer and batches not known", () => {
@@ -119,33 +144,45 @@ describe("money figures", () => {
       "1 batch has no cost yet, so the figures for its plant are incomplete.",
     );
     expect(notKnownSentence(3)).toBe(
-      "3 batches are left out because nobody knows what they cost.",
+      "3 batches are left out of the cost and profit because nobody knows what they cost. What they took is still counted.",
     );
     expect(notKnownSentence(1)).toBe(
-      "1 batch is left out because nobody knows what it cost.",
+      "1 batch is left out of the cost and profit because nobody knows what it cost. What it took is still counted.",
     );
   });
 
-  it("sets the till beside sales from trays without saying one is inside the other", () => {
-    const till = figures().till;
-    expect(tillSentence(till, "ThisYear", "WithVat")).toBe(
+  it("says when nothing was started in the time chosen", () => {
+    expect(emptySentence("ThisYear")).toBe(
+      "No batches have been started this year yet.",
+    );
+    expect(emptySentence("LastYear")).toBe(
+      "No batches were started last year.",
+    );
+    expect(emptySentence("All")).toBe(
+      "Nothing has a cost or a sale recorded yet.",
+    );
+  });
+
+  it("sets the till beside sales from trays without saying one is inside the other, always with VAT", () => {
+    const till = { taken: 2410, fromTrays: pair(1630, 1358.33) };
+    expect(tillSentence(till, "ThisYear")).toBe(
       "The till took £2,410.00 this year. Sales recorded from trays came to £1,630.00 in the same time.",
     );
-    expect(tillSentence(till, "LastYear", "WithVat")).toBe(
+    expect(tillSentence(till, "LastYear")).toBe(
       "The till took £2,410.00 last year. Sales recorded from trays came to £1,630.00 in the same time.",
     );
-    expect(tillSentence(till, "All", "WithVat")).toBe(
-      "The till has taken £2,410.00 altogether. Sales recorded from trays came to £1,630.00 in the same time.",
+    expect(tillSentence(till, "All")).toBe(
+      "The till has taken £2,410.00 altogether, and sales recorded from trays have come to £1,630.00.",
     );
   });
 
   it("names takings sold without saying which batch", () => {
     const sold = plant({ unbatched: pair(84, 84) });
     expect(unbatchedSentence(sold, "WithVat")).toBe(
-      "£84.00 of this was sold without saying which batch, so it's in the plant's takings but not in any batch's.",
+      "£84.00 of these takings is from plants sold without saying which batch, so it's in the plant's takings but not in any batch's.",
     );
     expect(unbatchedNote(sold, "WithVat")).toBe(
-      "Lavender 'Hidcote': £84.00 of this was sold without saying which batch, so it's in the plant's takings but not in any batch's.",
+      "£84.00 of the takings for Lavender 'Hidcote' is from plants sold without saying which batch, so it's in the plant's takings but not in any batch's.",
     );
     expect(unbatchedSentence(plant(), "WithVat")).toBe("");
   });

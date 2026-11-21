@@ -112,7 +112,7 @@ test("the owner sees what the plants cost and made, and goes on to fill in the c
   ).toBeVisible();
   await expect(
     page.getByText(
-      "3 batches are left out because nobody knows what they cost.",
+      "3 batches are left out of the cost and profit because nobody knows what they cost. What they took is still counted.",
     ),
   ).toBeVisible();
   await expect(
@@ -129,7 +129,7 @@ test("the owner sees what the plants cost and made, and goes on to fill in the c
   await expect(card.getByText("Not known yet")).toBeVisible();
   await expect(
     card.getByText(
-      "£84.00 of this was sold without saying which batch, so it's in the plant's takings but not in any batch's.",
+      "£84.00 of these takings is from plants sold without saying which batch, so it's in the plant's takings but not in any batch's.",
     ),
   ).toBeVisible();
   await expectAccessible(page, "Figures, money");
@@ -198,7 +198,7 @@ test("on a desk the plants are a table with the cost that counts in bold", async
   ).toBeVisible();
   await expect(
     page.getByText(
-      "Lavender 'Hidcote': £84.00 of this was sold without saying which batch",
+      "£84.00 of the takings for Lavender 'Hidcote' is from plants sold without saying which batch",
       { exact: false },
     ),
   ).toBeVisible();
