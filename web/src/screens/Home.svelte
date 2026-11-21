@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AccountMenu from "./AccountMenu.svelte";
   import { stopTune } from "../lib/tune";
   import { isOn, loadFeatures, watchFeatures } from "../lib/features.svelte";
   import CircleCheck from "@lucide/svelte/icons/circle-check";
@@ -56,7 +57,6 @@
   import Breadcrumbs from "./Breadcrumbs.svelte";
   import {
     applyTheme,
-    nextTheme,
     savedCollapsed,
     savedTheme,
     saveCollapsed,
@@ -1103,14 +1103,11 @@
     <Sidebar
       {me}
       {collapsed}
-      {theme}
       current={currentHub}
       onHome={goHome}
       onHub={(hub: Hub) => openPage(firstPage(hub, me.isOwner))}
       onToggleCollapsed={toggleCollapsed}
-      onCycleTheme={() => setTheme(nextTheme(theme))}
       onSettings={() => (view = { name: "settings", page: null })}
-      onFinished={signOut}
     />
     <div class="content">
       <!-- The bar along the top of every screen: fixed, so nothing scrolled beneath it is covered by its buttons. -->
@@ -1148,6 +1145,13 @@
                 data-count={badgeText(allNeeds.length)}
               ></span>{/if}
           </button>
+          <AccountMenu
+            {me}
+            {theme}
+            onAccount={() => (view = { name: "settings", page: "account" })}
+            onTheme={setTheme}
+            onFinished={signOut}
+          />
         </div>
       </header>
       <!-- Polite, and not a status message, so it doesn't stand in for a screen's own "saved" message. -->

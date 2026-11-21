@@ -66,7 +66,7 @@ test("your picture stays after leaving My account", async ({ page }) => {
   await expect(
     page.getByRole("button", { name: "Remove your picture" }),
   ).toBeVisible();
-  await expect(page.locator(".sidebar-foot img.avatar")).toBeVisible();
+  await expect(page.locator(".topbar-person img.avatar")).toBeVisible();
 
   // Away and back again: still the new picture, not the old state.
   await page.getByRole("button", { name: "Record work", exact: true }).click();
@@ -83,5 +83,5 @@ test("your picture stays after leaving My account", async ({ page }) => {
   await expect(page.getByRole("status")).toContainText(
     "Your picture has been removed.",
   );
-  await expect(page.locator(".sidebar-foot img.avatar")).toHaveCount(0);
+  await expect(page.locator(".topbar-person img.avatar")).toHaveCount(0);
 });

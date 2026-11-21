@@ -472,7 +472,20 @@ test("the owner sets up the nursery and staff can sign in", async ({
   // Hortiplanner is light until someone chooses dark, or to follow the device.
   const root = page.locator("html");
   await expect(root).toHaveAttribute("data-theme", "light");
-  await page.getByRole("button", { name: "Theme: Light" }).click();
+  // Their picture at the top right opens their account, how Hortiplanner looks and Sign out.
+  await page
+    .getByRole("button", { name: "Your account, signed in as Sam Fielding" })
+    .click();
+  await expect(
+    page.getByText("You're signed in as Sam Fielding."),
+  ).toBeVisible();
+  await expect(button(page, "Light")).toHaveAttribute("aria-pressed", "true");
+  await expectAccessible(page, "Your account, on a desk");
+  await button(page, "Dark").click();
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByText("You're signed in as Sam Fielding."),
+  ).toBeHidden();
   await expect(root).toHaveAttribute("data-theme", "dark");
   await sidebar.getByRole("button", { name: "Plants", exact: true }).click();
   await expect(page.getByText("Lavender 'Munstead'")).toBeVisible();
