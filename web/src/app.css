@@ -1139,7 +1139,7 @@ button.place-row:hover:not(:disabled) {
 
   .with-sidebar .label-preview {
     position: sticky;
-    top: 1rem;
+    top: calc(var(--topbar-height) + 1rem);
   }
 }
 
@@ -1889,28 +1889,54 @@ label.tick {
 :root:has(.with-sidebar) {
   font-size: 17px;
   --target: 3rem;
+  /* The bar along the top, which everything scrolled to or focused stops below. */
+  --topbar-height: 3.5rem;
+  --sidebar-width: 0px;
+  scroll-padding-top: calc(var(--topbar-height) + 1rem);
 }
 
-/* On a phone, what's scrolled to or focused stops below the sticky bar at the top, never under it. */
-@media (max-width: 899px) {
-  :root:has(.with-sidebar) {
-    scroll-padding-top: 4.5rem;
-  }
-}
-
+/* The bar along the top of every screen: fixed, so it stays put while the page scrolls beneath it, like the bar
+   along the bottom of a phone. The page is padded by its height, so nothing starts underneath it. */
 .with-sidebar .topbar {
-  position: sticky;
+  position: fixed;
   top: 0;
+  right: 0;
+  left: var(--sidebar-width);
   z-index: 5;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 1rem;
+  box-sizing: border-box;
+  height: calc(var(--topbar-height) + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 1rem 0;
   background: var(--sidebar);
   color: var(--sidebar-text);
   font-family: var(--heading);
   font-size: 1.15rem;
   font-weight: 700;
+  --topbar-ring: var(--sidebar);
+}
+
+.with-sidebar .content {
+  padding-top: calc(var(--topbar-height) + env(safe-area-inset-top));
+}
+
+.topbar-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
+/* Words beside an icon in the bar, shown on a desk only; the button's name says them on a phone. */
+.topbar-words {
+  display: none;
+}
+
+@media (max-width: 339px) {
+  .topbar-name {
+    display: none;
+  }
 }
 
 .with-sidebar .bottom-nav {
@@ -1967,18 +1993,42 @@ label.tick {
     --target: 2.6rem;
   }
 
+  :root:has(.with-sidebar) {
+    --topbar-height: 3.25rem;
+    --sidebar-width: 15rem;
+  }
+
+  :root:has(.with-sidebar.collapsed) {
+    --sidebar-width: 4.25rem;
+  }
+
   .with-sidebar {
     display: grid;
-    grid-template-columns: 15rem minmax(0, 1fr);
+    grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
     min-height: 100vh;
     transition: grid-template-columns 0.15s ease;
   }
 
-  .with-sidebar.collapsed {
-    grid-template-columns: 4.25rem minmax(0, 1fr);
+  /* On a desk the bar is quiet: the page's own colour with a hairline beneath, so it isn't a second sidebar. The
+     logo and name are in the sidebar already. */
+  .with-sidebar .topbar {
+    border-bottom: 1px solid var(--line);
+    background: var(--background);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 1rem;
+    transition: left 0.15s ease;
+    --topbar-ring: var(--background);
   }
 
-  .with-sidebar .topbar,
+  .with-sidebar .topbar-brand-text {
+    display: none;
+  }
+
+  .topbar-words {
+    display: inline;
+  }
+
   .with-sidebar .bottom-nav,
   .with-sidebar .mobile-only,
   .with-sidebar .panel-toggle {
@@ -2132,7 +2182,7 @@ label.tick {
 
   .with-sidebar .tray-actions {
     position: sticky;
-    top: 1.5rem;
+    top: calc(var(--topbar-height) + 1.5rem);
   }
 
   .with-sidebar .plant-layout {
@@ -2148,7 +2198,7 @@ label.tick {
 
   .with-sidebar .plant-side {
     position: sticky;
-    top: 1.5rem;
+    top: calc(var(--topbar-height) + 1.5rem);
   }
 
   .with-sidebar .note-form button {
@@ -2278,11 +2328,11 @@ button.danger:hover:not(:disabled) {
 
   .with-sidebar .settings-nav {
     position: sticky;
-    top: 0;
+    top: var(--topbar-height);
     display: flex;
     flex-direction: column;
     gap: 0.1rem;
-    max-height: 100vh;
+    max-height: calc(100vh - var(--topbar-height));
     padding: 2rem 0.75rem 2rem 1.25rem;
     overflow-y: auto;
     border-right: 1px solid var(--line);
@@ -2420,12 +2470,12 @@ button.danger:hover:not(:disabled) {
 
   .place-map-canvas {
     position: sticky;
-    top: 1.5rem;
-    height: calc(100vh - 9rem);
+    top: calc(var(--topbar-height, 0px) + 1.5rem);
+    height: calc(100vh - 9rem - var(--topbar-height, 0px));
   }
 
   .place-map-panel {
-    max-height: calc(100vh - 9rem);
+    max-height: calc(100vh - 9rem - var(--topbar-height, 0px));
     overflow-y: auto;
   }
 }
@@ -2524,6 +2574,7 @@ button.danger:hover:not(:disabled) {
 @media print {
   .sidebar,
   .bottom-nav,
+  .topbar,
   .no-print {
     display: none !important;
   }
@@ -3594,7 +3645,7 @@ button.production-row.chosen:hover:not(:disabled) {
 
   .with-sidebar .ask-side {
     position: sticky;
-    top: 1.5rem;
+    top: calc(var(--topbar-height) + 1.5rem);
     display: flex;
     flex-direction: column;
     gap: 1rem;
@@ -4874,7 +4925,7 @@ button.link-button.ftree-leaf {
 
   .read-label-photo {
     position: sticky;
-    top: 1rem;
+    top: calc(var(--topbar-height, 0px) + 1rem);
   }
 }
 
@@ -5211,26 +5262,26 @@ button.link-button.ftree-leaf {
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 26rem), 1fr));
 }
 
-/* The bell for what needs a look: in the phone's header and the desk's sidebar, with a number on its corner when
-   there's something. The number is never the only sign: the button's name says it too. */
-.topbar-bell,
-.topbar-bell:hover:not(:disabled) {
+/* The bell for what needs a look, and Ask Hortiplanner, at the right of the bar along the top, with a number on
+   the bell's corner when there's something. The number is never the only sign: the button's name says it too. */
+.topbar-tools button,
+.topbar-tools button:hover:not(:disabled) {
   position: relative;
-  /* The full target size without making the sticky header taller. */
-  margin-block: -0.5rem;
-  margin-left: auto;
+  gap: 0.4rem;
   border-color: transparent;
   background: transparent;
-  color: var(--sidebar-text);
+  box-shadow: none;
+  color: inherit;
 }
 
-.topbar-bell:focus-visible {
-  outline-color: var(--sidebar-text);
+.topbar-tools button:focus-visible {
+  outline-color: currentcolor;
 }
 
-.topbar-bell[aria-current="page"] {
-  border-color: var(--sidebar-line);
-  background: var(--sidebar-hover);
+.topbar-tools button:hover:not(:disabled),
+.topbar-tools button[aria-current="page"] {
+  border-color: color-mix(in srgb, currentcolor 30%, transparent);
+  background: color-mix(in srgb, currentcolor 10%, transparent);
 }
 
 .needs-icon {
@@ -5266,6 +5317,7 @@ button.link-button.ftree-leaf {
 .topbar-bell .bell-badge {
   top: 0.2rem;
   right: 0.15rem;
+  box-shadow: 0 0 0 2px var(--topbar-ring, var(--sidebar));
 }
 
 /* The list itself: one card for each kind of thing, side by side on a desk. */

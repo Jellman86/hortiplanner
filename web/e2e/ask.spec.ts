@@ -2,7 +2,7 @@ import { type Page } from "@playwright/test";
 import { expectAccessible } from "./accessibility";
 import { expect, test } from "./fixtures";
 
-// Ask Hortiplanner against a pretend server: offered on Record and in the sidebar, answers shown as plain text with the
+// Ask Hortiplanner against a pretend server: offered on Record and in the bar along the top, answers shown as plain text with the
 // records they looked at, and a desk using its width for them.
 async function pretend(page: Page, asked: unknown[]) {
   await page.route("**/api/**", async (route) => {
@@ -55,7 +55,8 @@ test("Ask Hortiplanner answers on a phone, and lays out on a desk", async ({
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
 
-  await page.getByRole("button", { name: /Ask Hortiplanner/ }).click();
+  // The card on Record work; the bar along the top has its own button too.
+  await page.locator("button.ask-card").click();
   await expect(
     page.getByRole("heading", { name: "Ask Hortiplanner" }),
   ).toBeVisible();

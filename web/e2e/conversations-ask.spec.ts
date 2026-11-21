@@ -136,7 +136,10 @@ test("conversations are kept, carried on, renamed, reopened and deleted on a pho
   });
 
   await page.goto("/");
-  await page.getByRole("button", { name: /Ask Hortiplanner/ }).click();
+  await page
+    .locator(".topbar")
+    .getByRole("button", { name: "Ask Hortiplanner" })
+    .click();
 
   // Told once that conversations are now kept.
   await expect(

@@ -1052,7 +1052,6 @@
             : null}
       onHome={goHome}
       onNewBatch={() => (view = { name: "start" })}
-      onAsk={assistant.canAsk ? () => (view = { name: "ask" }) : undefined}
       onSection={(section) => (view = { name: "manage", section })}
       onToggleCollapsed={toggleCollapsed}
       onCycleTheme={() => setTheme(nextTheme(theme))}
@@ -1060,28 +1059,45 @@
       onProduction={() => (view = { name: "production" })}
       onPlants={() => (view = { name: "plants" })}
       onFinished={signOut}
-      needsCount={allNeeds.length}
-      onNeeds={() => (view = { name: "needs" })}
     />
     <div class="content">
-      <div class="topbar" bind:this={topbar}>
-        <!-- On a phone, Record in the bar at the bottom goes back to Record work. -->
-        <img src="/logo-96.png" alt="" width="32" height="32" />
-        Hortiplanner
-        <button
-          class="icon-button topbar-bell"
-          aria-label={bellName(allNeeds.length)}
-          aria-current={view.name === "needs" ? "page" : undefined}
-          onclick={() => (view = { name: "needs" })}
-        >
-          <Bell size={22} aria-hidden="true" />
-          {#if allNeeds.length > 0}<span
-              class="bell-badge"
-              aria-hidden="true"
-              data-count={badgeText(allNeeds.length)}
-            ></span>{/if}
-        </button>
-      </div>
+      <!-- The bar along the top of every screen: fixed, so nothing scrolled beneath it is covered by its buttons. -->
+      <header class="topbar" bind:this={topbar}>
+        <span class="topbar-brand-text">
+          <!-- On a phone, Record in the bar at the bottom goes back to Record work. -->
+          <img src="/logo-96.png" alt="" width="32" height="32" />
+          <span class="topbar-name">Hortiplanner</span>
+        </span>
+        <div class="topbar-tools">
+          {#if assistant.canAsk}
+            <button
+              class="icon-button"
+              aria-label="Ask Hortiplanner"
+              title="Ask Hortiplanner"
+              aria-current={view.name === "ask" ? "page" : undefined}
+              onclick={() => (view = { name: "ask" })}
+            >
+              <Sparkles size={20} aria-hidden="true" /><span
+                class="topbar-words">Ask Hortiplanner</span
+              >
+            </button>
+          {/if}
+          <button
+            class="icon-button topbar-bell"
+            aria-label={bellName(allNeeds.length)}
+            title={bellName(allNeeds.length)}
+            aria-current={view.name === "needs" ? "page" : undefined}
+            onclick={() => (view = { name: "needs" })}
+          >
+            <Bell size={22} aria-hidden="true" />
+            {#if allNeeds.length > 0}<span
+                class="bell-badge"
+                aria-hidden="true"
+                data-count={badgeText(allNeeds.length)}
+              ></span>{/if}
+          </button>
+        </div>
+      </header>
       <!-- Polite, and not a status message, so it doesn't stand in for a screen's own "saved" message. -->
       <p
         class="visually-hidden needs-said"
