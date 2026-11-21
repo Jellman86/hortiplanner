@@ -181,8 +181,17 @@ export function isRecorded(
   return outcome.kind === "stored" || outcome.kind === "queued";
 }
 
+/**
+ * Whether a piece of work can be undone from Record or a tray: not an invoice's sale, which a credit note reverses,
+ * and not an examination for a plant passport. A sale recorded from a tray can be.
+ */
+export function canUndo(type: string, details: unknown): boolean {
+  const said = details as { sale?: string; forPassport?: boolean } | null;
+  return (type !== "Sold" || said?.sale === "tray") && !said?.forPassport;
+}
+
 /** Plain words for an outcome that didn't record anything. */
-export function outcomeProblem(outcome: Outcome): string {
+export function outcomeProblem(outcome: Outcome, url = ""): string {
   switch (outcome.kind) {
     case "stored":
     case "queued":
@@ -204,6 +213,9 @@ export function outcomeProblem(outcome: Outcome): string {
         case "OnSite":
           return "That would leave a tray on a site, and trays can't stand on a site. Move it to a greenhouse, bench or bed first.";
         case "NotCounted":
+          if (url.endsWith("/sold")) {
+            return "This tray hasn't been counted yet, so please count it before recording a sale.";
+          }
           return "Nobody has counted this tray yet. Open it again and say how many you took and how many are left.";
         case "NowCounted":
           return "Someone has counted this tray since. Open it again and say how many were lost.";

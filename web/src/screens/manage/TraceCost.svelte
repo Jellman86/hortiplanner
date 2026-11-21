@@ -51,10 +51,6 @@
       {#each perPlantSentences(costing) as sentence, index (index)}
         <p>{sentence}</p>
       {/each}
-      {#each takingsSentences(costing) as sentence, index (index)}
-        <p>{sentence}</p>
-      {/each}
-      {#if soFarSentence(costing)}<p>{soFarSentence(costing)}</p>{/if}
     {:else if costing.material.state === "NotKnown"}
       <p class="muted">
         You said nobody knows what the {materialWord(costing.source)} cost, so this
@@ -66,5 +62,10 @@
         no total. You can add it in Costs to fill in, under Manage.
       </p>
     {/if}
+    <!-- What it took is said whether or not its cost is known. -->
+    {#each takingsSentences(costing) as sentence, index (index)}
+      <p>{sentence}</p>
+    {/each}
+    {#if soFarSentence(costing)}<p>{soFarSentence(costing)}</p>{/if}
   {/if}
 </section>

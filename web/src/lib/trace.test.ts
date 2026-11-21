@@ -43,6 +43,14 @@ describe("describeStep", () => {
       ),
     ).toBe("4 lost (Frost)");
     expect(describeStep(step("Sold", { quantity: -20 }))).toBe("20 sold");
+    expect(
+      describeStep(
+        step("Sold", {
+          quantity: -3,
+          details: { sale: "tray", priceEach: 4.5, vatRate: 0 },
+        }),
+      ),
+    ).toBe("3 sold from the tray");
   });
 
   it("gives a treatment's product, dose and area when they were recorded", () => {

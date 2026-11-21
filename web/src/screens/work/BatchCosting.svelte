@@ -639,9 +639,9 @@
     {/if}
 
     <p class="muted">
-      These figures count what went into the plants: the {what}, pots and
-      compost, and anything else added here, and what the plants were sold for.
-      They leave out wages, heating and rent.
+      The costs are what went into the plants: the {what}, pots and compost, and
+      anything else added here. The takings are what the plants were sold for.
+      Wages, heating and rent are left out.
     </p>
   {/if}
 

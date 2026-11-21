@@ -44,6 +44,7 @@
     type TrayAction,
   } from "../../lib/tray";
   import {
+    canUndo,
     isRecorded,
     outcomeProblem,
     plantName,
@@ -567,7 +568,7 @@
                     ? `, ${entry.recordedBy}`
                     : ""}{entry.undone ? " · undone" : ""}
                 </span>
-                {#if !entry.undone && entry.type !== "Sold" && !(entry.details as { forPassport?: boolean } | null)?.forPassport}
+                {#if !entry.undone && canUndo(entry.type, entry.details)}
                   <button
                     class="link-button"
                     disabled={busy}

@@ -710,7 +710,7 @@ test("plants sold from a ready tray are recorded with the price from the plant l
   const price = page.getByLabel("Price for each one (£)");
   await expect(price).toHaveValue("4.50");
   await expect(price).toHaveAccessibleDescription(
-    "This is the price on the plant list for 9cm pots. Change it if they went for something different.",
+    "This is the price on the plant list for 9cm. Change it if they went for something different.",
   );
   await expect(
     page.getByText(
@@ -727,4 +727,107 @@ test("plants sold from a ready tray are recorded with the price from the plant l
     "Recorded 3 Foxglove as sold.",
   );
   expect(sent).toMatchObject([{ quantity: 3, priceEach: 4 }]);
+});
+
+test("a sale with no price can be undone, waits without a signal, and a tray not counted is counted first", async ({
+  page,
+}) => {
+  const sent: Record<string, unknown>[] = [];
+  const undone: string[] = [];
+  let online = true;
+  let notCounted = false;
+
+  await page.route("**/api/**", async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+
+    if (path.endsWith("/sold") && request.method() === "POST") {
+      if (!online) {
+        await route.abort("internetdisconnected");
+        return;
+      }
+
+      sent.push(request.postDataJSON());
+      await route.fulfill({
+        status: 201,
+        json: {
+          eventId: (request.postDataJSON() as { eventId: string }).eventId,
+        },
+      });
+      return;
+    }
+
+    if (path.endsWith("/correct") && request.method() === "POST") {
+      undone.push(path);
+      await route.fulfill({ status: 201, json: { eventId: "x" } });
+      return;
+    }
+
+    const data: Record<string, unknown> = {
+      "/api/account/me": {
+        id: "staff",
+        name: "Alex Moss",
+        isOwner: false,
+        isTeam: false,
+      },
+      "/api/bench/people": null,
+      "/api/containers/by-label/C000001": {
+        ...tray(false),
+        stage: "Ready",
+        potSizeId: null,
+        potSizeName: null,
+        contents: [
+          {
+            ...tray(false).contents[0],
+            quantity: notCounted ? 0 : 12,
+            notCounted,
+          },
+        ],
+      },
+    };
+    await route.fulfill({ json: Object.hasOwn(data, path) ? data[path] : [] });
+  });
+
+  // With no pot size, there's no price to fill in, and none is needed.
+  await openTray(page);
+  await page.getByRole("button", { name: "Sold", exact: true }).first().click();
+  const price = page.getByLabel("Price for each one (£)");
+  await expect(price).toHaveValue("");
+  await expect(price).toHaveAccessibleDescription(
+    /^This tray has no pot size, so there's no price to fill in from the plant list\./,
+  );
+  await expect(
+    page.getByText("The day's till total still goes in under Money."),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Record the sale" }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "Recorded 1 Foxglove as sold.",
+  );
+  expect(sent).toMatchObject([{ quantity: 1, priceEach: null }]);
+
+  // A sale from a tray can be undone.
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect.poll(() => undone.length).toBe(1);
+
+  // Without a signal it waits on the phone.
+  online = false;
+  await openTray(page);
+  await page.getByRole("button", { name: "Sold", exact: true }).first().click();
+  await page.getByRole("button", { name: "Record the sale" }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "Saved on this device for now.",
+  );
+
+  // A tray nobody has counted is counted first.
+  notCounted = true;
+  await openTray(page);
+  await page.getByRole("button", { name: "Sold", exact: true }).first().click();
+  await expect(
+    page.getByText(
+      "This tray hasn't been counted yet, so please count it before recording a sale.",
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Record the sale" }),
+  ).toHaveCount(0);
 });

@@ -459,7 +459,9 @@ export function takingsSentences(costing: Costing): string[] {
 
   if (invoiced > 0) {
     sentences.push(
-      `${invoiced === 1 ? "1 was" : `${invoiced} were`} sold on invoices for ${counted(takings.invoiceTakings, costing.counts)}.`,
+      invoiced === 1
+        ? `1 was sold on an invoice for ${counted(takings.invoiceTakings, costing.counts)}.`
+        : `${invoiced} were sold on invoices for ${counted(takings.invoiceTakings, costing.counts)}.`,
     );
   }
 
@@ -485,7 +487,8 @@ export function takingsSentences(costing: Costing): string[] {
 
 /**
  * What the batch has made so far, on the figures that count: takings less costs with VAT while the nursery isn't
- * registered, both before VAT once it is. Only when the cost is known.
+ * registered, both before VAT once it is. Only when the cost is known. The difference is worked out from the two
+ * figures as shown, so the sentence always adds up.
  */
 export function soFarSentence(costing: Costing): string {
   if (!costing.total) {
@@ -493,31 +496,49 @@ export function soFarSentence(costing: Costing): string {
   }
 
   const before = costing.counts === "BeforeVat";
-  const pick = (pair: MoneyPair) =>
-    Number(before ? pair.beforeVat : pair.withVat);
-  const taken = pick(costing.takings.total);
-  const cost = pick(costing.total);
-  const made = Math.round((taken - cost) * 100) / 100;
-  const vat = before ? ", both before VAT," : " with VAT,";
+  const pennies = (pair: MoneyPair) =>
+    Math.round(Number(before ? pair.beforeVat : pair.withVat) * 100);
+  const taken = pennies(costing.takings.total);
+  const cost = pennies(costing.total);
+  const made = taken - cost;
+  const pounds = (value: number) => money(value / 100);
   const plant = costing.perPlant;
   const left = plant.notCounted
     ? null
     : Math.max(Number(plant.alive) - Number(costing.takings.sold ?? 0), 0);
-
-  if (left === 0) {
-    return made >= 0
-      ? `This batch has finished. It took ${money(taken)} and cost ${money(cost)}${vat} so it made ${money(made)}.`
-      : `This batch has finished. It took ${money(taken)} and cost ${money(cost)}${vat} so it lost ${money(-made)}.`;
-  }
-
   const still =
-    left === null
+    left === null || left === 0
       ? ""
       : left === 1
         ? ", with 1 plant still to sell"
         : `, with ${left} plants still to sell`;
 
+  // Nothing spent and nothing taken has nothing to say.
+  if (taken === 0 && cost === 0) {
+    return "";
+  }
+
+  if (left === 0) {
+    const how =
+      made > 0
+        ? `so it made ${pounds(made)}`
+        : made < 0
+          ? `so it lost ${pounds(-made)}`
+          : "so it broke even";
+    return cost === 0
+      ? `This batch has finished. It took ${pounds(taken)} and cost nothing, ${how}.`
+      : `This batch has finished. It took ${pounds(taken)} and cost ${pounds(cost)}${before ? ", both before VAT," : " with VAT,"} ${how}.`;
+  }
+
+  if (taken === 0) {
+    return `It has cost ${pounds(cost)}${before ? " before VAT" : " with VAT"} so far${still}.`;
+  }
+
+  if (cost === 0) {
+    return `It has taken ${pounds(taken)} and cost nothing, so it has made ${pounds(made)} so far${still}.`;
+  }
+
   return made >= 0
-    ? `It has taken ${money(taken)} and cost ${money(cost)}${vat} so it has made ${money(made)} so far${still}.`
-    : `It has cost ${money(cost)} and taken ${money(taken)} so far${before ? ", both before VAT" : ""}${still}.`;
+    ? `It has taken ${pounds(taken)} and cost ${pounds(cost)}${before ? ", both before VAT," : " with VAT,"} so it has made ${pounds(made)} so far${still}.`
+    : `So far it has cost ${pounds(cost)}${before ? " and taken " + pounds(taken) + ", both before VAT" : " with VAT and taken " + pounds(taken)}${still}.`;
 }

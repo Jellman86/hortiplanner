@@ -575,11 +575,9 @@ internal static partial class WorkEndpoints
             return TypedResults.BadRequest();
         }
 
-        // Only a sale recorded from a tray is undone here. Any other is reversed where it came from: an invoice's by
-        // a credit note, so the two always agree.
-        if (original.Type == EventType.Sold && !IsTraySale(original.Payload))
+        if (original.Type == EventType.Sold && SaleRefusal(original.Payload, request) is { } refusedSale)
         {
-            return Refused("SoldByInvoice");
+            return refusedSale;
         }
 
         // A passport is issued only after an examination, so that examination stays with it.

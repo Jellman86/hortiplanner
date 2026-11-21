@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Schemas } from "./types";
 import {
+  canUndo,
   describeRecent,
   money,
   outcomeProblem,
@@ -77,6 +78,32 @@ describe("plantName", () => {
   it("adds a variety in quotes only when there is one", () => {
     expect(plantName("Lavender", "Hidcote")).toBe("Lavender 'Hidcote'");
     expect(plantName("Rosemary", null)).toBe("Rosemary");
+  });
+});
+
+describe("a sale", () => {
+  const sale = (details: Record<string, unknown>) =>
+    action({ type: "Sold", details, lines: [{ ...line, quantityChange: -3 }] });
+
+  it("says where it was recorded, and only a tray's can be undone here", () => {
+    expect(
+      describeRecent(sale({ sale: "tray", priceEach: 4.5, vatRate: 0 })),
+    ).toMatch(/^Sold 3 .+ from C000001$/);
+    expect(describeRecent(sale({}))).toMatch(/^Sold 3 .+ on an invoice$/);
+    expect(canUndo("Sold", { sale: "tray" })).toBe(true);
+    expect(canUndo("Sold", {})).toBe(false);
+    expect(canUndo("Examined", { forPassport: true })).toBe(false);
+    expect(canUndo("Lost", {})).toBe(true);
+  });
+
+  it("says a tray must be counted first in a sale's own words", () => {
+    const refused = { kind: "refused" as const, problem: "NotCounted" };
+    expect(outcomeProblem(refused, "/api/containers/c1/sold")).toBe(
+      "This tray hasn't been counted yet, so please count it before recording a sale.",
+    );
+    expect(outcomeProblem(refused, "/api/containers/c1/transfer")).toMatch(
+      /^Nobody has counted this tray yet/,
+    );
   });
 });
 

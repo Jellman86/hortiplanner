@@ -1141,6 +1141,85 @@ public sealed class CostTests(PostgresFixture database)
         Assert.Equal((39m, 39m), Rounded(takings.GetProperty("total")));
     }
 
+    private static object Sale(Guid id, Guid batch, int quantity, decimal? priceEach, DateTimeOffset at) =>
+        new { eventId = id, occurredAt = at, batchId = batch, quantity, priceEach };
+
+    [Fact]
+    public async Task A_sale_sent_late_from_a_phone_before_a_count_leaves_the_count_standing()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var now = DateTimeOffset.UtcNow;
+        var (batch, tray) = await SowAsync(nursery, 20, 3m, now.AddDays(-10));
+        await CountAsync(nursery.Staff, tray, batch, 20, now.AddDays(-2));
+
+        var late = Json(await PostForTextAsync(nursery.Staff, $"/api/containers/{tray}/sold", Sale(Guid.NewGuid(), batch, 3, 4m, now.AddDays(-4))));
+
+        Assert.True(late.GetProperty("countedSince").GetBoolean());
+        Assert.Equal(20, await HereAsync(nursery.Staff, tray));
+        var costing = await CostingAsync(nursery.Owner, batch);
+        Assert.Equal(3, costing.GetProperty("takings").GetProperty("sold").GetInt32());
+        Assert.Equal((12m, 12m), Rounded(costing.GetProperty("takings").GetProperty("total")));
+        Assert.Equal(23, costing.GetProperty("perPlant").GetProperty("alive").GetInt32());
+    }
+
+    [Fact]
+    public async Task A_resent_sale_is_stored_once_an_id_reused_is_refused_and_a_sale_is_never_renumbered()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var (batch, tray) = await SowAsync(nursery, 20, 3m, DateTimeOffset.UtcNow.AddDays(-10));
+        var id = Guid.NewGuid();
+        var at = DateTimeOffset.UtcNow.AddMinutes(-1);
+
+        Assert.Equal(HttpStatusCode.Created, await PostStatusAsync(nursery.Staff, $"/api/containers/{tray}/sold", Sale(id, batch, 2, 4m, at)));
+        Assert.Equal(HttpStatusCode.OK, await PostStatusAsync(nursery.Staff, $"/api/containers/{tray}/sold", Sale(id, batch, 2, 4m, at)));
+        Assert.Equal(HttpStatusCode.Conflict, await PostStatusAsync(nursery.Staff, $"/api/containers/{tray}/sold", Sale(id, batch, 3, 4m, at)));
+        Assert.Equal(18, await HereAsync(nursery.Staff, tray));
+
+        Assert.Equal(HttpStatusCode.BadRequest, await PostStatusAsync(nursery.Owner, $"/api/events/{id}/correct", new { eventId = Guid.NewGuid(), occurredAt = DateTimeOffset.UtcNow, quantity = 1 }));
+    }
+
+    [Fact]
+    public async Task A_credited_invoice_leaves_the_takings_and_a_registered_nurserys_takings_are_before_VAT_too()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        using (var registered = await nursery.Owner.PutAsJsonAsync(Route("/api/settings/nursery"), new { name = "Croft View", address = "1 Lane", vatNumber = "GB123456789", hasLogo = false, vatRegistered = true, paymentTermsDays = 14 }, Cancellation))
+        {
+            Assert.True(registered.IsSuccessStatusCode);
+        }
+
+        var (batch, tray) = await SowAsync(nursery, 20, 3m, DateTimeOffset.UtcNow.AddDays(-10));
+        await SellAsync(nursery.Staff, tray, batch, 2, 6m);
+        var customer = Json(await PostForTextAsync(nursery.Owner, "/api/customers", new { name = "Hilltop", address = "1 High Street" })).GetProperty("id").GetGuid();
+        var invoice = Json(await PostForTextAsync(nursery.Owner, "/api/invoices", new { customerId = customer, lines = new[] { new { description = "Lavender", quantity = 4, unitPrice = 5m, vatRate = 20m, plantId = (Guid?)null, containerId = tray, batchId = batch } } })).GetProperty("id").GetGuid();
+
+        var takings = (await CostingAsync(nursery.Owner, batch)).GetProperty("takings");
+        Assert.Equal((12m, 10m), Rounded(takings.GetProperty("trayTakings")));
+        Assert.Equal((24m, 20m), Rounded(takings.GetProperty("invoiceTakings")));
+
+        Assert.True((await PostAsync(nursery.Owner, $"/api/invoices/{invoice}/credit", new { })).IsSuccessStatusCode);
+        var credited = (await CostingAsync(nursery.Owner, batch)).GetProperty("takings");
+        Assert.Equal(0, credited.GetProperty("invoiced").GetInt32());
+        Assert.Equal((12m, 10m), Rounded(credited.GetProperty("total")));
+    }
+
+    [Fact]
+    public async Task A_sale_waiting_on_a_phone_is_taken_with_the_switch_off_and_tray_sales_leave_the_money_alone()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var (batch, tray) = await SowAsync(nursery, 20, 3m, DateTimeOffset.UtcNow.AddDays(-10));
+        var summary = await nursery.Owner.GetStringAsync(Route("/api/money/summary"), Cancellation);
+        var accounts = await nursery.Owner.GetStringAsync(Route("/api/money/export.csv"), Cancellation);
+        using (var off = await nursery.Owner.PutAsJsonAsync(Route("/api/settings/features/TraySales"), new { on = false }, Cancellation))
+        {
+            off.EnsureSuccessStatusCode();
+        }
+
+        Assert.Equal(HttpStatusCode.Created, (await SellAsync(nursery.Staff, tray, batch, 2, 4m)).Status);
+
+        Assert.Equal(summary, await nursery.Owner.GetStringAsync(Route("/api/money/summary"), Cancellation));
+        Assert.Equal(accounts, await nursery.Owner.GetStringAsync(Route("/api/money/export.csv"), Cancellation));
+    }
+
     [Fact]
     public async Task Costs_are_never_changed_or_deleted()
     {

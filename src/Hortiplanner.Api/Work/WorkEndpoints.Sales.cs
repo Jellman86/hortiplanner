@@ -22,7 +22,17 @@ internal static partial class WorkEndpoints
         return details.RootElement.TryGetProperty("sale", out var sale) && sale.ValueKind == JsonValueKind.String && string.Equals(sale.GetString(), "tray", StringComparison.Ordinal);
     }
 
-    private static async Task<IResult> RecordSaleAsync(Guid id, SaleRequest request, ClaimsPrincipal user, HortiplannerDbContext db, EventStore store, TimeProvider clock, CancellationToken cancellationToken)
+    /// <summary>
+    /// Why a sale can't be undone here, if it can't. Only one recorded from a tray is; any other is reversed where it
+    /// came from, an invoice's by a credit note, so the two always agree. A sale is undone and recorded again, never
+    /// given a new number, so its price and takings stay with it.
+    /// </summary>
+    private static IResult? SaleRefusal(string payload, CorrectRequest request) =>
+        !IsTraySale(payload) ? Refused("SoldByInvoice")
+        : request.Quantity is not null ? TypedResults.BadRequest()
+        : null;
+
+    private static async Task<IResult> RecordSaleAsync(Guid id, SaleRequest request, ClaimsPrincipal user, HortiplannerDbContext db, EventStore store, DeviceClock device, TimeProvider clock, CancellationToken cancellationToken)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         await store.LockRequestAsync(request.EventId, cancellationToken);
@@ -43,7 +53,8 @@ internal static partial class WorkEndpoints
             return Refused("NotCounted");
         }
 
-        var vatRate = await SaleVatRateAsync(request.BatchId, request.OccurredAt, db, clock, cancellationToken);
+        // The day's rate, with the time put on the server's clock first, as the sale itself will be.
+        var vatRate = await SaleVatRateAsync(request.BatchId, Costs.CostEndpoints.OnServerClock(request.OccurredAt, device, clock), db, clock, cancellationToken);
         var work = NewEvent(request.EventId, EventType.Sold, request.OccurredAt, user, id, details: new { sale = "tray", priceEach = request.PriceEach, vatRate });
         AddLine(work, id, request.BatchId, -request.Quantity);
         var result = await StoreSimpleAsync(store, work, cancellationToken);

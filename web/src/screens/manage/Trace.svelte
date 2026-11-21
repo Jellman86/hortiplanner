@@ -321,7 +321,7 @@
           {:else}
             {#if traySales.length === 0}
               <p class="note-empty muted">
-                No invoices have taken plants from this batch.
+                Nothing from this batch has been sold yet.
               </p>
             {/if}
           {/each}
@@ -333,7 +333,7 @@
               >
               <span class="muted"
                 >{momentLabel(sale.occurredAt, now)}{sale.corrected
-                  ? " · undone"
+                  ? " · corrected"
                   : ""}</span
               >
             </div>
