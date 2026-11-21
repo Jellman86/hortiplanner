@@ -631,10 +631,7 @@ test("the bell leads the owner to costs to fill in, answered one by one or all a
 
   // A list that can't be fetched says so, rather than that every batch has a cost.
   listBroken = true;
-  await page.getByRole("button", { name: "Back", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Costs to fill in", exact: true })
-    .click();
+  await page.reload();
   await expect(page.getByRole("alert")).toHaveText(
     "The list of batches couldn't be fetched just now. Please try again in a minute.",
   );

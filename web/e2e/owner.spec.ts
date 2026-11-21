@@ -442,7 +442,9 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(page.getByTestId("redirect-uri")).toBeVisible();
   await expectAccessible(page, "Signing in, desk");
   await expect(button(page, "Back")).toHaveCount(0);
-  await sidebar.getByRole("button", { name: "Record work" }).click();
+  await sidebar
+    .getByRole("button", { name: "Record work", exact: true })
+    .click();
   await expect(page.getByLabel("Scan a label")).toBeFocused();
 
   // The sidebar folds down to icons, and stays that way after a reload.

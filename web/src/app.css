@@ -980,12 +980,14 @@ button.place-row:hover:not(:disabled) {
 
 .attention li {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.5rem;
 }
 
+/* Level with the first line of what it marks, however many lines follow. */
 .attention svg {
   flex: none;
+  margin-top: 0.2rem;
   color: var(--primary);
 }
 
@@ -1889,6 +1891,13 @@ label.tick {
   --target: 3rem;
 }
 
+/* On a phone, what's scrolled to or focused stops below the sticky bar at the top, never under it. */
+@media (max-width: 899px) {
+  :root:has(.with-sidebar) {
+    scroll-padding-top: 4.5rem;
+  }
+}
+
 .with-sidebar .topbar {
   position: sticky;
   top: 0;
@@ -1998,7 +2007,8 @@ label.tick {
     color: var(--sidebar-text);
   }
 
-  .brand {
+  /* The logo and name, which take you back to Record work. */
+  .sidebar .brand {
     display: flex;
     align-items: center;
     gap: 0.6rem;
@@ -2085,7 +2095,7 @@ label.tick {
     display: block;
   }
 
-  .collapsed .brand {
+  .collapsed .sidebar .brand {
     justify-content: center;
     padding: 0;
   }
@@ -5129,6 +5139,25 @@ button.link-button.ftree-leaf {
 
 /* The bell for what needs a look: in the phone's header and the desk's sidebar, with a number on its corner when
    there's something. The number is never the only sign: the button's name says it too. */
+/* The logo and name at the top of a phone, which take you back to Record work. */
+.topbar-brand,
+.topbar-brand:hover:not(:disabled) {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-block: -0.5rem;
+  padding: 0 0.25rem;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  color: var(--sidebar-text);
+  font: inherit;
+}
+
+.topbar-brand:focus-visible {
+  outline-color: var(--sidebar-text);
+}
+
 .topbar-bell,
 .topbar-bell:hover:not(:disabled) {
   position: relative;

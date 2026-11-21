@@ -41,13 +41,18 @@
         value: byStage.get(item.stage) ?? 0,
       })),
   );
+  // The trays that have waited longest come first.
   const slow = $derived(
-    trays.filter(
-      (lines) =>
-        lines[0].stage === "Sown" &&
-        daysSince(lines[0].stageSince) >= slowToGerminateDays,
-    ),
+    trays
+      .filter(
+        (lines) =>
+          lines[0].stage === "Sown" &&
+          daysSince(lines[0].stageSince) >= slowToGerminateDays,
+      )
+      .sort((a, b) => daysSince(b[0].stageSince) - daysSince(a[0].stageSince)),
   );
+  /** How many slow trays are offered to open, so the card stays short. */
+  const slowShown = 6;
   const ready = $derived(trays.filter((lines) => lines[0].stage === "Ready"));
 
   onMount(async () => {
@@ -78,10 +83,16 @@
   <section class="stack overview" aria-label="The nursery at a glance">
     <div class="stat-tiles">
       <div class="stat-tile">
-        <strong>{totalPlants(rows)}</strong><span>plants growing</span>
+        <strong>{totalPlants(rows)}</strong><span
+          >{totalPlants(rows) === 1 ? "plant growing" : "plants growing"}</span
+        >
       </div>
       <div class="stat-tile">
-        <strong>{trays.length}</strong><span>trays and pot groups</span>
+        <strong>{trays.length}</strong><span
+          >{trays.length === 1
+            ? "tray or pot group"
+            : "trays and pot groups"}</span
+        >
       </div>
       <div class="stat-tile">
         <strong>{ready.length}</strong><span>ready</span>
@@ -106,25 +117,32 @@
         <ul class="attention">
           {#if slow.length > 0}
             <li>
-              <Clock size={18} />
-              <span>
-                {slow.length} sown {slow.length === 1
-                  ? "tray hasn't"
-                  : "trays haven't"}
-                germinated after {slowToGerminateDays} days:
-                {#each slow.slice(0, 6) as lines, index (lines[0].containerId)}
-                  {index > 0 ? ", " : ""}<button
-                    class="link-button"
-                    onclick={() => onOpen(lines[0].labelCode)}
-                    >{lines[0].labelCode}</button
-                  >
-                {/each}
-              </span>
+              <Clock size={18} aria-hidden="true" />
+              <div class="stack tight">
+                <p>
+                  {slow.length === 1
+                    ? `1 sown tray hasn't germinated after ${slowToGerminateDays} days.`
+                    : `${slow.length} sown trays haven't germinated after ${slowToGerminateDays} days.`}
+                  {#if slow.length > slowShown}
+                    Here are the {slowShown} that have waited longest.
+                  {/if}
+                </p>
+                <div class="tray-codes">
+                  {#each slow.slice(0, slowShown) as lines (lines[0].containerId)}
+                    <button
+                      class="link-button"
+                      aria-label="Open tray {lines[0].labelCode}"
+                      onclick={() => onOpen(lines[0].labelCode)}
+                      >{lines[0].labelCode}</button
+                    >
+                  {/each}
+                </div>
+              </div>
             </li>
           {/if}
           {#if ready.length > 0}
             <li>
-              <PackageCheck size={18} />
+              <PackageCheck size={18} aria-hidden="true" />
               <span
                 >{ready.length}
                 {ready.length === 1 ? "tray is" : "trays are"} ready to sell</span
@@ -133,7 +151,7 @@
           {/if}
           {#if owed > 0}
             <li>
-              <PoundSterling size={18} />
+              <PoundSterling size={18} aria-hidden="true" />
               <span>{money(owed)} is still owed to suppliers</span>
             </li>
           {/if}
@@ -155,3 +173,22 @@
     </div>
   </section>
 {/if}
+
+<style>
+  /* A row of tray codes to open, beneath what's worth a look about them. */
+  .tray-codes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .tray-codes button {
+    min-height: 2.5rem;
+    padding: 0.3rem 0.75rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stack.tight p {
+    margin: 0;
+  }
+</style>
