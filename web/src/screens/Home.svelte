@@ -591,6 +591,42 @@
   // A change the owner makes to Settings, Features reaches this device when the app comes back into view.
   onMount(watchFeatures);
 
+  // On a phone the bar at the top stays put while the page scrolls under it. Safari can scroll a field given focus
+  // right under the bar, so the page is moved just enough to show it.
+  let topbar = $state<HTMLElement>();
+
+  onMount(() => {
+    const reveal = (field: Element) => {
+      // The bar's own buttons, and anything in a dialog, which doesn't scroll with the page, are left alone.
+      if (
+        !topbar ||
+        topbar.contains(field) ||
+        field.closest("dialog") ||
+        getComputedStyle(topbar).display === "none"
+      ) {
+        return;
+      }
+
+      const covered =
+        topbar.getBoundingClientRect().bottom -
+        field.getBoundingClientRect().top;
+
+      if (covered > 0) {
+        window.scrollBy({ top: -(covered + 8) });
+      }
+    };
+    const focused = (event: FocusEvent) => {
+      if (event.target instanceof Element) {
+        const field = event.target;
+        reveal(field);
+        requestAnimationFrame(() => reveal(field));
+      }
+    };
+
+    document.addEventListener("focusin", focused);
+    return () => document.removeEventListener("focusin", focused);
+  });
+
   // What needs a look, with anything this device couldn't save first. A bench station has no bell: it's shared.
   onMount(() => (atBench ? undefined : watchNeeds()));
   const allNeeds = $derived(withRefused(needs.alerts, failed.length));
@@ -789,85 +825,89 @@
     {/key}
   {:else}
     <main>
-      <h1>Hello, {me.name}</h1>
-
-      {#if offline}
-        <p class="card notice" data-testid="offline">
-          There's no connection, so the work you record is being saved on this
-          device.
-        </p>
-      {/if}
-
-      {#if backupStopped}
-        <div class="card problem" role="alert">
-          <span
-            >{backupNeverReported
-              ? "Hortiplanner has never heard from the backups. Please check that the nursery's records are being backed up."
-              : "The backups may have stopped. The nursery's records aren't being protected until this is put right."}</span
-          >
-          <button
-            class="secondary"
-            onclick={() => (view = { name: "settings", page: "data" })}
-            >See backups</button
-          >
-        </div>
-      {/if}
-
-      {#if waiting > 0}
-        <p class="card notice" data-testid="waiting">
-          {waiting}
-          {waiting === 1 ? "thing is" : "things are"} waiting to send. Keep Hortiplanner
-          open once you're back in signal and {waiting === 1 ? "it" : "they"}'ll
-          go.
-        </p>
-      {/if}
-
-      {#each failed as item (item.eventId)}
-        <div class="card problem" role="alert">
-          <strong>This couldn't be saved: {item.description}</strong>
-          <span>{item.reason}</span>
-          <div class="row">
-            {#if item.request}
-              <button onclick={() => retry(item.eventId)}>Try again</button>
-            {/if}
-            <button class="secondary" onclick={() => dismiss(item.eventId)}
-              >Forget it</button
-            >
-          </div>
-        </div>
-      {/each}
-
-      {#if done}
-        <div class="card done" role="status">
-          <strong class="done-heading"
-            ><CircleCheck size={22} />{done.message}</strong
-          >
-          {#if done.newLabel}
-            <PrintButton
-              href="/api/labels/containers/{encodeURIComponent(done.newLabel)}"
-              label="Print label"
-              onPrinted={() => scanBox?.focus()}
-            />
-          {/if}
-          <button
-            class="secondary"
-            onclick={() => undo(done!.eventId, done!.message)}>Undo</button
-          >
-        </div>
-      {/if}
-      {#if notice}<p class="card notice" role="status">{notice}</p>{/if}
-      {#each othersWaiting as other (other.owner)}
-        <p class="card notice">
-          {other.count}
-          {other.count === 1 ? "thing" : "things"} recorded by {other.name}
-          {other.count === 1 ? "is" : "are"} waiting on this device. They'll send
-          when {other.name} signs in here.
-        </p>
-      {/each}
-      {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
-
       <div class="split home">
         <section class="fill">
+          <!-- The greeting and any messages head the first column, so both columns start level on a desk. -->
+          <h1>Hello, {me.name}</h1>
+
+          {#if offline}
+            <p class="card notice" data-testid="offline">
+              There's no connection, so the work you record is being saved on
+              this device.
+            </p>
+          {/if}
+
+          {#if backupStopped}
+            <div class="card problem" role="alert">
+              <span
+                >{backupNeverReported
+                  ? "Hortiplanner has never heard from the backups. Please check that the nursery's records are being backed up."
+                  : "The backups may have stopped. The nursery's records aren't being protected until this is put right."}</span
+              >
+              <button
+                class="secondary"
+                onclick={() => (view = { name: "settings", page: "data" })}
+                >See backups</button
+              >
+            </div>
+          {/if}
+
+          {#if waiting > 0}
+            <p class="card notice" data-testid="waiting">
+              {waiting}
+              {waiting === 1 ? "thing is" : "things are"} waiting to send. Keep Hortiplanner
+              open once you're back in signal and {waiting === 1
+                ? "it"
+                : "they"}'ll go.
+            </p>
+          {/if}
+
+          {#each failed as item (item.eventId)}
+            <div class="card problem" role="alert">
+              <strong>This couldn't be saved: {item.description}</strong>
+              <span>{item.reason}</span>
+              <div class="row">
+                {#if item.request}
+                  <button onclick={() => retry(item.eventId)}>Try again</button>
+                {/if}
+                <button class="secondary" onclick={() => dismiss(item.eventId)}
+                  >Forget it</button
+                >
+              </div>
+            </div>
+          {/each}
+
+          {#if done}
+            <div class="card done" role="status">
+              <strong class="done-heading"
+                ><CircleCheck size={22} />{done.message}</strong
+              >
+              {#if done.newLabel}
+                <PrintButton
+                  href="/api/labels/containers/{encodeURIComponent(
+                    done.newLabel,
+                  )}"
+                  label="Print label"
+                  onPrinted={() => scanBox?.focus()}
+                />
+              {/if}
+              <button
+                class="secondary"
+                onclick={() => undo(done!.eventId, done!.message)}>Undo</button
+              >
+            </div>
+          {/if}
+          {#if notice}<p class="card notice" role="status">{notice}</p>{/if}
+          {#each othersWaiting as other (other.owner)}
+            <p class="card notice">
+              {other.count}
+              {other.count === 1 ? "thing" : "things"} recorded by {other.name}
+              {other.count === 1 ? "is" : "are"} waiting on this device. They'll send
+              when {other.name} signs in here.
+            </p>
+          {/each}
+          {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+
           {#if assistant.canAsk && !atBench}
             <button class="ask-card" onclick={() => (view = { name: "ask" })}>
               <Sparkles size={22} aria-hidden="true" />
@@ -1017,7 +1057,7 @@
       onNeeds={() => (view = { name: "needs" })}
     />
     <div class="content">
-      <div class="topbar">
+      <div class="topbar" bind:this={topbar}>
         <!-- On a phone, Record in the bar at the bottom goes back to Record work. -->
         <img src="/logo-96.png" alt="" width="32" height="32" />
         Hortiplanner
