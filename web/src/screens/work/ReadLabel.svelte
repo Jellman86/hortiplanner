@@ -10,6 +10,7 @@
   import { shrinkPhoto } from "../../lib/photo";
   import { sowByWords } from "../../lib/sowBy";
   import type { Schemas } from "../../lib/types";
+  import { money } from "../../lib/work";
 
   type LabelRead = Schemas["LabelRead"];
 
@@ -72,6 +73,23 @@
         name: "Number of seeds",
         value: read.seedCount ? String(read.seedCount) : null,
       },
+      // Only while costs are kept, since it goes into the batch's cost.
+      ...(isOn("Costs")
+        ? [
+            {
+              field: "price",
+              name: "Price",
+              // What goes in as the cost, so the row and the box agree.
+              value: read.price
+                ? money(Number(read.price))
+                : read.priceAsPrinted,
+              note:
+                !read.price && read.priceAsPrinted
+                  ? "This couldn't be taken as a price in pounds, so the cost is left for you to put in."
+                  : undefined,
+            },
+          ]
+        : []),
     ].map((row) => ({
       ...row,
       unsure:
@@ -246,6 +264,9 @@
                 <dd>
                   {#if row.value}
                     <span>{row.value}</span>
+                    {#if "note" in row && row.note}
+                      <span class="read-label-unsure">{row.note}</span>
+                    {/if}
                     {#if row.unsure}
                       <span class="read-label-unsure"
                         >This wasn't clear in the photo. Please check it

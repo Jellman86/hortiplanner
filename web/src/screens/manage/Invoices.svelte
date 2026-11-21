@@ -36,6 +36,8 @@
   let standardRate = $state(20);
   let reducedRate = $state(5);
   let writing = $state(false);
+  // A new invoice waits for the nursery's VAT details, so its first line starts at the right rate.
+  let loaded = $state(false);
 
   crumbs(() => (writing ? [{ label: "New invoice" }] : []));
   let customerId = $state("");
@@ -93,6 +95,8 @@
       standardRate = Number(rates?.standard ?? 20);
       reducedRate = Number(rates?.reduced ?? 5);
     }
+
+    loaded = true;
   }
 
   onMount(() => void attempt(load, setProblem));
@@ -496,7 +500,7 @@
       </div>
     </form>
   {:else}
-    <button onclick={start}>New invoice</button>
+    <button onclick={start} disabled={!loaded}>New invoice</button>
 
     {#if invoices.length > 0}
       <div class="wide-only">

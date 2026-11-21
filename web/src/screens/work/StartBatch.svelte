@@ -30,7 +30,7 @@
   import SowByPicker from "./SowByPicker.svelte";
   import SupplierRegistrations from "./SupplierRegistrations.svelte";
   import { sowByWords } from "../../lib/sowBy";
-  import { moneyProblem, readMoney } from "../../lib/costs";
+  import { halfOf, moneyProblem, readMoney } from "../../lib/costs";
   import {
     packetShares,
     sowingChoices,
@@ -208,6 +208,8 @@
       cost = "";
       costNothing = false;
       costChecked = false;
+      // A packet's price is the seed's, never the cost of plants bought in.
+      forget("cost");
     }
 
     source = chosen;
@@ -272,6 +274,7 @@
     if (fromPhoto.packetSays) packetSays = "";
     if (fromPhoto.aboutSeeds) aboutSeeds = 200;
     if (fromPhoto.variety) variety = "";
+    if (fromPhoto.cost) cost = "";
     if (fromPhoto.supplier) {
       supplierId = "";
       newSupplier = "";
@@ -309,6 +312,11 @@
       sowBy = read.sowBy;
       marks.sowBy = true;
     }
+    // Filled in below, from the price and how much of the packet went in.
+    if (read.price && isOn("Costs")) {
+      costNothing = false;
+      marks.cost = true;
+    }
     if (keep) {
       const previous = photos.Packet;
       if (previous) {
@@ -329,6 +337,48 @@
     await tick();
     packetNote?.focus();
   }
+
+  // The packet's price, for what this batch used of it: all of it, half, or a part nobody can price.
+  const packetPrice = $derived(
+    seed && packet?.price ? Number(packet.price) : null,
+  );
+  const usedOfPacket = $derived(sownAs === "Packet" ? packetShare : null);
+  $effect(() => {
+    if (packetPrice !== null && fromPhoto.cost) {
+      cost =
+        usedOfPacket === "Half"
+          ? halfOf(packetPrice).toFixed(2)
+          : usedOfPacket === "Part"
+            ? ""
+            : packetPrice.toFixed(2);
+    }
+  });
+  // Shown while the cost is the packet's, and for part of a packet as long as there's a price to work from.
+  const packetPriceWords = $derived.by(() => {
+    if (
+      packetPrice === null ||
+      costNothing ||
+      (!fromPhoto.cost && usedOfPacket !== "Part")
+    ) {
+      return "";
+    }
+
+    const price = money(packetPrice);
+
+    switch (usedOfPacket) {
+      case "Whole":
+        return `The packet says ${price}.`;
+      case "Half":
+        return `The packet says ${price} and half of it went in, so ${money(halfOf(packetPrice))} has been put in. Change it if that isn't right.`;
+      case "Part":
+        return `The packet says ${price} and part of it went in, so put in roughly what that part cost.`;
+      default:
+        return `The packet says ${price}, so that has been put in. Change it if only some of the packet went in.`;
+    }
+  });
+  const costFromPhoto = $derived(
+    !!fromPhoto.cost && !!cost && !costNothing && packetPrice !== null,
+  );
 
   // A filled-in value changed by hand, however it was changed, is no longer "read from the photo".
   $effect(() => {
@@ -619,6 +669,7 @@
                       ? "Not added yet"
                       : money(paid),
               stage: 3,
+              field: costFromPhoto && !costProblem ? "cost" : undefined,
             },
           ]
         : []),
@@ -1111,21 +1162,28 @@
           : onePlant
             ? "What did this plant cost? (£, optional)"
             : "What did these plants cost altogether? (£, optional)"}
+        {#if costFromPhoto}{@render tag("cost")}{/if}
         <input
           bind:this={costBox}
           bind:value={cost}
+          oninput={() => forget("cost")}
           inputmode="decimal"
           autocomplete="off"
           disabled={costNothing}
-          aria-describedby={showCostProblem
-            ? "new-cost-problem new-cost-help"
-            : "new-cost-help"}
+          aria-describedby={[
+            showCostProblem ? "new-cost-problem" : "",
+            packetPriceWords ? "new-cost-packet" : "",
+            "new-cost-help",
+          ]
+            .filter(Boolean)
+            .join(" ")}
           aria-invalid={showCostProblem ? "true" : undefined}
         /></label
       >
       {#if showCostProblem}<p class="problem" id="new-cost-problem">
           {moneyProblem}
         </p>{/if}
+      {#if packetPriceWords}<p id="new-cost-packet">{packetPriceWords}</p>{/if}
       <p class="muted" id="new-cost-help">
         {seed
           ? "Put in what was paid for the seed this batch is sown from, with any VAT included, as it's printed on the packet or the receipt. If only part of a packet is sown, put in roughly that part of its price. You can leave this empty and add it later."

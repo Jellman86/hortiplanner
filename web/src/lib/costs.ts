@@ -16,6 +16,11 @@ export function readMoney(text: string): number | null {
   return match ? Number(`${match[1]}.${match[2] ?? "0"}`) : null;
 }
 
+/** Half a price, in whole pence, rounding a half penny up: £1.15 is £0.58, and £2.99 is £1.50. */
+export function halfOf(price: number): number {
+  return Math.round(Math.round(price * 100) / 2) / 100;
+}
+
 export const moneyProblem =
   "Please put the cost in as pounds and pence, such as 2.99.";
 
