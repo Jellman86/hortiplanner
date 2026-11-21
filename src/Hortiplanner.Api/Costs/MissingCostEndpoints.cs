@@ -12,6 +12,9 @@ namespace Hortiplanner.Api.Costs;
 /// </summary>
 internal static class MissingCostEndpoints
 {
+    /// <summary>More batches than a nursery would have waiting, so one request can't hold the locks for long.</summary>
+    private const int MostAtOnce = 2000;
+
     public static void MapMissingCostEndpoints(this IEndpointRouteBuilder app)
     {
         var costs = app.MapGroup("/api/costs").RequireAuthorization(AccountServices.OwnerPolicy).RequireFeature(NurseryFeature.Costs);
@@ -63,8 +66,13 @@ internal static class MissingCostEndpoints
     /// Says nobody knows what these batches cost, all in one go or not at all. A batch someone has answered in the
     /// meantime is left as they answered it.
     /// </summary>
-    private static async Task<MarkedNotKnown> NotKnownAsync(NotKnownRequest request, ClaimsPrincipal user, HortiplannerDbContext db, EventStore store, TimeProvider clock, CancellationToken cancellationToken)
+    private static async Task<IResult> NotKnownAsync(NotKnownRequest request, ClaimsPrincipal user, HortiplannerDbContext db, EventStore store, TimeProvider clock, CancellationToken cancellationToken)
     {
+        if (request.BatchIds is not { Count: <= MostAtOnce })
+        {
+            return TypedResults.BadRequest();
+        }
+
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         var ids = request.BatchIds.Distinct().Order().ToList();
 
@@ -96,14 +104,14 @@ internal static class MissingCostEndpoints
 
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
-        return new MarkedNotKnown(missing.Count);
+        return TypedResults.Ok(new MarkedNotKnown(missing.Count));
     }
 
     /// <param name="StartedAt">When its first work was recorded, if any was.</param>
     /// <param name="Trays">The trays and pots it's in now.</param>
     internal sealed record MissingCost(Guid BatchId, string TraceabilityCode, string CommonName, string? Variety, BatchSource Source, DateTimeOffset? StartedAt, IReadOnlyList<string> Trays);
 
-    internal sealed record NotKnownRequest(IReadOnlyList<Guid> BatchIds);
+    internal sealed record NotKnownRequest(IReadOnlyList<Guid>? BatchIds);
 
     internal sealed record MarkedNotKnown(int Marked);
 }

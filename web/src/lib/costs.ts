@@ -1,6 +1,6 @@
 import type { Schemas } from "./types";
 import type { WorkRequest } from "./work";
-import { money } from "./work";
+import { money, plantName } from "./work";
 
 export type Costing = Schemas["BatchCosting"];
 export type CostEntry = Schemas["CostEntry"];
@@ -239,5 +239,46 @@ export function costWork(
       eventId: crypto.randomUUID(),
       occurredAt: body.occurredAt ?? new Date().toISOString(),
     },
+  };
+}
+
+type Missing = Schemas["MissingCost"];
+
+/** "C000101", "C000101 and C000102", or "C000101, C000102 and C000103". */
+function trayList(trays: string[]): string {
+  return trays.length < 2
+    ? trays.join("")
+    : `${trays.slice(0, -1).join(", ")} and ${trays.at(-1)}`;
+}
+
+/**
+ * A batch waiting for its cost, as a short name for its card and a sentence beneath: "Lavender 'Hidcote', batch
+ * B000042" and "It was sown on 3 March and is in tray C000101."
+ */
+export function missingCostWords(
+  batch: Missing,
+  today = new Date(),
+): { name: string; detail: string } {
+  const name = `${plantName(batch.commonName, batch.variety)}, batch ${batch.traceabilityCode}`;
+  const where =
+    batch.trays.length === 0
+      ? "isn't in a tray now"
+      : `is in ${batch.trays.length === 1 ? "tray" : "trays"} ${trayList(batch.trays)}`;
+
+  if (!batch.startedAt) {
+    return {
+      name,
+      detail:
+        batch.trays.length === 0
+          ? "It isn't in a tray now."
+          : `It's in ${batch.trays.length === 1 ? "tray" : "trays"} ${trayList(batch.trays)}.`,
+    };
+  }
+
+  // Cuttings taken here are never waiting for a cost, so only seed and bought-in plants are worded.
+  const started = batch.source === "BoughtIn" ? "It arrived" : "It was sown";
+  return {
+    name,
+    detail: `${started} on ${costDay(batch.startedAt, today)} and ${where}.`,
   };
 }

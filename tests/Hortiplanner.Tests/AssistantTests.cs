@@ -446,6 +446,7 @@ public sealed class AssistantTests(PostgresFixture database)
         var plant = await AddAsync(nursery.Owner, "/api/plants", new { commonName = "Primula", xylellaHost = false, protectedVariety = false });
         await PostForTextAsync(nursery.Owner, "/api/batches", new { eventId = Guid.NewGuid(), occurredAt = DateTimeOffset.UtcNow.AddDays(-10), plantId = plant, quantity = 20, source = "SeedLot", originCountry = "GB", containerKind = "Tray" });
         clock.Advance(TimeSpan.FromDays(2));
+        Assert.Contains("BatchesNoCost", await nursery.Owner.GetStringAsync(Route("/api/alerts"), Cancellation), StringComparison.Ordinal);
 
         using var ownerAsked = await AskAsync(nursery.Owner, "What needs a look?");
         Assert.Equal(HttpStatusCode.OK, ownerAsked.StatusCode);

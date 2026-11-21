@@ -564,6 +564,40 @@ public sealed class CostTests(PostgresFixture database)
         Assert.Equal(HttpStatusCode.Forbidden, await PostStatusAsync(nursery.Staff, "/api/costs/not-known", new { batchIds = new[] { first } }));
     }
 
+    private static async Task<List<Guid>> MissingIdsAsync(HttpClient owner) =>
+        [.. (await owner.GetFromJsonAsync<JsonElement>(Route("/api/costs/missing"), Cancellation)).EnumerateArray().Select(row => row.GetProperty("batchId").GetGuid())];
+
+    [Fact]
+    public async Task A_batch_undone_at_its_start_has_nothing_to_fill_in_and_one_from_a_voided_purchase_does()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var plant = await AddPlantAsync(nursery.Owner);
+        var start = Guid.NewGuid();
+        var undone = Json(await PostForTextAsync(nursery.Staff, "/api/batches", NewBatch(plant, start))).GetProperty("batchId").GetGuid();
+        Assert.Equal(HttpStatusCode.Created, await PostStatusAsync(nursery.Staff, $"/api/events/{start}/correct", new { eventId = Guid.NewGuid(), occurredAt = DateTimeOffset.UtcNow }));
+        var (supplier, purchase, line) = await BuyAsync(nursery.Owner, 30m, 6m);
+        var (bought, _) = await StartFromAsync(nursery.Owner, plant, line, supplier, 40);
+
+        Assert.DoesNotContain(undone, await MissingIdsAsync(nursery.Owner));
+        Assert.DoesNotContain(bought, await MissingIdsAsync(nursery.Owner));
+
+        Assert.Equal(HttpStatusCode.NoContent, await PostStatusAsync(nursery.Owner, $"/api/purchases/{purchase}/void"));
+        Assert.Equal([bought], await MissingIdsAsync(nursery.Owner));
+    }
+
+    [Fact]
+    public async Task Saying_none_is_known_ignores_batches_that_need_nothing_and_refuses_no_list()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var plant = await AddPlantAsync(nursery.Owner);
+        var cuttings = Json(await PostForTextAsync(nursery.Staff, "/api/batches", NewBatch(plant, source: "Cuttings"))).GetProperty("batchId").GetGuid();
+
+        Assert.Equal(0, Json(await PostForTextAsync(nursery.Owner, "/api/costs/not-known", new { batchIds = Array.Empty<Guid>() })).GetProperty("marked").GetInt32());
+        Assert.Equal(0, Json(await PostForTextAsync(nursery.Owner, "/api/costs/not-known", new { batchIds = new[] { cuttings, Guid.NewGuid() } })).GetProperty("marked").GetInt32());
+        Assert.Empty((await CostingAsync(nursery.Owner, cuttings)).GetProperty("history").EnumerateArray());
+        Assert.Equal(HttpStatusCode.BadRequest, await PostStatusAsync(nursery.Owner, "/api/costs/not-known", new { }));
+    }
+
     [Fact]
     public async Task With_costs_turned_off_there_is_nothing_to_fill_in()
     {

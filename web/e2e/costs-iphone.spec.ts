@@ -388,26 +388,52 @@ test("the bell leads the owner to costs to fill in, answered one by one or all a
   let missing = [
     batch("0193a6f0-0000-7000-8000-0000000000f1", "B000042", ["C000101"]),
     batch("0193a6f0-0000-7000-8000-0000000000f2", "B000043", []),
+    batch("0193a6f0-0000-7000-8000-0000000000f3", "B000044", ["C000103"]),
+    batch("0193a6f0-0000-7000-8000-0000000000f4", "B000045", ["C000104"]),
   ];
   const costs: Record<string, unknown>[] = [];
   const notKnown: unknown[] = [];
+  // How the stand-in server answers the next cost or "mark all": as it should, or not.
+  let next: "ok" | "taken" | "broken" = "ok";
+  let listBroken = false;
 
   await page.route("**/api/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
+    const answer = next;
+    next = "ok";
 
     if (path.endsWith("/costs") && request.method() === "POST") {
+      if (answer === "broken") {
+        await route.fulfill({ status: 500, json: {} });
+        return;
+      }
+
       costs.push(request.postDataJSON());
       missing = missing.filter((row) => !path.includes(row.batchId));
-      await route.fulfill({ status: 201, json: {} });
+      await route.fulfill(
+        answer === "taken"
+          ? { status: 409, json: { problem: "Answered" } }
+          : { status: 201, json: {} },
+      );
       return;
     }
 
     if (path === "/api/costs/not-known") {
+      if (answer === "broken") {
+        await route.fulfill({ status: 500, json: {} });
+        return;
+      }
+
       notKnown.push(request.postDataJSON());
       const marked = missing.length;
       missing = [];
       await route.fulfill({ json: { marked } });
+      return;
+    }
+
+    if (path === "/api/costs/missing" && listBroken) {
+      await route.fulfill({ status: 500, json: {} });
       return;
     }
 
@@ -443,40 +469,108 @@ test("the bell leads the owner to costs to fill in, answered one by one or all a
   await expect(
     page.getByRole("heading", { name: "Costs to fill in" }),
   ).toBeVisible();
-  const first = page.getByRole("form", {
-    name: /^Lavender 'Hidcote', sown on .*, batch B000042, in tray C000101\.$/,
-  });
-  await expect(first).toBeVisible();
+  await expect(page.getByText("4 batches have no cost yet.")).toBeVisible();
+  const card = (code: string) =>
+    page.getByRole("form", { name: `Lavender 'Hidcote', batch ${code}` });
+  await expect(
+    page.getByText("It was sown on 3 March and is in tray C000101."),
+  ).toBeVisible();
+  await expect(
+    page.getByText("It was sown on 3 March and isn't in a tray now."),
+  ).toBeVisible();
   await expectAccessible(page, "Costs to fill in");
 
-  // Something that isn't money is pointed out at its box.
+  // Something that isn't money is pointed out at its box, which takes the focus.
+  const first = card("B000042");
   const box = first.getByLabel("What the seed cost, with VAT (£)");
   await box.fill("lots");
   await first.getByRole("button", { name: "Save the cost" }).click();
   await expect(box).toHaveAttribute("aria-invalid", "true");
+  await expect(box).toBeFocused();
+
+  // A save that fails says so on its card, and keeps the batch.
   await box.fill("2.99");
+  next = "broken";
+  await first.getByRole("button", { name: "Save the cost" }).click();
+  await expect(first.getByRole("alert")).toHaveText(
+    "The answer for batch B000042 couldn't be saved. Please try again in a minute.",
+  );
   await first.getByRole("button", { name: "Save the cost" }).click();
   await expect(page.getByRole("status")).toHaveText(
     "The cost of batch B000042 is saved.",
   );
+  // The focus goes to the card that took its place.
   await expect(
-    page.getByRole("heading", { name: "Costs to fill in" }),
+    page.getByRole("heading", { name: "Lavender 'Hidcote', batch B000043" }),
   ).toBeFocused();
-  expect(costs).toMatchObject([
-    { kind: "Material", answer: "Amount", amount: 2.99 },
+
+  // A batch in no tray asks before saying nobody knows; declined, nothing is sent.
+  page.once("dialog", (dialog) => void dialog.dismiss());
+  await card("B000043").getByRole("button", { name: "I don't know" }).click();
+  await expect(card("B000043")).toBeVisible();
+  page.once("dialog", (dialog) => void dialog.accept());
+  await card("B000043").getByRole("button", { name: "I don't know" }).click();
+  await expect(page.getByRole("status")).toHaveText(
+    "You've said nobody knows what batch B000043 cost.",
+  );
+
+  // Someone else answered meanwhile: it says so, and the batch leaves the list.
+  next = "taken";
+  await card("B000044")
+    .getByRole("button", { name: "It cost nothing" })
+    .click();
+  await expect(page.getByRole("status")).toHaveText(
+    "Someone else has already answered for batch B000044, so what you put in wasn't saved and it's no longer on this list.",
+  );
+  await expect(card("B000044")).toHaveCount(0);
+  expect(costs.map((cost) => cost.answer)).toEqual([
+    "Amount",
+    "NotKnown",
+    "Free",
   ]);
 
+  // Marking all: declined does nothing, a failure says so, and then it works.
+  page.once("dialog", (dialog) => void dialog.dismiss());
+  await page
+    .getByRole("button", { name: "I don't know what any of these cost" })
+    .click();
+  expect(notKnown).toEqual([]);
+  next = "broken";
+  page.once("dialog", (dialog) => void dialog.accept());
+  await page
+    .getByRole("button", { name: "I don't know what any of these cost" })
+    .click();
+  await expect(page.getByRole("alert")).toHaveText(
+    "Those answers couldn't be saved. Please try again in a minute.",
+  );
+  await expect(card("B000045")).toBeVisible();
   page.once("dialog", (dialog) => void dialog.accept());
   await page
     .getByRole("button", { name: "I don't know what any of these cost" })
     .click();
   await expect(page.getByRole("status")).toHaveText(
-    "1 batch is marked as cost not known.",
+    "You've said nobody knows what that batch cost.",
   );
   expect(notKnown).toEqual([
-    { batchIds: ["0193a6f0-0000-7000-8000-0000000000f2"] },
+    { batchIds: ["0193a6f0-0000-7000-8000-0000000000f4"] },
   ]);
   await expect(
     page.getByText("Every batch has a cost, or you've said it isn't known."),
   ).toBeVisible();
+  await expect(page.getByText(/^These batches have no cost yet/)).toHaveCount(
+    0,
+  );
+
+  // A list that can't be fetched says so, rather than that every batch has a cost.
+  listBroken = true;
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Costs to fill in", exact: true })
+    .click();
+  await expect(page.getByRole("alert")).toHaveText(
+    "The list of batches couldn't be fetched just now. Please try again in a minute.",
+  );
+  await expect(
+    page.getByText("Every batch has a cost, or you've said it isn't known."),
+  ).toHaveCount(0);
 });

@@ -33,6 +33,8 @@ internal static class BatchCostings
             .Where(batch => batch.PurchaseLineId == null
                 || !db.PurchaseLines.Any(line => line.Id == batch.PurchaseLineId && db.Purchases.Any(purchase => purchase.Id == line.PurchaseId && purchase.VoidedAt == null)))
             .Where(batch => !answered.Any(cost => cost.BatchId == batch.Id))
+            // A batch whose start was undone was a mistake, with nothing to cost: it has no work left standing.
+            .Where(batch => db.EventLines.Any(line => line.BatchId == batch.Id && !db.Events.Any(correction => correction.CorrectsEventId == line.EventId)))
             .Select(batch => batch.Id)
             .ToListAsync(cancellationToken)).ToHashSet();
     }

@@ -148,7 +148,7 @@ export const featureInfo: FeatureInfo[] = [
     feature: "Costs",
     label: "Costs",
     hides:
-      "Costs and takings on each tray, the notice and the question in New batch asking what a batch's seed or plants cost, Costs to fill in under Manage, and the reminder about batches with no cost",
+      "Costs and takings on each tray, the question about what a batch's seed or plants cost on a tray and in New batch, Costs to fill in under Manage, and the reminder about batches with no cost",
     note: "While it's off, a cost already waiting on a phone is still saved when it's sent.",
   },
   {

@@ -4,10 +4,14 @@
   import Gift from "@lucide/svelte/icons/gift";
   import { onMount, tick } from "svelte";
   import { api } from "../../api/client";
-  import { materialWord, moneyProblem, readMoney } from "../../lib/costs";
-  import { isoDay, onDay } from "../../lib/days";
+  import {
+    materialWord,
+    missingCostWords,
+    moneyProblem,
+    readMoney,
+  } from "../../lib/costs";
+  import { loadNeeds } from "../../lib/needs.svelte";
   import type { Schemas } from "../../lib/types";
-  import { plantName } from "../../lib/work";
 
   // The batches nobody has said the cost of, for the owner to answer one by one or all at once as not known.
   let { onBack }: { onBack: () => void } = $props();
@@ -16,17 +20,28 @@
 
   let batches = $state<Missing[] | null>(null);
   let amounts = $state<Record<string, string>>({});
+  // A problem with one batch is said on its card, where the person is.
   let problems = $state<Record<string, string>>({});
   let problem = $state("");
   let said = $state("");
   let busy = $state(false);
   let heading = $state<HTMLHeadingElement>();
 
+  const unreachable =
+    "This device can't reach Hortiplanner. Please check the connection and try again.";
+
+  /** The list again. Without it, what's shown stays as it is rather than looking as though nothing is left. */
   async function load() {
     try {
       const { data } = await api.GET("/api/costs/missing");
-      batches = data ?? [];
-      problem = data ? "" : "The batches couldn't be fetched just now.";
+
+      if (data) {
+        batches = data;
+        problem = "";
+      } else {
+        problem =
+          "The list of batches couldn't be fetched just now. Please try again in a minute.";
+      }
     } catch {
       problem = "The batches will show when there's a signal.";
     }
@@ -34,32 +49,20 @@
 
   onMount(load);
 
-  /** "Lavender 'Hidcote', sown on 3 March 2026, batch B000042, in tray C000101." */
-  function describe(batch: Missing): string {
-    const started =
-      batch.source === "SeedLot"
-        ? "sown"
-        : batch.source === "BoughtIn"
-          ? "arrived"
-          : "taken";
-    const when = batch.startedAt
-      ? `, ${started} ${onDay(isoDay(new Date(batch.startedAt)))}`
-      : "";
-    const trays =
-      batch.trays.length === 0
-        ? ""
-        : batch.trays.length === 1
-          ? `, in tray ${batch.trays[0]}`
-          : `, in trays ${batch.trays.join(", ")}`;
-    return `${plantName(batch.commonName, batch.variety)}${when}, batch ${batch.traceabilityCode}${trays}.`;
-  }
-
-  /** After an answer, the list again, with the focus back at the top so the keyboard isn't lost. */
-  async function answered(message: string) {
+  /**
+   * A batch answered: it leaves the list at once, the bell is brought up to date, and the focus goes to the card
+   * that took its place, or to the top when there's none left.
+   */
+  async function answered(batch: Missing, message: string) {
+    const index =
+      batches?.findIndex((row) => row.batchId === batch.batchId) ?? -1;
+    batches = batches?.filter((row) => row.batchId !== batch.batchId) ?? null;
     said = message;
+    void loadNeeds();
     await load();
     await tick();
-    heading?.focus();
+    const next = batches?.[Math.min(index, (batches?.length ?? 1) - 1)];
+    (next ? document.getElementById(`cost-${next.batchId}`) : heading)?.focus();
   }
 
   async function answer(
@@ -68,7 +71,8 @@
     done: string,
   ) {
     busy = true;
-    problem = "";
+    said = "";
+    problems[batch.batchId] = "";
 
     try {
       const { response } = await api.POST("/api/batches/{id}/costs", {
@@ -83,40 +87,62 @@
 
       if (response.status === 409) {
         await answered(
-          `Someone has already said what batch ${batch.traceabilityCode} cost, so it's no longer on the list.`,
+          batch,
+          `Someone else has already answered for batch ${batch.traceabilityCode}, so what you put in wasn't saved and it's no longer on this list.`,
         );
         return;
       }
 
       if (!response.ok) {
-        problem =
-          "That couldn't be saved. Please check it and try again in a minute.";
+        problems[batch.batchId] =
+          `The answer for batch ${batch.traceabilityCode} couldn't be saved. Please try again in a minute.`;
         return;
       }
 
-      await answered(done);
+      await answered(batch, done);
     } catch {
-      problem =
-        "This device can't reach Hortiplanner. Please check the connection and try again.";
+      problems[batch.batchId] = unreachable;
     } finally {
       busy = false;
     }
   }
 
-  function saveAmount(event: SubmitEvent, batch: Missing) {
+  async function saveAmount(event: SubmitEvent, batch: Missing) {
     event.preventDefault();
     const paid = readMoney(amounts[batch.batchId] ?? "");
 
     if (paid === null) {
       problems[batch.batchId] = moneyProblem;
+      // The box says what's wrong with it, through its description.
+      await tick();
+      document.getElementById(`cost-amount-${batch.batchId}`)?.focus();
       return;
     }
 
-    problems[batch.batchId] = "";
     void answer(
       batch,
       paid === 0 ? { answer: "Free" } : { answer: "Amount", amount: paid },
-      `The cost of batch ${batch.traceabilityCode} is saved.`,
+      paid === 0
+        ? `Batch ${batch.traceabilityCode} is saved as costing nothing.`
+        : `The cost of batch ${batch.traceabilityCode} is saved.`,
+    );
+  }
+
+  function notKnown(batch: Missing) {
+    // A batch in no tray can't be opened later to add a cost, so this is asked first.
+    if (
+      batch.trays.length === 0 &&
+      !confirm(
+        "Say that nobody knows what this batch cost? It'll be left out of the cost and profit figures, and as it isn't in a tray now, this can't be changed afterwards.",
+      )
+    ) {
+      return;
+    }
+
+    void answer(
+      batch,
+      { answer: "NotKnown" },
+      `You've said nobody knows what batch ${batch.traceabilityCode} cost.`,
     );
   }
 
@@ -129,28 +155,41 @@
 
     if (
       !confirm(
-        `This marks ${count === 1 ? "this batch" : `all ${count} batches`} as cost not known and leaves ${count === 1 ? "it" : "them"} out of the cost and profit figures. You can still add a cost to any of them later from its tray.`,
+        count === 1
+          ? "Say that nobody knows what this batch cost? It'll be left out of the cost and profit figures. If it's still in a tray, you can add its cost later from that tray."
+          : `Say that nobody knows what any of these ${count} batches cost? They'll be left out of the cost and profit figures. You can add a cost later to any that's still in a tray, from that tray.`,
       )
     ) {
       return;
     }
 
     busy = true;
+    said = "";
     problem = "";
 
     try {
-      const { data } = await api.POST("/api/costs/not-known", {
+      const { data, response } = await api.POST("/api/costs/not-known", {
         body: { batchIds: batches.map((batch) => batch.batchId) },
       });
-      const marked = data?.marked ?? 0;
-      await answered(
-        marked === 1
-          ? "1 batch is marked as cost not known."
-          : `${marked} batches are marked as cost not known.`,
-      );
+
+      if (!response.ok || !data) {
+        problem =
+          "Those answers couldn't be saved. Please try again in a minute.";
+        return;
+      }
+
+      said =
+        data.marked === 0
+          ? "Nothing was changed, because someone had already answered for every one of them."
+          : data.marked === 1
+            ? "You've said nobody knows what that batch cost."
+            : `You've said nobody knows what those ${data.marked} batches cost.`;
+      void loadNeeds();
+      await load();
+      await tick();
+      heading?.focus();
     } catch {
-      problem =
-        "This device can't reach Hortiplanner. Please check the connection and try again.";
+      problem = unreachable;
     } finally {
       busy = false;
     }
@@ -159,11 +198,6 @@
 
 <main class="costs-to-fill-in">
   <h1 tabindex="-1" bind:this={heading}>Costs to fill in</h1>
-  <p class="muted page-intro">
-    These batches have no cost yet. Put in what the seed or plants cost, with
-    any VAT included, say it cost nothing, or say you don't know. A batch you
-    don't know the cost of is left out of the cost and profit figures.
-  </p>
 
   {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
   {#if said}<p class="card done" role="status">{said}</p>{/if}
@@ -173,25 +207,42 @@
       Every batch has a cost, or you've said it isn't known.
     </p>
   {:else if batches}
+    <p class="muted page-intro">
+      These batches have no cost yet. For each one, put in what the seed or
+      plants cost with any VAT included, or say it cost nothing, or say you
+      don't know. A batch you don't know the cost of is left out of the cost and
+      profit figures.
+    </p>
+    <p>
+      <strong
+        >{batches.length === 1
+          ? "1 batch has no cost yet."
+          : `${batches.length} batches have no cost yet.`}</strong
+      >
+    </p>
     <ul class="plain-list card-grid">
       {#each batches as batch (batch.batchId)}
-        {@const what = materialWord(batch.source)}
+        {@const words = missingCostWords(batch)}
         <li class="card stack tight">
-          <h2 class="form-heading" id="cost-{batch.batchId}">
-            {describe(batch)}
+          <h2 class="form-heading" id="cost-{batch.batchId}" tabindex="-1">
+            {words.name}
           </h2>
+          <p class="muted">{words.detail}</p>
           <form
             class="stack tight"
             aria-labelledby="cost-{batch.batchId}"
             onsubmit={(event) => saveAmount(event, batch)}
           >
             <label
-              >What the {what} cost, with VAT (£)
+              >What the {materialWord(batch.source)} cost, with VAT (£)
               <input
+                id="cost-amount-{batch.batchId}"
                 bind:value={amounts[batch.batchId]}
                 inputmode="decimal"
                 autocomplete="off"
-                aria-invalid={problems[batch.batchId] ? "true" : undefined}
+                aria-invalid={problems[batch.batchId] === moneyProblem
+                  ? "true"
+                  : undefined}
                 aria-describedby={problems[batch.batchId]
                   ? `cost-problem-${batch.batchId}`
                   : undefined}
@@ -199,6 +250,7 @@
             >
             {#if problems[batch.batchId]}<p
                 class="problem"
+                role="alert"
                 id="cost-problem-{batch.batchId}"
               >
                 {problems[batch.batchId]}
@@ -223,12 +275,7 @@
                 type="button"
                 class="secondary"
                 disabled={busy}
-                onclick={() =>
-                  answer(
-                    batch,
-                    { answer: "NotKnown" },
-                    `Batch ${batch.traceabilityCode} is marked as cost not known.`,
-                  )}
+                onclick={() => notKnown(batch)}
                 ><CircleHelp size={16} aria-hidden="true" /> I don't know</button
               >
             </div>
