@@ -753,7 +753,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expectAccessible(page, "Bench home");
 
   // Start a batch.
-  await button(page, "New batch").click();
+  await button(page, "Start a new batch").click();
   await expectAccessible(page, "New batch: plant");
   await page.locator(".plant-card", { hasText: "Lavender 'Munstead'" }).click();
   await button(page, "40").click();
