@@ -161,6 +161,8 @@
         return { name: "manage", section: "jobs" };
       case "invoices":
         return { name: "manage", section: "invoices" };
+      case "costs":
+        return { name: "manage", section: "costs" };
       default:
         return { name: "home" };
     }

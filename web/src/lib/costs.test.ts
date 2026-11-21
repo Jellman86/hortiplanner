@@ -4,6 +4,7 @@ import {
   entrySentence,
   firstOf,
   halfOf,
+  missingCostWords,
   materialSentence,
   readMoney,
   replacedParts,
@@ -234,5 +235,46 @@ describe("half a packet's price", () => {
     expect(halfOf(2.55)).toBe(1.28);
     expect(halfOf(0.01)).toBe(0.01);
     expect(halfOf(4)).toBe(2);
+  });
+});
+
+describe("a batch waiting for its cost", () => {
+  const batch = (
+    trays: string[],
+    startedAt: string | null = "2026-03-03T10:00:00Z",
+    source = "SeedLot",
+  ) => ({
+    batchId: "b",
+    traceabilityCode: "B000042",
+    commonName: "Lavender",
+    variety: "Hidcote",
+    source: source as "SeedLot",
+    startedAt,
+    trays,
+  });
+
+  it("has a short name, and says when it started and where it is", () => {
+    expect(missingCostWords(batch(["C000101"]), march)).toEqual({
+      name: "Lavender 'Hidcote', batch B000042",
+      detail: "It was sown on 3 March and is in tray C000101.",
+    });
+    expect(
+      missingCostWords(batch(["C000101", "C000102", "C000103"]), march).detail,
+    ).toBe(
+      "It was sown on 3 March and is in trays C000101, C000102 and C000103.",
+    );
+    expect(
+      missingCostWords(batch([], "2026-03-03T10:00:00Z", "BoughtIn"), march)
+        .detail,
+    ).toBe("It arrived on 3 March and isn't in a tray now.");
+  });
+
+  it("leaves out the day when there isn't one", () => {
+    expect(missingCostWords(batch(["C000101"], null), march).detail).toBe(
+      "It's in tray C000101.",
+    );
+    expect(missingCostWords(batch([], null), march).detail).toBe(
+      "It isn't in a tray now.",
+    );
   });
 });

@@ -92,9 +92,52 @@ public sealed class NeedsALookTests(PostgresFixture database)
         clock.Advance(TimeSpan.FromDays(2));
 
         Assert.Equal(
-            ["BackupsStopped", "Authorisation", "InvoicesOverdue", "JobsLate", "JobsDue", "NotCountedLong", "ReadyTooLong"],
+            ["BackupsStopped", "Authorisation", "InvoicesOverdue", "JobsLate", "JobsDue", "NotCountedLong", "ReadyTooLong", "BatchesNoCost"],
             Kinds(await AlertsAsync(nursery.Owner)));
         Assert.Equal(["JobsDue", "NotCountedLong"], Kinds(await AlertsAsync(nursery.Staff)));
+    }
+
+    [Fact]
+    public async Task Batches_with_no_cost_are_raised_for_the_owner_after_a_week_until_each_is_answered()
+    {
+        var clock = new TestClock();
+        await using var nursery = await TwoPersonNursery.CreateAsync(database, clock: clock);
+        await ReportBackupsAsync(nursery, TimeSpan.Zero);
+        var plant = await AddAsync(nursery.Owner, "/api/plants", new { commonName = "Primula", xylellaHost = false, protectedVariety = false });
+        async Task<Guid> StartAsync() =>
+            Json(await PostForTextAsync(nursery.Staff, "/api/batches", new { eventId = Guid.NewGuid(), occurredAt = clock.GetUtcNow(), plantId = plant, quantity = 20, source = "SeedLot", originCountry = "GB", containerKind = "Tray" })).GetProperty("batchId").GetGuid();
+        var first = await StartAsync();
+        var second = await StartAsync();
+        await PostForTextAsync(nursery.Staff, "/api/batches", new { eventId = Guid.NewGuid(), occurredAt = clock.GetUtcNow(), plantId = plant, quantity = 5, source = "Cuttings", originCountry = "GB", containerKind = "Tray" });
+
+        // Given a week, in case the cost is on its way.
+        clock.Advance(TimeSpan.FromDays(6));
+        Assert.DoesNotContain("BatchesNoCost", Kinds(await AlertsAsync(nursery.Owner)), StringComparer.Ordinal);
+
+        clock.Advance(TimeSpan.FromDays(2));
+        await ReportBackupsAsync(nursery, TimeSpan.Zero);
+        var noCost = Assert.Single(await AlertsAsync(nursery.Owner), alert => string.Equals(alert.GetProperty("kind").GetString(), "BatchesNoCost", StringComparison.Ordinal));
+        Assert.Equal("2 batches have no cost yet", noCost.GetProperty("title").GetString());
+        Assert.Equal("costs", noCost.GetProperty("where").GetString());
+        Assert.DoesNotContain("BatchesNoCost", Kinds(await AlertsAsync(nursery.Staff)), StringComparer.Ordinal);
+
+        await PostForTextAsync(nursery.Staff, $"/api/batches/{first}/costs", new { eventId = Guid.NewGuid(), occurredAt = clock.GetUtcNow(), kind = "Material", answer = "Amount", amount = 2.99m });
+        Assert.Equal("1 batch has no cost yet", Assert.Single(await AlertsAsync(nursery.Owner), alert => string.Equals(alert.GetProperty("kind").GetString(), "BatchesNoCost", StringComparison.Ordinal)).GetProperty("title").GetString());
+
+        using (var off = await nursery.Owner.PutAsJsonAsync(Route("/api/settings/features/Costs"), new { on = false }, Cancellation))
+        {
+            off.EnsureSuccessStatusCode();
+        }
+
+        Assert.DoesNotContain("BatchesNoCost", Kinds(await AlertsAsync(nursery.Owner)), StringComparer.Ordinal);
+
+        using (var on = await nursery.Owner.PutAsJsonAsync(Route("/api/settings/features/Costs"), new { on = true }, Cancellation))
+        {
+            on.EnsureSuccessStatusCode();
+        }
+
+        await PostForTextAsync(nursery.Owner, "/api/costs/not-known", new { batchIds = new[] { second } });
+        Assert.DoesNotContain("BatchesNoCost", Kinds(await AlertsAsync(nursery.Owner)), StringComparer.Ordinal);
     }
 
     [Fact]

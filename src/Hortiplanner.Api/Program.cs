@@ -141,6 +141,7 @@ app.MapPrinterEndpoints();
 app.MapNurserySettingsEndpoints();
 app.MapVatRateEndpoints();
 app.MapCostEndpoints();
+app.MapMissingCostEndpoints();
 app.MapFeatureEndpoints();
 app.MapClearRecordsEndpoints();
 app.MapProductionEndpoints();

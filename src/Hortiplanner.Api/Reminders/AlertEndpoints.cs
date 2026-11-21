@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Claims;
 using Hortiplanner.Api.Accounts;
+using Hortiplanner.Api.Costs;
 using Hortiplanner.Api.Data;
 using Hortiplanner.Api.Operations;
 using Hortiplanner.Api.Production;
@@ -19,6 +20,9 @@ internal static class AlertEndpoints
     private const int ReadyTooLongDays = 28;
     private const int UncountedTooLongDays = 21;
     private const int JobLateDays = 2;
+
+    /// <summary>A batch is given a week from its start before its missing cost is raised, in case it's on its way.</summary>
+    private const int NoCostAfterDays = 7;
 
     public static void MapAlertEndpoints(this IEndpointRouteBuilder app) => app.MapGet("/api/alerts", GetAsync);
 
@@ -56,6 +60,9 @@ internal static class AlertEndpoints
 
         var trays = await TraysAsync(db, store, clock, cancellationToken);
         alerts.AddRange(trays.Where(alert => forOwner || string.Equals(alert.Kind, "NotCountedLong", StringComparison.Ordinal)));
+
+        // Tidying up comes last.
+        alerts.AddIfAny(forOwner && !off.Contains(NurseryFeature.Costs) ? await NoCostAsync(db, clock, cancellationToken) : null);
 
         return alerts;
     }
@@ -131,6 +138,30 @@ internal static class AlertEndpoints
                 : $"It's due on {Day(date)}, which is in {Plural(days, "day", "days")}. Book the inspection, and once it's renewed, add the next date in Nursery details.";
 
         return new Alert("Authorisation", "Your plant health authorisation needs renewing", why, "nursery", 1, days < 0 ? "Problem" : "Soon");
+    }
+
+    private static async Task<Alert?> NoCostAsync(HortiplannerDbContext db, TimeProvider clock, CancellationToken cancellationToken)
+    {
+        var startedBefore = clock.GetUtcNow().AddDays(-NoCostAfterDays);
+        var settled = await db.Batches
+            .Where(batch => db.EventLines.Where(line => line.BatchId == batch.Id)
+                .Join(db.Events, line => line.EventId, e => e.Id, (line, e) => e.OccurredAt)
+                .Min(occurredAt => (DateTimeOffset?)occurredAt) <= startedBefore)
+            .Select(batch => batch.Id)
+            .ToListAsync(cancellationToken);
+        var count = (await BatchCostings.MissingAsync(db, settled, cancellationToken)).Count;
+
+        return count == 0
+            ? null
+            : new Alert(
+                "BatchesNoCost",
+                count == 1 ? "1 batch has no cost yet" : $"{count} batches have no cost yet",
+                count == 1
+                    ? "Nobody has said what its seed or plants cost, so we can't work out what it has made. You can add the cost, or say that it isn't known."
+                    : "Nobody has said what their seed or plants cost, so we can't work out what they have made. You can add each cost, or say that it isn't known.",
+                "costs",
+                count,
+                "Tidy");
     }
 
     private static async Task<Alert?> OverdueInvoicesAsync(HortiplannerDbContext db, DateOnly today, CancellationToken cancellationToken)

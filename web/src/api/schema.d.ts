@@ -6113,6 +6113,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/costs/missing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MissingCost"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/costs/not-known": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["NotKnownRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MarkedNotKnown"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/settings/features": {
         parameters: {
             query?: never;
@@ -9308,6 +9382,10 @@ export interface components {
         MapSettingsRequest: {
             imageryKey: null | string;
         };
+        MarkedNotKnown: {
+            /** Format: int32 */
+            marked: number | string;
+        };
         MaterialCost: {
             state: components["schemas"]["MaterialState"];
             cost: null | components["schemas"]["MoneyPair"];
@@ -9317,6 +9395,17 @@ export interface components {
         };
         /** @enum {unknown} */
         MaterialState: "NoAnswer" | "Amount" | "Free" | "NotKnown" | "Cuttings" | "Purchase";
+        MissingCost: {
+            /** Format: uuid */
+            batchId: string;
+            traceabilityCode: string;
+            commonName: string;
+            variety: null | string;
+            source: components["schemas"]["BatchSource"];
+            /** Format: date-time */
+            startedAt: null | string;
+            trays: string[];
+        };
         ModelChoice: {
             id: string;
             name: string;
@@ -9421,6 +9510,9 @@ export interface components {
             /** Format: date-time */
             occurredAt: string;
             note: string;
+        };
+        NotKnownRequest: {
+            batchIds: null | string[];
         };
         NurseryDetails: {
             name: null | string;
