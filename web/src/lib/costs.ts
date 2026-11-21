@@ -21,6 +21,14 @@ export function halfOf(price: number): number {
   return Math.round(Math.round(price * 100) / 2) / 100;
 }
 
+/** Money to the penny, said as "about" when the figure isn't a whole number of pence, such as £0.71 for £0.7083. */
+export function aboutMoney(value: number): string {
+  const pence = value * 100;
+  return Math.abs(pence - Math.round(pence)) > 1e-6
+    ? `about ${money(value)}`
+    : money(value);
+}
+
 export const moneyProblem =
   "Please put the cost in as pounds and pence, such as 2.99.";
 
@@ -287,21 +295,29 @@ type Pots = Schemas["PotsCost"];
 
 /** What's said beneath "Pots and compost": each size potted into, and anything not counted. */
 export function potsSentences(pots: Pots): string[] {
+  const one = pots.lines.length === 1;
   const lines = pots.lines.map((line) => {
     const plants = Number(line.plants);
     const withVat = money(Number(line.each.withVat));
-    const before = money(Number(line.each.beforeVat));
+    const before = aboutMoney(Number(line.each.beforeVat));
+    const each = plants === 1 ? "" : " each";
+
+    // One line is the whole row; with several, each says only its own part.
+    if (one) {
+      return `That's ${plants === 1 ? "1 plant" : `${plants} plants`} potted into ${line.size} at ${withVat}${each} with VAT, which is ${before} before VAT.`;
+    }
+
     return plants === 1
-      ? `That's 1 plant potted into ${line.size} at ${withVat} with VAT, which is ${before} before VAT.`
-      : `That's ${plants} plants potted into ${line.size} at ${withVat} each with VAT, which is ${before} before VAT.`;
+      ? `1 plant was potted into ${line.size} at ${withVat} with VAT, which is ${before} before VAT.`
+      : `${plants} plants were potted into ${line.size} at ${withVat} each with VAT, which is ${before} before VAT.`;
   });
   const missing = pots.withoutAllowance;
 
   if (missing.length > 0) {
     lines.push(
       missing.length === 1
-        ? `Pots and compost for ${missing[0]} aren't counted, because that pot size has no cost of potting yet.`
-        : `Pots and compost for ${trayList(missing)} aren't counted, because those pot sizes have no cost of potting yet.`,
+        ? `Pots and compost for ${missing[0]} aren't counted, because no cost of potting is set for that size.`
+        : `Pots and compost for ${trayList(missing)} aren't counted, because no cost of potting is set for those sizes.`,
     );
   }
 

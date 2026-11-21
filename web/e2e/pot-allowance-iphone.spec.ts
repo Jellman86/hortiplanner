@@ -1,12 +1,11 @@
 import { expectAccessible } from "./accessibility";
 import { expect, test } from "./fixtures";
 
-// The cost of potting one plant into each size is set under Settings, Pot sizes: a first amount covers potting
-// already recorded, and the figure before VAT is shown as it's typed.
+// The cost of potting one plant into each size is set under Settings, Pot sizes, on a phone: a first amount covers
+// potting already recorded, the figure before VAT is shown as it's typed, and an amount can be taken away.
 test("the owner sets what it costs to pot one plant into a size", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1280, height: 900 });
   const size = "0193a6f0-0000-7000-8000-0000000000a1";
   const sent: unknown[] = [];
   let allowance: Record<string, unknown> | null = null;
@@ -17,23 +16,29 @@ test("the owner sets what it costs to pot one plant into a size", async ({
 
     if (path === `/api/pot-sizes/${size}/allowance`) {
       const body = request.postDataJSON() as {
-        costEach: number;
+        costEach: number | null;
         includesVat: boolean;
       };
       sent.push(body);
       const first = allowance === null;
+      const each = body.costEach ?? 0;
       allowance = {
         potSizeId: size,
         name: "9cm",
         costEach: body.costEach,
         includesVat: body.includesVat,
         vatRate: 20,
-        each: body.includesVat
-          ? { withVat: body.costEach, beforeVat: body.costEach / 1.2 }
-          : { withVat: body.costEach * 1.2, beforeVat: body.costEach },
+        each:
+          body.costEach === null
+            ? null
+            : body.includesVat
+              ? { withVat: each, beforeVat: each / 1.2 }
+              : { withVat: each * 1.2, beforeVat: each },
         set: true,
       };
-      await route.fulfill({ json: { changed: true, first } });
+      await route.fulfill({
+        json: { changed: true, first, reachesBack: first },
+      });
       return;
     }
 
@@ -73,32 +78,42 @@ test("the owner sets what it costs to pot one plant into a size", async ({
 
   await page.goto("/");
   await page
-    .locator(".sidebar")
-    .getByRole("button", { name: "Settings", exact: true })
+    .getByRole("navigation", { name: "Phone" })
+    .getByRole("button", { name: "Settings" })
     .click();
-  await page
-    .getByRole("navigation", { name: "Settings" })
-    .getByRole("button", { name: "Pot sizes" })
-    .click();
+  await page.getByRole("button", { name: "Pot sizes" }).click();
 
   await expect(
-    page.getByText("There's no cost of potting into it yet."),
+    page.getByText(
+      "Nobody has said what it costs to pot a plant into this size yet.",
+    ),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Set the cost of potting" }).click();
+  const set = page.getByRole("button", {
+    name: "Set the cost of potting into 9cm",
+  });
+  await set.click();
   const box = page.getByLabel(
     "What it costs to pot one plant into this size, with VAT (£, optional)",
   );
   await expect(box).toBeFocused();
+
+  // Too much for one plant is said at the box, as it's typed the figure before VAT is shown.
+  await box.fill("1000");
+  await page.getByRole("button", { name: "Save the cost of potting" }).click();
+  await expect(box).toHaveAccessibleDescription(
+    /^That's more than Hortiplanner can take for one plant\. Please put in £999\.99 or less\./,
+  );
   await box.fill("0.42");
   await expect(box).toHaveAccessibleDescription(
-    /^Count the pot, the compost that fills it and the label\..* That's £0\.35 before VAT at 20%\.$/,
+    /^That's £0\.35 before VAT at 20%\. Count the pot/,
   );
-  await expectAccessible(page, "Pot sizes, the cost of potting");
-
-  // Ticked as before VAT, the figure with VAT is worked out instead.
   await page.getByLabel("This amount is before VAT.").check();
-  await expect(page.getByText("That's £0.50 with VAT at 20%.")).toBeVisible();
+  // £0.42 before VAT is £0.504 with VAT, so it's "about".
+  await expect(
+    page.getByText("That's about £0.50 with VAT at 20%."),
+  ).toBeVisible();
   await page.getByLabel("This amount is before VAT.").uncheck();
+  await expectAccessible(page, "Pot sizes, the cost of potting");
 
   await page.getByRole("button", { name: "Save the cost of potting" }).click();
   await expect(page.getByRole("status")).toHaveText(
@@ -106,21 +121,38 @@ test("the owner sets what it costs to pot one plant into a size", async ({
   );
   await expect(
     page.getByText(
-      "Potting one plant into it costs £0.42 with VAT, which is £0.35 before VAT.",
+      "It costs £0.42 with VAT to pot one plant into this size, which is £0.35 before VAT.",
     ),
   ).toBeVisible();
+  // The focus goes back to the button, now to change it.
+  const change = page.getByRole("button", {
+    name: "Change the cost of potting into 9cm",
+  });
+  await expect(change).toBeFocused();
 
-  await page
-    .getByRole("button", { name: "Change the cost of potting" })
-    .click();
+  await change.click();
   await expect(box).toHaveValue("0.42");
   await box.fill("0.60");
   await page.getByRole("button", { name: "Save the cost of potting" }).click();
   await expect(page.getByRole("status")).toHaveText(
-    "The new amount is used for potting from today. Potting already recorded keeps the amount it had.",
+    "The new amount is used for potting from today, including any recorded earlier today. Potting before today keeps the amount it had.",
   );
+
+  // Emptied, or nought, takes the amount away.
+  await change.click();
+  await box.fill("0");
+  await page.getByRole("button", { name: "Save the cost of potting" }).click();
+  await expect(page.getByRole("status")).toHaveText(
+    "Nothing is charged for potting into 9cm from today. Potting recorded before today keeps the amount it had.",
+  );
+  await expect(
+    page.getByText(
+      "Nothing is charged for potting into this size at the moment.",
+    ),
+  ).toBeVisible();
   expect(sent).toEqual([
     { costEach: 0.42, includesVat: true },
     { costEach: 0.6, includesVat: true },
+    { costEach: null, includesVat: true },
   ]);
 });

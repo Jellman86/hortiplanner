@@ -107,8 +107,8 @@ internal static class ExportEndpoints
                 return new object?[]
                 {
                     sizes[row.PotSizeId],
-                    row.CostEach,
-                    row.IncludesVat,
+                    row.CostEach is null ? "Taken away" : row.CostEach,
+                    row.CostEach is null ? null : row.IncludesVat,
                     row.VatRate,
                     each is null ? null : Math.Round(each.WithVat, 4, MidpointRounding.AwayFromZero),
                     each is null ? null : Math.Round(each.BeforeVat, 4, MidpointRounding.AwayFromZero),

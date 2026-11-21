@@ -708,6 +708,127 @@ public sealed class CostTests(PostgresFixture database)
         await Assert.ThrowsAsync<PostgresException>(() => db.PotSizeCosts.ExecuteDeleteAsync(Cancellation));
     }
 
+    private static async Task<(Guid Batch, Guid Tray)> StartedAtAsync(TwoPersonNursery nursery, DateTimeOffset at) =>
+        Json(await PostForTextAsync(nursery.Staff, "/api/batches", new { eventId = Guid.NewGuid(), occurredAt = at, plantId = await AddPlantAsync(nursery.Owner), quantity = 100, source = "SeedLot", originCountry = "GB", containerKind = "Tray", costAmount = 3m })) is var started
+            ? (started.GetProperty("batchId").GetGuid(), started.GetProperty("containerId").GetGuid())
+            : default;
+
+    [Fact]
+    public async Task A_first_amount_put_right_the_same_day_is_put_right_for_earlier_potting_too()
+    {
+        var clock = new TestClock();
+        await using var nursery = await TwoPersonNursery.CreateAsync(database, clock: clock);
+        var size = await AddPotSizeAsync(nursery.Owner, "9cm");
+        var (batch, tray) = await StartedAtAsync(nursery, clock.GetUtcNow().AddDays(-6));
+        await PotOnAsync(nursery.Staff, tray, batch, 10, size, clock.GetUtcNow().AddDays(-3));
+
+        Assert.True((await SetAllowanceAsync(nursery.Owner, size, 4.20m)).GetProperty("reachesBack").GetBoolean());
+        var fixedUp = await SetAllowanceAsync(nursery.Owner, size, 0.42m);
+        Assert.False(fixedUp.GetProperty("first").GetBoolean());
+        Assert.True(fixedUp.GetProperty("reachesBack").GetBoolean());
+
+        Assert.Equal((4.20m, 3.50m), Rounded((await CostingAsync(nursery.Owner, batch)).GetProperty("pots").GetProperty("cost")));
+
+        // A day later it no longer reaches back.
+        clock.Advance(TimeSpan.FromDays(1));
+        Assert.False((await SetAllowanceAsync(nursery.Owner, size, 0.50m)).GetProperty("reachesBack").GetBoolean());
+        Assert.Equal((4.20m, 3.50m), Rounded((await CostingAsync(nursery.Owner, batch)).GetProperty("pots").GetProperty("cost")));
+    }
+
+    [Fact]
+    public async Task Amounts_taken_away_and_set_again_and_two_on_one_day_each_charge_their_own_period()
+    {
+        var clock = new TestClock();
+        await using var nursery = await TwoPersonNursery.CreateAsync(database, clock: clock);
+        var size = await AddPotSizeAsync(nursery.Owner, "9cm");
+        var (batch, tray) = await StartedAtAsync(nursery, clock.GetUtcNow().AddDays(-1));
+
+        // Day one: two amounts, the later one counting; pricked out counts as potting too.
+        await SetAllowanceAsync(nursery.Owner, size, 0.30m);
+        await SetAllowanceAsync(nursery.Owner, size, 0.40m);
+        Json(await PostForTextAsync(nursery.Staff, $"/api/containers/{tray}/transfer", new { eventId = Guid.NewGuid(), occurredAt = clock.GetUtcNow(), type = "PrickedOut", batchId = batch, quantity = 10, containerKind = "Tray", potSizeId = size, locationId = (Guid?)null }));
+
+        // Day two: taken away.
+        clock.Advance(TimeSpan.FromDays(1));
+        await SetAllowanceAsync(nursery.Owner, size, null);
+        await PotOnAsync(nursery.Staff, tray, batch, 10, size, clock.GetUtcNow());
+
+        // Day three: set again.
+        clock.Advance(TimeSpan.FromDays(1));
+        await SetAllowanceAsync(nursery.Owner, size, 1.00m);
+        await PotOnAsync(nursery.Staff, tray, batch, 10, size, clock.GetUtcNow());
+
+        var pots = (await CostingAsync(nursery.Owner, batch)).GetProperty("pots");
+        Assert.Equal((14.00m, 11.67m), Rounded(pots.GetProperty("cost")));
+        Assert.Equal([10, 10], pots.GetProperty("lines").EnumerateArray().Select(line => line.GetProperty("plants").GetInt32()));
+        Assert.Equal(["9cm"], pots.GetProperty("withoutAllowance").EnumerateArray().Select(name => name.GetString()!), StringComparer.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_corrected_potting_is_charged_as_corrected_at_its_own_day()
+    {
+        var clock = new TestClock();
+        await using var nursery = await TwoPersonNursery.CreateAsync(database, clock: clock);
+        var size = await AddPotSizeAsync(nursery.Owner, "9cm");
+        var (batch, tray) = await StartedAtAsync(nursery, clock.GetUtcNow().AddDays(-6));
+        await SetAllowanceAsync(nursery.Owner, size, 0.40m);
+        var potting = await PotOnAsync(nursery.Staff, tray, batch, 10, size, clock.GetUtcNow());
+
+        // The amount changes the next day, and then the potting is corrected to 6: still at its own day's amount.
+        clock.Advance(TimeSpan.FromDays(1));
+        await SetAllowanceAsync(nursery.Owner, size, 0.90m);
+        Assert.Equal(HttpStatusCode.Created, await PostStatusAsync(nursery.Owner, $"/api/events/{potting}/correct", new { eventId = Guid.NewGuid(), occurredAt = clock.GetUtcNow(), quantity = 6 }));
+
+        Assert.Equal((2.40m, 2.00m), Rounded((await CostingAsync(nursery.Owner, batch)).GetProperty("pots").GetProperty("cost")));
+    }
+
+    [Fact]
+    public async Task The_same_amount_after_the_standard_rate_changes_is_brought_up_to_the_new_rate()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var size = await AddPotSizeAsync(nursery.Owner, "9cm");
+        await SetAllowanceAsync(nursery.Owner, size, 0.42m);
+        using (var rates = await nursery.Owner.PutAsJsonAsync(Route("/api/settings/vat-rates"), new { standard = 25m, reduced = 5m }, Cancellation))
+        {
+            rates.EnsureSuccessStatusCode();
+        }
+
+        Assert.True((await SetAllowanceAsync(nursery.Owner, size, 0.42m)).GetProperty("changed").GetBoolean());
+
+        var allowance = (await nursery.Owner.GetFromJsonAsync<JsonElement>(Route("/api/pot-sizes/allowances"), Cancellation))[0];
+        Assert.Equal(25m, allowance.GetProperty("vatRate").GetDecimal());
+        Assert.Equal((0.42m, 0.34m), Rounded(allowance.GetProperty("each")));
+    }
+
+    [Fact]
+    public async Task Every_amount_set_comes_out_in_the_download_and_the_endpoints_are_off_with_costs()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var size = await AddPotSizeAsync(nursery.Owner, "9cm");
+        await SetAllowanceAsync(nursery.Owner, size, 0.50m, includesVat: false);
+        await SetAllowanceAsync(nursery.Owner, size, null);
+
+        using (var response = await nursery.Owner.GetAsync(Route("/api/export"), Cancellation))
+        {
+            await using var zipped = await response.Content.ReadAsStreamAsync(Cancellation);
+            using var archive = new System.IO.Compression.ZipArchive(zipped);
+            using var sheet = new StreamReader(archive.GetEntry("pot-size-costs.csv")!.Open(), System.Text.Encoding.UTF8);
+            var lines = (await sheet.ReadToEndAsync(Cancellation)).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+            Assert.EndsWith("Pot size,Amount typed,Includes VAT,VAT rate (%),With VAT,Before VAT,From,Set by,Set", lines[0], StringComparison.Ordinal);
+            Assert.StartsWith("9cm,0.50,No,20.00,0.6000,0.50,", lines[1], StringComparison.Ordinal);
+            Assert.StartsWith("9cm,Taken away,,20.00,,,", lines[2], StringComparison.Ordinal);
+        }
+
+        using (var off = await nursery.Owner.PutAsJsonAsync(Route("/api/settings/features/Costs"), new { on = false }, Cancellation))
+        {
+            off.EnsureSuccessStatusCode();
+        }
+
+        Assert.Equal(HttpStatusCode.NotFound, await GetStatusAsync(nursery.Owner, "/api/pot-sizes/allowances"));
+        using var set = await nursery.Owner.PutAsJsonAsync(Route($"/api/pot-sizes/{size}/allowance"), new { costEach = 1m, includesVat = true }, Cancellation);
+        Assert.Equal(HttpStatusCode.NotFound, set.StatusCode);
+    }
+
     [Fact]
     public async Task Costs_are_never_changed_or_deleted()
     {

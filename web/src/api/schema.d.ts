@@ -8541,6 +8541,7 @@ export interface components {
         AllowanceSaved: {
             changed: boolean;
             first: boolean;
+            reachesBack: boolean;
         };
         ArchiveRefused: {
             problem: string;

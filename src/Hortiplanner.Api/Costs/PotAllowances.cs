@@ -32,17 +32,18 @@ internal static class PotAllowances
 
     /// <summary>
     /// The allowance for a size on a day: the newest set on or before it, the later of two on one day. Before the
-    /// first was set, the first is used, so a first amount covers potting already recorded.
+    /// first day one was set, the amount that stood at the end of that day is used, so a first amount covers potting
+    /// already recorded, and a slip put right the same day is put right for that potting too.
     /// </summary>
     internal static PotSizeCost? On(IReadOnlyList<PotSizeCost> rows, DateOnly day) =>
         rows.Where(row => row.From <= day).OrderByDescending(row => row.From).ThenByDescending(row => row.SetAt).ThenByDescending(row => row.Id).FirstOrDefault()
-        ?? rows.OrderBy(row => row.From).ThenBy(row => row.SetAt).ThenBy(row => row.Id).FirstOrDefault();
+        ?? rows.OrderBy(row => row.From).ThenByDescending(row => row.SetAt).ThenByDescending(row => row.Id).FirstOrDefault();
 
     private static DateOnly Today(TimeProvider clock) => DateOnly.FromDateTime(clock.GetLocalNow().DateTime);
 
     private static async Task<List<PotAllowance>> ListAsync(HortiplannerDbContext db, TimeProvider clock, CancellationToken cancellationToken)
     {
-        var sizes = await db.PotSizes.AsNoTracking().Where(size => size.ArchivedAt == null).OrderBy(size => size.Name).ToListAsync(cancellationToken);
+        var sizes = await db.PotSizes.AsNoTracking().OrderBy(size => size.Name).ToListAsync(cancellationToken);
         var rows = (await db.PotSizeCosts.AsNoTracking().ToListAsync(cancellationToken)).ToLookup(row => row.PotSizeId);
         var today = Today(clock);
 
@@ -78,10 +79,12 @@ internal static class PotAllowances
         var rows = await db.PotSizeCosts.AsNoTracking().Where(row => row.PotSizeId == id).ToListAsync(cancellationToken);
         var today = Today(clock);
         var current = On(rows, today);
+        var rate = await VatRates.PercentAsync(db, VatBand.Standard, today, cancellationToken);
 
-        if (current?.CostEach == request.CostEach && (request.CostEach is null || current?.IncludesVat == request.IncludesVat))
+        // The same amount at a standard rate that has changed since is brought up to today's rate.
+        if (current?.CostEach == request.CostEach && (request.CostEach is null || (current?.IncludesVat == request.IncludesVat && current?.VatRate == rate)))
         {
-            return TypedResults.Ok(new AllowanceSaved(Changed: false, First: false));
+            return TypedResults.Ok(new AllowanceSaved(Changed: false, First: false, ReachesBack: false));
         }
 
         db.PotSizeCosts.Add(new PotSizeCost
@@ -89,13 +92,14 @@ internal static class PotAllowances
             PotSizeId = id,
             CostEach = request.CostEach,
             IncludesVat = request.IncludesVat,
-            VatRate = await VatRates.PercentAsync(db, VatBand.Standard, today, cancellationToken),
+            VatRate = rate,
             From = today,
             SetBy = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!),
         });
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
-        return TypedResults.Ok(new AllowanceSaved(Changed: true, First: rows.Count == 0));
+        // Every amount so far is from today, so this one also covers potting recorded before today.
+        return TypedResults.Ok(new AllowanceSaved(Changed: true, First: rows.Count == 0, ReachesBack: rows.TrueForAll(row => row.From == today)));
     }
 
     /// <summary>
@@ -120,6 +124,9 @@ internal static class PotAllowances
             .ToList();
         var lines = charged
             .Where(row => row.Allowance is { CostEach: not null })
+            .OrderBy(row => names[row.Pot.PotSizeId!.Value], StringComparer.Ordinal)
+            .ThenBy(row => row.Allowance!.From)
+            .ThenBy(row => row.Allowance!.SetAt)
             .GroupBy(row => row.Allowance!.Id)
             .Select(group =>
             {
@@ -161,8 +168,9 @@ internal static class PotAllowances
 
     internal sealed record AllowanceRequest(decimal? CostEach, bool IncludesVat = true);
 
-    /// <param name="First">The first amount for this size, which also covers potting already recorded.</param>
-    internal sealed record AllowanceSaved(bool Changed, bool First);
+    /// <param name="First">The first amount ever for this size.</param>
+    /// <param name="ReachesBack">It also covers potting recorded before today, as every amount so far was set today.</param>
+    internal sealed record AllowanceSaved(bool Changed, bool First, bool ReachesBack);
 
     /// <param name="Each">The amount for one plant, with VAT and before VAT, unrounded.</param>
     /// <param name="Set">Whether an amount has ever been set, so a first one can be told apart from a change.</param>

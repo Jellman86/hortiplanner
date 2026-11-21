@@ -36,15 +36,17 @@
   }
 
   async function load() {
-    sizes = (await api.GET("/api/pot-sizes")).data ?? [];
-
-    if (isOn("Costs")) {
-      const list = (await api.GET("/api/pot-sizes/allowances")).data ?? [];
-      allowances = Object.fromEntries(list.map((row) => [row.potSizeId, row]));
-      standardRate = Number(
-        (await api.GET("/api/settings/vat-rates")).data?.standard ?? 20,
-      );
-    }
+    // All at once; the cost of potting is left unknown, not shown as none, if it can't be fetched.
+    const [list, costs, rates] = await Promise.all([
+      api.GET("/api/pot-sizes"),
+      isOn("Costs") ? api.GET("/api/pot-sizes/allowances") : null,
+      isOn("Costs") ? api.GET("/api/settings/vat-rates") : null,
+    ]);
+    sizes = list.data ?? [];
+    allowances = Object.fromEntries(
+      (costs?.data ?? []).map((row) => [row.potSizeId, row]),
+    );
+    standardRate = Number(rates?.data?.standard ?? standardRate);
   }
 
   onMount(() => void attempt(load, setProblem));

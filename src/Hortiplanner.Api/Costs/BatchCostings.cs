@@ -193,7 +193,6 @@ internal static class BatchCostings
         };
     }
 
-    /// <summary>Only when the seed or plants are known, as a cost, nothing, or cuttings.</summary>
     /// <summary>Only when the seed or plants are known, as a cost, nothing, or cuttings; worked out exactly, rounded only for showing.</summary>
     private static MoneyPair? Total(MaterialCost material, PotAllowances.PotsCost? pots, List<CostEntry> others) =>
         material.Cost is { } cost

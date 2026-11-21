@@ -281,7 +281,7 @@ test("the owner sees both figures, changes the VAT and keeps the earlier answer"
   ).toBeVisible();
   await expect(
     page.getByText(
-      "Pots and compost for 2L aren't counted, because that pot size has no cost of potting yet.",
+      "Pots and compost for 2L aren't counted, because no cost of potting is set for that size.",
     ),
   ).toBeVisible();
   await expectAccessible(page, "Costs and takings");
