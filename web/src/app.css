@@ -4369,6 +4369,80 @@ button.person-button {
   transform: rotate(calc(var(--card) * 5deg));
 }
 
+/* A place's newest photos, larger, beside its stack while a mouse points at the place or the keyboard is on it.
+   Only where there's a mouse: on a phone a tap opens the place, with all its photos. */
+.photo-peek {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .place-row:is(:hover, :focus-visible) .photo-peek {
+    display: grid;
+    animation: photo-peek-in 0.14s ease-out;
+  }
+}
+
+.photo-peek {
+  /* Just below the row, lined up with the stack's right edge, so the place's own name stays in view. */
+  position: absolute;
+  top: calc(100% + 0.6rem);
+  right: -0.4rem;
+  z-index: 20;
+  gap: 0.5rem;
+  width: min(22rem, 70vw);
+  padding: 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: var(--surface);
+  box-shadow:
+    0 12px 32px rgb(0 0 0 / 0.22),
+    0 2px 6px rgb(0 0 0 / 0.12);
+  pointer-events: none;
+}
+
+.photo-peek-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.photo-peek.one .photo-peek-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* Not the stack's tilted cards: plain photos, a little rounded. */
+.photo-stack .photo-peek img {
+  position: static;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  border: 0;
+  border-radius: 0.5rem;
+  box-shadow: none;
+  transform: none;
+}
+
+.photo-peek-caption {
+  padding: 0 0.2rem 0.1rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.35;
+  white-space: normal;
+}
+
+@keyframes photo-peek-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.25rem) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .place-row:is(:hover, :focus-visible) .photo-peek {
+    animation: none;
+  }
+}
+
 .photo-stack-more {
   position: absolute;
   right: -0.35rem;

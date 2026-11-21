@@ -69,6 +69,15 @@
   }
 
   onMount(() => void attempt(load, setProblem));
+
+  /** Said under the larger photos shown when pointing at a place. */
+  function peekCaption(name: string, count: number): string {
+    return count === 1
+      ? `${name} has 1 photo.`
+      : count <= 4
+        ? `${name} has ${count} photos.`
+        : `${name} has ${count} photos. These are the 4 newest.`;
+  }
 </script>
 
 {#if drawing}
@@ -134,6 +143,7 @@
                 </span>
                 {#if place.photoIds.length > 0}
                   {@const stack = place.photoIds.slice(-3).reverse()}
+                  {@const peek = place.photoIds.slice(-4).reverse()}
                   <span
                     class="photo-stack"
                     style:--cards={stack.length}
@@ -156,6 +166,26 @@
                         >+{place.photoIds.length - stack.length}</span
                       >
                     {/if}
+                    <!-- With a mouse, pointing at a place shows its newest photos larger. It repeats what the place's
+                         own page shows, so it's hidden from screen readers, which hear how many photos there are. -->
+                    <span
+                      class="photo-peek"
+                      class:one={peek.length === 1}
+                      aria-hidden="true"
+                    >
+                      <span class="photo-peek-grid">
+                        {#each peek as photoId (photoId)}
+                          <img
+                            src="/api/catalogue-photos/{photoId}"
+                            alt=""
+                            loading="lazy"
+                          />
+                        {/each}
+                      </span>
+                      <span class="photo-peek-caption"
+                        >{peekCaption(place.name, place.photoIds.length)}</span
+                      >
+                    </span>
                   </span>
                 {/if}
                 <ChevronRight size={18} />
