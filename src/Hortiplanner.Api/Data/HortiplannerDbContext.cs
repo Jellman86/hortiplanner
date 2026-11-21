@@ -19,6 +19,8 @@ internal sealed class HortiplannerDbContext(DbContextOptions<HortiplannerDbConte
 
     public DbSet<BatchCost> BatchCosts => Set<BatchCost>();
 
+    public DbSet<PotSizeCost> PotSizeCosts => Set<PotSizeCost>();
+
     public DbSet<Purchase> Purchases => Set<Purchase>();
 
     public DbSet<PurchaseLine> PurchaseLines => Set<PurchaseLine>();
@@ -139,6 +141,7 @@ internal sealed class HortiplannerDbContext(DbContextOptions<HortiplannerDbConte
         ConfigureSelling(modelBuilder);
         ConfigureVatRates(modelBuilder);
         ConfigureBatchCosts(modelBuilder);
+        ConfigurePotSizeCosts(modelBuilder);
 
         modelBuilder.Entity<CatalogueChange>(entity =>
         {
@@ -452,6 +455,23 @@ internal sealed class HortiplannerDbContext(DbContextOptions<HortiplannerDbConte
             entity.ToTable(table => table.HasCheckConstraint("ck_nursery_settings_single", "id = 1"));
         });
     }
+
+    private static void ConfigurePotSizeCosts(ModelBuilder modelBuilder) =>
+        modelBuilder.Entity<PotSizeCost>(entity =>
+        {
+            entity.ToTable(table =>
+            {
+                table.HasCheckConstraint("ck_pot_size_costs_cost_each", "cost_each IS NULL OR (cost_each > 0 AND cost_each < 1000)");
+                table.HasCheckConstraint("ck_pot_size_costs_vat_rate", "vat_rate >= 0 AND vat_rate <= 100");
+            });
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.CostEach).HasPrecision(8, 2);
+            entity.Property(e => e.VatRate).HasPrecision(5, 2);
+            entity.Property(e => e.SetAt).HasDefaultValueSql("now()");
+            entity.HasIndex(e => new { e.PotSizeId, e.From });
+            entity.HasOne<PotSize>().WithMany().HasForeignKey(e => e.PotSizeId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<AppUser>().WithMany().HasForeignKey(e => e.SetBy).OnDelete(DeleteBehavior.Restrict);
+        });
 
     private static void ConfigureBatchCosts(ModelBuilder modelBuilder) =>
         modelBuilder.Entity<BatchCost>(entity =>

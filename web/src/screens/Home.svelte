@@ -773,6 +773,9 @@
         onPurchases={me.isOwner && !atBench && isOn("Purchases")
           ? () => (view = { name: "manage", section: "purchases" })
           : undefined}
+        onPotSizes={me.isOwner && !atBench
+          ? () => (view = { name: "settings", page: "potSizes" })
+          : undefined}
         onDone={finishWork}
         onCancel={view.fromProduction
           ? () => (view = { name: "production" })

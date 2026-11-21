@@ -54,6 +54,7 @@ internal static class BatchCostings
         var purchase = batch.PurchaseLineId is { } lineId ? await PurchaseShareAsync(lineId, id, db, cancellationToken) : null;
         var material = Material(batch.Source, history, purchase);
         var others = history.Where(entry => entry is { Kind: CostKind.Other, Replaced: false, Answer: CostAnswer.Amount }).ToList();
+        var pots = await PotAllowances.ForBatchAsync(id, db, clock, cancellationToken);
         var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(clock.GetUtcNow(), clock.LocalTimeZone).DateTime);
 
         return TypedResults.Ok(new BatchCosting(
@@ -65,7 +66,8 @@ internal static class BatchCostings
             registered ? VatCounts.BeforeVat : VatCounts.WithVat,
             material,
             others,
-            Total(material, others),
+            pots,
+            Total(material, pots, others),
             history,
             await VatRates.PercentAsync(db, VatBand.Standard, today, cancellationToken),
             await VatRates.PercentAsync(db, VatBand.Reduced, today, cancellationToken)));
@@ -191,10 +193,12 @@ internal static class BatchCostings
         };
     }
 
-    /// <summary>Only when the seed or plants are known, as a cost, nothing, or cuttings.</summary>
-    private static MoneyPair? Total(MaterialCost material, List<CostEntry> others) =>
+    /// <summary>Only when the seed or plants are known, as a cost, nothing, or cuttings; worked out exactly, rounded only for showing.</summary>
+    private static MoneyPair? Total(MaterialCost material, PotAllowances.PotsCost? pots, List<CostEntry> others) =>
         material.Cost is { } cost
-            ? new MoneyPair(cost.WithVat + others.Sum(entry => entry.Cost!.WithVat), cost.BeforeVat + others.Sum(entry => entry.Cost!.BeforeVat))
+            ? new MoneyPair(
+                cost.WithVat + (pots?.Cost.WithVat ?? 0) + others.Sum(entry => entry.Cost!.WithVat),
+                cost.BeforeVat + (pots?.Cost.BeforeVat ?? 0) + others.Sum(entry => entry.Cost!.BeforeVat))
             : null;
 
     internal sealed record MoneyPair(decimal WithVat, decimal BeforeVat);
@@ -235,6 +239,7 @@ internal static class BatchCostings
         VatCounts Counts,
         MaterialCost Material,
         IReadOnlyList<CostEntry> Others,
+        PotAllowances.PotsCost? Pots,
         MoneyPair? Total,
         IReadOnlyList<CostEntry> History,
         decimal StandardRate,

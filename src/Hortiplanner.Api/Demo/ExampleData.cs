@@ -66,6 +66,14 @@ internal sealed class ExampleData(HortiplannerDbContext db, EventStore store)
         db.PotSizes.AddRange(sizes);
         potSizes.AddRange(sizes.Select(size => size.Id));
 
+        // What potting costs for the two smaller sizes, with VAT, from long ago; the larger two have none yet.
+        var rate = await Settings.VatRates.PercentAsync(db, VatBand.Standard, DateDaysAgo(365), cancellationToken);
+
+        foreach (var (size, each) in new[] { (sizes[0], 0.42m), (sizes[1], 0.85m) })
+        {
+            db.PotSizeCosts.Add(new PotSizeCost { PotSizeId = size.Id, CostEach = each, IncludesVat = true, VatRate = rate, From = DateDaysAgo(365), SetBy = recordedBy });
+        }
+
         var site = new Location { Name = "Example Nursery", Kind = LocationKind.Site };
         var greenhouse1 = new Location { Name = "Greenhouse 1", Kind = LocationKind.Greenhouse, ParentId = site.Id };
         var greenhouse2 = new Location { Name = "Greenhouse 2", Kind = LocationKind.Greenhouse, ParentId = site.Id };

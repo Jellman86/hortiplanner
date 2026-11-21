@@ -142,6 +142,7 @@ app.MapNurserySettingsEndpoints();
 app.MapVatRateEndpoints();
 app.MapCostEndpoints();
 app.MapMissingCostEndpoints();
+app.MapPotAllowanceEndpoints();
 app.MapFeatureEndpoints();
 app.MapClearRecordsEndpoints();
 app.MapProductionEndpoints();

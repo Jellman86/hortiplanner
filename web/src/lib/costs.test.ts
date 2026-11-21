@@ -5,6 +5,7 @@ import {
   firstOf,
   halfOf,
   missingCostWords,
+  potsSentences,
   materialSentence,
   readMoney,
   replacedParts,
@@ -50,6 +51,7 @@ const costing = (overrides: Partial<Costing> = {}): Costing => ({
     superseded: null,
   },
   others: [],
+  pots: null,
   total: null,
   history: [],
   standardRate: 20,
@@ -276,5 +278,57 @@ describe("a batch waiting for its cost", () => {
     expect(missingCostWords(batch([], null), march).detail).toBe(
       "It isn't in a tray now.",
     );
+  });
+});
+
+describe("what potting cost", () => {
+  it("says how many plants went into each size, and what isn't counted", () => {
+    expect(
+      potsSentences({
+        cost: { withVat: 8.4, beforeVat: 7 },
+        lines: [
+          {
+            size: "9cm",
+            plants: 20,
+            each: { withVat: 0.42, beforeVat: 0.35 },
+            cost: { withVat: 8.4, beforeVat: 7 },
+          },
+          {
+            size: "1L",
+            plants: 1,
+            each: { withVat: 0.85, beforeVat: 0.7083 },
+            cost: { withVat: 0.85, beforeVat: 0.7083 },
+          },
+        ],
+        withoutAllowance: ["2L", "3L"],
+        unsizedPlants: 4,
+      }),
+    ).toEqual([
+      "20 plants were potted into 9cm at £0.42 each with VAT, which is £0.35 before VAT.",
+      "1 plant was potted into 1L at £0.85 with VAT, which is about £0.71 before VAT.",
+      "Pots and compost for 2L and 3L aren't counted, because no cost of potting is set for those sizes.",
+      "4 plants were potted with no pot size recorded, so their pots aren't counted.",
+    ]);
+  });
+
+  it("calls a single size the whole row", () => {
+    expect(
+      potsSentences({
+        cost: { withVat: 8.4, beforeVat: 7 },
+        lines: [
+          {
+            size: "9cm",
+            plants: 20,
+            each: { withVat: 0.42, beforeVat: 0.35 },
+            cost: { withVat: 8.4, beforeVat: 7 },
+          },
+        ],
+        withoutAllowance: ["2L"],
+        unsizedPlants: 0,
+      }),
+    ).toEqual([
+      "That's 20 plants potted into 9cm at £0.42 each with VAT, which is £0.35 before VAT.",
+      "Pots and compost for 2L aren't counted, because no cost of potting is set for that size.",
+    ]);
   });
 });

@@ -22,7 +22,7 @@ internal static class ClearRecordsEndpoints
         "till_takings", "purchase_receipts", "purchase_lines", "purchases", "received_passports", "issued_passports", "package_lines", "consignment_packages", "consignments",
         "legacy_count", "count_adjustments", "event_lines", "events", "batch_photos", "batch_costs", "containers", "batches", "mother_plants",
         "plant_notes", "plant_photos", "plant_prices", "plants", "catalogue_entry_photos", "catalogue_changes",
-        "jobs_done", "jobs", "sensor_readings", "sensors", "pot_sizes", "suppliers", "locations",
+        "jobs_done", "jobs", "sensor_readings", "sensors", "pot_size_costs", "pot_sizes", "suppliers", "locations",
 
         // Ask Hortiplanner conversations quote the records, so they go with them. What questions cost stays.
         "assistant_messages", "assistant_conversations",

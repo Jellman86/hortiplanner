@@ -16,6 +16,7 @@
     materialWord,
     moneyProblem,
     otherSentence,
+    potsSentences,
     readMoney,
     replacedParts,
     rowName,
@@ -32,9 +33,12 @@
   let {
     line,
     onPurchases,
+    onPotSizes,
     onBack,
   }: {
     line: Schemas["ContainerLine"];
+    /** Opens Settings, Pot sizes, where the cost of potting is set. */
+    onPotSizes?: () => void;
     /** Opens Purchases, where a purchase's cost comes from, while Purchases is on. */
     onPurchases?: () => void;
     onBack: () => void;
@@ -422,6 +426,29 @@
               </td>
             </tr>
           {/if}
+          {#if costing.pots}
+            <tr>
+              <th scope="row" id="cost-pots">Pots and compost</th>
+              {#if costing.pots.lines.length > 0}
+                {@render amounts(costing.pots.cost)}
+              {:else}
+                <!-- Nothing could be charged, which isn't the same as nothing. -->
+                <td colspan="2">Not counted</td>
+              {/if}
+            </tr>
+            <tr class="cost-said">
+              <td colspan="3" headers="cost-pots">
+                {#each potsSentences(costing.pots) as sentence, index (index)}
+                  <p>{sentence}</p>
+                {/each}
+                {#if costing.pots.withoutAllowance.length > 0 && onPotSizes}
+                  <button type="button" class="secondary" onclick={onPotSizes}
+                    ><ArrowRight size={16} aria-hidden="true" /> Go to Pot sizes</button
+                  >
+                {/if}
+              </td>
+            </tr>
+          {/if}
           {#each costing.others as entry (entry.id)}
             <tr>
               <th scope="row" id="cost-{entry.id}"
@@ -587,8 +614,9 @@
     {/if}
 
     <p class="muted">
-      These figures count what went into the plants: the {what} and anything else
-      added here. They leave out wages, heating and rent.
+      These figures count what went into the plants: the {what}, pots and
+      compost, and anything else added here. They leave out wages, heating and
+      rent.
     </p>
   {/if}
 

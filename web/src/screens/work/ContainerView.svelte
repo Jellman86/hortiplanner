@@ -62,6 +62,7 @@
     label,
     onTrace,
     onPurchases,
+    onPotSizes,
     onDone,
     onCancel,
     onNotFound,
@@ -74,6 +75,8 @@
     onTrace?: (batchId: string) => void;
     /** Only for the owner: opens Purchases, where a batch's cost can come from. */
     onPurchases?: () => void;
+    /** Only for the owner: opens Settings, Pot sizes, where the cost of potting is set. */
+    onPotSizes?: () => void;
     onDone: (message: string, eventId: string, newLabel?: string) => void;
     onCancel: () => void;
     onNotFound: (message: string) => void;
@@ -366,7 +369,12 @@
     />
   {/key}
 {:else if costing && lineOf(costing)}
-  <BatchCosting line={lineOf(costing)!} {onPurchases} onBack={costingClosed} />
+  <BatchCosting
+    line={lineOf(costing)!}
+    {onPurchases}
+    {onPotSizes}
+    onBack={costingClosed}
+  />
 {:else if addingCost && lineOf(addingCost)}
   <AddCost line={lineOf(addingCost)!} onSaved={costSaved} onCancel={back} />
 {:else if editing}

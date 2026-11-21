@@ -149,6 +149,7 @@ public sealed class TransferTests(PostgresFixture database)
         Assert.Contains(archive.Entries, entry => string.Equals(entry.Name, "count-adjustments.csv", StringComparison.Ordinal));
         Assert.Contains(archive.Entries, entry => string.Equals(entry.Name, "legacy-counts.csv", StringComparison.Ordinal));
         Assert.Contains(archive.Entries, entry => string.Equals(entry.Name, "batch-costs.csv", StringComparison.Ordinal));
+        Assert.Contains(archive.Entries, entry => string.Equals(entry.Name, "pot-size-costs.csv", StringComparison.Ordinal));
 
         using var plants = new StreamReader(archive.GetEntry("plants.csv")!.Open(), Encoding.UTF8);
         var text = await plants.ReadToEndAsync(Cancellation);
