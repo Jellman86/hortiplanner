@@ -3728,6 +3728,66 @@
         }
       }
     },
+    "/api/containers/{id}/sold": {
+      "post": {
+        "tags": [
+          "WorkEndpoints"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkRecorded"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkRecorded"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkRefused"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/events/recent": {
       "get": {
         "tags": [
@@ -7229,6 +7289,7 @@
           "pots",
           "total",
           "perPlant",
+          "takings",
           "history",
           "standardRate",
           "reducedRate"
@@ -7285,6 +7346,9 @@
           },
           "perPlant": {
             "$ref": "#/components/schemas/PerPlant"
+          },
+          "takings": {
+            "$ref": "#/components/schemas/Takings"
           },
           "history": {
             "type": "array",
@@ -11378,7 +11442,8 @@
           "BatchPhotos",
           "BenchStations",
           "Assistant",
-          "Costs"
+          "Costs",
+          "TraySales"
         ]
       },
       "OutlineRequest": {
@@ -13804,6 +13869,46 @@
           }
         }
       },
+      "SaleRequest": {
+        "required": [
+          "eventId",
+          "occurredAt",
+          "batchId",
+          "quantity"
+        ],
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "batchId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "priceEach": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
       "SavedMessage": {
         "required": [
           "id",
@@ -15034,6 +15139,60 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "Takings": {
+        "required": [
+          "invoiced",
+          "invoiceTakings",
+          "fromTrays",
+          "trayTakings",
+          "noPrice",
+          "total"
+        ],
+        "type": "object",
+        "properties": {
+          "invoiced": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "invoiceTakings": {
+            "$ref": "#/components/schemas/MoneyPair"
+          },
+          "fromTrays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "trayTakings": {
+            "$ref": "#/components/schemas/MoneyPair"
+          },
+          "noPrice": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "total": {
+            "$ref": "#/components/schemas/MoneyPair"
+          },
+          "sold": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },

@@ -58,6 +58,7 @@ internal static class BatchCostings
         var (pots, potCharges) = await PotAllowances.ForBatchAsync(id, db, clock, cancellationToken);
         var total = Total(material, pots, others);
         var perPlant = PlantCosts.Work(await BatchLedger.LoadAsync(db, id, cancellationToken), id, total, Spent(material, others, potCharges));
+        var takings = TakingsOf(await Sales.ForBatchAsync(id, db, cancellationToken));
         var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(clock.GetUtcNow(), clock.LocalTimeZone).DateTime);
 
         return TypedResults.Ok(new BatchCosting(
@@ -72,6 +73,7 @@ internal static class BatchCostings
             pots,
             total,
             perPlant,
+            takings,
             history,
             await VatRates.PercentAsync(db, VatBand.Standard, today, cancellationToken),
             await VatRates.PercentAsync(db, VatBand.Reduced, today, cancellationToken)));
@@ -197,6 +199,24 @@ internal static class BatchCostings
         };
     }
 
+    /// <summary>What the batch has taken: on invoices, and from trays with and without a price.</summary>
+    private static Takings TakingsOf(List<Sales.Sale> sales)
+    {
+        MoneyPair Sum(IEnumerable<Sales.Sale> some) =>
+            new(some.Sum(sale => sale.Takings?.WithVat ?? 0), some.Sum(sale => sale.Takings?.BeforeVat ?? 0));
+
+        var invoiced = sales.Where(sale => sale.Source == SaleSource.Invoice).ToList();
+        var priced = sales.Where(sale => sale.Source == SaleSource.Tray && sale.Takings is not null).ToList();
+
+        return new Takings(
+            invoiced.Sum(sale => sale.Quantity),
+            Sum(invoiced),
+            priced.Sum(sale => sale.Quantity),
+            Sum(priced),
+            sales.Where(sale => sale.Source == SaleSource.Tray && sale.Takings is null).Sum(sale => sale.Quantity),
+            Sum(sales));
+    }
+
     /// <summary>
     /// What was spent on the batch and when: the seed or plants from the start, anything else on the day it was for,
     /// and each potting as it happened.
@@ -217,6 +237,14 @@ internal static class BatchCostings
             : null;
 
     internal sealed record MoneyPair(decimal WithVat, decimal BeforeVat);
+
+    /// <param name="Invoiced">Plants sold on invoices not cancelled by a credit note.</param>
+    /// <param name="FromTrays">Plants recorded as sold from a tray, with a price.</param>
+    /// <param name="NoPrice">Plants recorded as sold from a tray with no price, which add nothing to the takings.</param>
+    internal sealed record Takings(int Invoiced, MoneyPair InvoiceTakings, int FromTrays, MoneyPair TrayTakings, int NoPrice, MoneyPair Total)
+    {
+        public int Sold => Invoiced + FromTrays + NoPrice;
+    }
 
     /// <param name="AddedAt">When it reached Hortiplanner.</param>
     /// <param name="OccurredAt">The day it was for, which gives the VAT rate.</param>
@@ -257,6 +285,7 @@ internal static class BatchCostings
         PotAllowances.PotsCost? Pots,
         MoneyPair? Total,
         PlantCosts.PerPlant PerPlant,
+        Takings Takings,
         IReadOnlyList<CostEntry> History,
         decimal StandardRate,
         decimal ReducedRate);

@@ -105,6 +105,11 @@ export const work = {
     details: Details<Schemas["NoteRequest"]>,
     occurredAt?: string,
   ) => request(onContainer(id, "notes"), details, occurredAt),
+  sell: (
+    id: string,
+    details: Details<Schemas["SaleRequest"]>,
+    occurredAt?: string,
+  ) => request(onContainer(id, "sold"), details, occurredAt),
   undo: (eventId: string) =>
     request(`/api/events/${eventId}/correct`, {
       quantity: null,
@@ -338,6 +343,10 @@ export function describeRecent(action: Schemas["RecentAction"]): string {
         : `Examined ${action.labelCode}`;
     case "Note":
       return `Note on ${action.labelCode}`;
+    case "Sold":
+      return details?.sale === "tray"
+        ? `Sold ${quantity} ${plant} from ${action.labelCode}`
+        : `Sold ${quantity} ${plant} on an invoice`;
     default:
       return String(action.type);
   }

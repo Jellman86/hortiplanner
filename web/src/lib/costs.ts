@@ -441,3 +441,83 @@ export function perPlantSentences(costing: Costing): string[] {
 
   return sentences;
 }
+
+/** The figure that counts, in words: "£21.00", or "£17.50 before VAT" once registered. */
+function counted(cost: MoneyPair, counts: Costing["counts"]): string {
+  return counts === "BeforeVat"
+    ? `${money(Number(cost.beforeVat))} before VAT`
+    : money(Number(cost.withVat));
+}
+
+/** What the batch has taken, on invoices and from trays. */
+export function takingsSentences(costing: Costing): string[] {
+  const takings = costing.takings;
+  const invoiced = Number(takings.invoiced);
+  const fromTrays = Number(takings.fromTrays);
+  const noPrice = Number(takings.noPrice);
+  const sentences: string[] = [];
+
+  if (invoiced > 0) {
+    sentences.push(
+      `${invoiced === 1 ? "1 was" : `${invoiced} were`} sold on invoices for ${counted(takings.invoiceTakings, costing.counts)}.`,
+    );
+  }
+
+  if (fromTrays > 0) {
+    sentences.push(
+      `${fromTrays === 1 ? "1 was" : `${fromTrays} were`} sold from the tray for ${counted(takings.trayTakings, costing.counts)}.`,
+    );
+  }
+
+  if (noPrice > 0) {
+    const more = invoiced + fromTrays > 0 ? " more" : "";
+    sentences.push(
+      noPrice === 1
+        ? `1${more} was sold from the tray with no price recorded, so it isn't in the takings.`
+        : `${noPrice}${more} were sold from the tray with no price recorded, so they aren't in the takings.`,
+    );
+  }
+
+  return sentences.length > 0
+    ? sentences
+    : ["Nothing from this batch has been sold yet."];
+}
+
+/**
+ * What the batch has made so far, on the figures that count: takings less costs with VAT while the nursery isn't
+ * registered, both before VAT once it is. Only when the cost is known.
+ */
+export function soFarSentence(costing: Costing): string {
+  if (!costing.total) {
+    return "";
+  }
+
+  const before = costing.counts === "BeforeVat";
+  const pick = (pair: MoneyPair) =>
+    Number(before ? pair.beforeVat : pair.withVat);
+  const taken = pick(costing.takings.total);
+  const cost = pick(costing.total);
+  const made = Math.round((taken - cost) * 100) / 100;
+  const vat = before ? ", both before VAT," : " with VAT,";
+  const plant = costing.perPlant;
+  const left = plant.notCounted
+    ? null
+    : Math.max(Number(plant.alive) - Number(costing.takings.sold ?? 0), 0);
+
+  if (left === 0) {
+    return made >= 0
+      ? `This batch has finished. It took ${money(taken)} and cost ${money(cost)}${vat} so it made ${money(made)}.`
+      : `This batch has finished. It took ${money(taken)} and cost ${money(cost)}${vat} so it lost ${money(-made)}.`;
+  }
+
+  const still =
+    left === null
+      ? ""
+      : left === 1
+        ? ", with 1 plant still to sell"
+        : `, with ${left} plants still to sell`;
+
+  return made >= 0
+    ? `It has taken ${money(taken)} and cost ${money(cost)}${vat} so it has made ${money(made)} so far${still}.`
+    : `It has cost ${money(cost)} and taken ${money(taken)} so far${before ? ", both before VAT" : ""}${still}.`;
+}

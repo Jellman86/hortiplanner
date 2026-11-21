@@ -17,6 +17,8 @@
     moneyProblem,
     otherSentence,
     perPlantSentences,
+    soFarSentence,
+    takingsSentences,
     potsSentences,
     readMoney,
     replacedParts,
@@ -611,6 +613,16 @@
       </section>
     {/if}
 
+    <section class="stack tight" aria-labelledby="taken-heading">
+      <h2 id="taken-heading" class="form-heading">What it has taken</h2>
+      {#each takingsSentences(costing) as sentence, index (index)}
+        <p>{sentence}</p>
+      {/each}
+      {#if soFarSentence(costing)}
+        <p><strong>{soFarSentence(costing)}</strong></p>
+      {/if}
+    </section>
+
     {#if replaced.length > 0}
       <section class="stack tight" aria-labelledby="earlier-heading">
         <h2 id="earlier-heading" class="form-heading">Earlier answers</h2>
@@ -628,8 +640,8 @@
 
     <p class="muted">
       These figures count what went into the plants: the {what}, pots and
-      compost, and anything else added here. They leave out wages, heating and
-      rent.
+      compost, and anything else added here, and what the plants were sold for.
+      They leave out wages, heating and rent.
     </p>
   {/if}
 

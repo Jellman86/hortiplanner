@@ -1038,6 +1038,109 @@ public sealed class CostTests(PostgresFixture database)
         Assert.Equal((0.10m, 0.08m), Rounded(found.GetProperty("each")));
     }
 
+    private static async Task<(HttpStatusCode Status, string? Problem, Guid Id)> SellAsync(HttpClient client, Guid tray, Guid batch, int quantity, decimal? priceEach, DateTimeOffset? at = null)
+    {
+        var id = Guid.NewGuid();
+        using var response = await client.PostAsJsonAsync(Route($"/api/containers/{tray}/sold"), new { eventId = id, occurredAt = at ?? DateTimeOffset.UtcNow, batchId = batch, quantity, priceEach }, Cancellation);
+        var text = await response.Content.ReadAsStringAsync(Cancellation);
+        return (response.StatusCode, response.StatusCode == HttpStatusCode.Conflict ? Json(text).GetProperty("problem").GetString() : null, id);
+    }
+
+    private static async Task<int> HereAsync(HttpClient client, Guid tray) =>
+        (await client.GetFromJsonAsync<JsonElement>(Route("/api/containers/active"), Cancellation)).EnumerateArray()
+            .Single(container => container.GetProperty("id").GetGuid() == tray).GetProperty("contents")[0].GetProperty("quantity").GetInt32();
+
+    private static async Task<decimal?> SaleVatRateAsync(TwoPersonNursery nursery, Guid sale)
+    {
+        await using var scope = nursery.App.Services.CreateAsyncScope();
+        var payload = await scope.ServiceProvider.GetRequiredService<HortiplannerDbContext>().Events.Where(e => e.Id == sale).Select(e => e.Payload).SingleAsync(Cancellation);
+        return Json(payload).GetProperty("vatRate").GetDecimal();
+    }
+
+    [Fact]
+    public async Task A_sale_from_a_tray_takes_the_plants_off_it_and_can_be_undone_unlike_an_invoices()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var (batch, tray) = await SowAsync(nursery, 20, 3m, DateTimeOffset.UtcNow.AddDays(-10));
+
+        var (status, _, sale) = await SellAsync(nursery.Staff, tray, batch, 3, 4.50m);
+        Assert.Equal(HttpStatusCode.Created, status);
+        Assert.Equal(17, await HereAsync(nursery.Staff, tray));
+        Assert.Equal((HttpStatusCode.Conflict, "BelowZero"), (await SellAsync(nursery.Staff, tray, batch, 50, 4.50m)) is var tooMany ? (tooMany.Status, tooMany.Problem) : default);
+
+        await CorrectAsync(nursery.Staff, sale);
+        Assert.Equal(20, await HereAsync(nursery.Staff, tray));
+
+        // An invoice's sale is undone only by a credit note.
+        var customer = Json(await PostForTextAsync(nursery.Owner, "/api/customers", new { name = "Hilltop" })).GetProperty("id").GetGuid();
+        var invoice = Json(await PostForTextAsync(nursery.Owner, "/api/invoices", new { customerId = customer, lines = new[] { new { description = "Lavender", quantity = 2, unitPrice = 5m, vatRate = 0m, plantId = (Guid?)null, containerId = tray, batchId = batch } } }));
+        await using var scope = nursery.App.Services.CreateAsyncScope();
+        var invoiceSale = await scope.ServiceProvider.GetRequiredService<HortiplannerDbContext>().Invoices.Where(row => row.Id == invoice.GetProperty("id").GetGuid()).Select(row => row.SoldEventId).SingleAsync(Cancellation);
+        using var undo = await nursery.Owner.PostAsJsonAsync(Route($"/api/events/{invoiceSale}/correct"), new { eventId = Guid.NewGuid(), occurredAt = DateTimeOffset.UtcNow }, Cancellation);
+        Assert.Equal("SoldByInvoice", Json(await undo.Content.ReadAsStringAsync(Cancellation)).GetProperty("problem").GetString());
+    }
+
+    [Fact]
+    public async Task A_tray_not_counted_yet_is_counted_before_a_sale()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var (batch, tray) = await SowAsync(nursery, 0, 3m, DateTimeOffset.UtcNow.AddDays(-10), "Unknown");
+
+        Assert.Equal((HttpStatusCode.Conflict, "NotCounted"), (await SellAsync(nursery.Staff, tray, batch, 1, 4m)) is var refused ? (refused.Status, refused.Problem) : default);
+        Assert.Equal(HttpStatusCode.BadRequest, (await SellAsync(nursery.Staff, tray, batch, 1, -1m)).Status);
+    }
+
+    [Fact]
+    public async Task A_sale_keeps_the_VAT_it_was_charged_at()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var plant = await AddPlantAsync(nursery.Owner, "Basil", "Reduced");
+        var started = Json(await PostForTextAsync(nursery.Staff, "/api/batches", new { eventId = Guid.NewGuid(), occurredAt = DateTimeOffset.UtcNow.AddDays(-10), plantId = plant, quantity = 30, source = "SeedLot", originCountry = "GB", containerKind = "Tray" }));
+        var (batch, tray) = (started.GetProperty("batchId").GetGuid(), started.GetProperty("containerId").GetGuid());
+
+        // While not registered, nothing is charged.
+        var unregistered = (await SellAsync(nursery.Staff, tray, batch, 1, 3m)).Id;
+        Assert.Equal(0m, await SaleVatRateAsync(nursery, unregistered));
+
+        using (var registered = await nursery.Owner.PutAsJsonAsync(Route("/api/settings/nursery"), new { name = "Croft View", vatNumber = "GB123456789", hasLogo = false, vatRegistered = true, paymentTermsDays = 14 }, Cancellation))
+        {
+            Assert.True(registered.IsSuccessStatusCode);
+        }
+
+        var afterwards = (await SellAsync(nursery.Staff, tray, batch, 1, 3m)).Id;
+        Assert.Equal(5m, await SaleVatRateAsync(nursery, afterwards));
+
+        // A later change of rate leaves it as it was.
+        using (var rates = await nursery.Owner.PutAsJsonAsync(Route("/api/settings/vat-rates"), new { standard = 20m, reduced = 8m }, Cancellation))
+        {
+            rates.EnsureSuccessStatusCode();
+        }
+
+        Assert.Equal(5m, await SaleVatRateAsync(nursery, afterwards));
+    }
+
+    [Fact]
+    public async Task The_costing_counts_what_was_taken_on_invoices_and_from_trays()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var (batch, tray) = await SowAsync(nursery, 20, 3m, DateTimeOffset.UtcNow.AddDays(-10));
+        await SellAsync(nursery.Staff, tray, batch, 4, 4.50m);
+        await SellAsync(nursery.Staff, tray, batch, 2, null);
+        var undone = (await SellAsync(nursery.Staff, tray, batch, 5, 9m)).Id;
+        await CorrectAsync(nursery.Staff, undone);
+        var customer = Json(await PostForTextAsync(nursery.Owner, "/api/customers", new { name = "Hilltop" })).GetProperty("id").GetGuid();
+        await PostForTextAsync(nursery.Owner, "/api/invoices", new { customerId = customer, lines = new[] { new { description = "Lavender", quantity = 6, unitPrice = 3.50m, vatRate = 0m, plantId = (Guid?)null, containerId = tray, batchId = batch } } });
+
+        var takings = (await CostingAsync(nursery.Owner, batch)).GetProperty("takings");
+        Assert.Equal(6, takings.GetProperty("invoiced").GetInt32());
+        Assert.Equal((21m, 21m), Rounded(takings.GetProperty("invoiceTakings")));
+        Assert.Equal(4, takings.GetProperty("fromTrays").GetInt32());
+        Assert.Equal((18m, 18m), Rounded(takings.GetProperty("trayTakings")));
+        Assert.Equal(2, takings.GetProperty("noPrice").GetInt32());
+        Assert.Equal(12, takings.GetProperty("sold").GetInt32());
+        Assert.Equal((39m, 39m), Rounded(takings.GetProperty("total")));
+    }
+
     [Fact]
     public async Task Costs_are_never_changed_or_deleted()
     {

@@ -177,7 +177,7 @@ test("the screens fit the width of a phone, a tablet and a desk", async ({
   await page.locator(".place-row").first().click();
   await expect(page.locator("h1")).toContainText("Batch");
   await expect(
-    page.getByRole("heading", { name: "What it cost" }),
+    page.getByRole("heading", { name: "What it cost and took" }),
   ).toBeVisible();
   await check("batch");
   await expectAccessible(page, "Trace report, with what it cost");

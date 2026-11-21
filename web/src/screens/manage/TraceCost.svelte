@@ -4,6 +4,8 @@
   import {
     materialWord,
     perPlantSentences,
+    soFarSentence,
+    takingsSentences,
     wholeCost,
     type Costing,
   } from "../../lib/costs";
@@ -37,7 +39,7 @@
 </script>
 
 <section class="stack no-print" aria-labelledby="trace-cost">
-  <h2 id="trace-cost">What it cost</h2>
+  <h2 id="trace-cost">What it cost and took</h2>
   {#if problem}<p class="muted">{problem}</p>{/if}
   {#if costing}
     {#if nothingSpent}
@@ -49,6 +51,10 @@
       {#each perPlantSentences(costing) as sentence, index (index)}
         <p>{sentence}</p>
       {/each}
+      {#each takingsSentences(costing) as sentence, index (index)}
+        <p>{sentence}</p>
+      {/each}
+      {#if soFarSentence(costing)}<p>{soFarSentence(costing)}</p>{/if}
     {:else if costing.material.state === "NotKnown"}
       <p class="muted">
         You said nobody knows what the {materialWord(costing.source)} cost, so this
