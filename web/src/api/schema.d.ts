@@ -9627,9 +9627,12 @@ export interface components {
             /** Format: uuid */
             batchId: string;
             traceabilityCode: string;
+            /** Format: uuid */
+            plantId: string;
             commonName: string;
             variety: null | string;
             source: components["schemas"]["BatchSource"];
+            hasPhoto: boolean;
             /** Format: date-time */
             startedAt: null | string;
             trays: string[];

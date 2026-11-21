@@ -447,9 +447,11 @@ test("the bell leads the owner to costs to fill in, answered one by one or all a
   const batch = (id: string, code: string, trays: string[]) => ({
     batchId: id,
     traceabilityCode: code,
+    plantId: "0193a6f0-0000-7000-8000-0000000000a1",
     commonName: "Lavender",
     variety: "Hidcote",
     source: "SeedLot",
+    hasPhoto: false,
     startedAt: "2026-03-03T10:00:00Z",
     trays,
   });
@@ -538,8 +540,13 @@ test("the bell leads the owner to costs to fill in, answered one by one or all a
     page.getByRole("heading", { name: "Costs to fill in" }),
   ).toBeVisible();
   await expect(page.getByText("4 batches have no cost yet.")).toBeVisible();
+  // Each batch: its name, the box and Save, and the other two answers beside them.
   const card = (code: string) =>
-    page.getByRole("form", { name: `Lavender 'Hidcote', batch ${code}` });
+    page.getByRole("listitem").filter({
+      has: page.getByRole("heading", {
+        name: `Lavender 'Hidcote', batch ${code}`,
+      }),
+    });
   await expect(
     page.getByText("It was sown on 3 March and is in tray C000101."),
   ).toBeVisible();

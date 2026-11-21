@@ -243,7 +243,14 @@ export function undoProblem(outcome: Outcome): string {
 }
 
 export function plantName(commonName: string, variety?: string | null): string {
-  return variety ? `${commonName} '${variety}'` : commonName;
+  // A variety typed with its own quotation marks gets the usual single ones instead, never two pairs. Double
+  // quotation marks go wherever they are; single ones only at the ends, as an apostrophe can be part of the name.
+  const bare = variety
+    ?.replace(/["“”]/gu, "")
+    .trim()
+    .replace(/^['‘’]+|['‘’]+$/gu, "")
+    .trim();
+  return bare ? `${commonName} '${bare}'` : commonName;
 }
 
 /** A rate as a whole percentage, or a dash when there's nothing to go on yet. */

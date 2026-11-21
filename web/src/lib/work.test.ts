@@ -77,6 +77,15 @@ describe("money", () => {
 describe("plantName", () => {
   it("adds a variety in quotes only when there is one", () => {
     expect(plantName("Lavender", "Hidcote")).toBe("Lavender 'Hidcote'");
+    expect(plantName("Forking Larkspur", "“Exquisite” blue spire")).toBe(
+      "Forking Larkspur 'Exquisite blue spire'",
+    );
+    expect(plantName("Lavender", "'Hidcote'")).toBe("Lavender 'Hidcote'");
+    expect(plantName("Lavender", '"Hidcote"')).toBe("Lavender 'Hidcote'");
+    expect(plantName("Lavender", "  ")).toBe("Lavender");
+    expect(plantName("Lavandula", "Bowles's Mauve")).toBe(
+      "Lavandula 'Bowles's Mauve'",
+    );
     expect(plantName("Rosemary", null)).toBe("Rosemary");
   });
 });

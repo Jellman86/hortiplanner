@@ -10988,9 +10988,11 @@
         "required": [
           "batchId",
           "traceabilityCode",
+          "plantId",
           "commonName",
           "variety",
           "source",
+          "hasPhoto",
           "startedAt",
           "trays"
         ],
@@ -11003,6 +11005,10 @@
           "traceabilityCode": {
             "type": "string"
           },
+          "plantId": {
+            "type": "string",
+            "format": "uuid"
+          },
           "commonName": {
             "type": "string"
           },
@@ -11014,6 +11020,9 @@
           },
           "source": {
             "$ref": "#/components/schemas/BatchSource"
+          },
+          "hasPhoto": {
+            "type": "boolean"
           },
           "startedAt": {
             "type": [

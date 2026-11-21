@@ -40,9 +40,11 @@ internal static class MissingCostEndpoints
             {
                 batch.Id,
                 batch.TraceabilityCode,
+                PlantId = plant.Id,
                 plant.CommonName,
                 plant.Variety,
                 batch.Source,
+                HasPhoto = db.PlantPhotos.Any(photo => photo.PlantId == plant.Id) || db.Species.Any(species => species.Id == plant.SpeciesId && species.PhotoUrl != null),
                 StartedAt = db.EventLines.Where(line => line.BatchId == batch.Id)
                     .Join(db.Events, line => line.EventId, e => e.Id, (line, e) => e.OccurredAt)
                     .Min(occurredAt => (DateTimeOffset?)occurredAt),
@@ -55,9 +57,11 @@ internal static class MissingCostEndpoints
             .Select(batch => new MissingCost(
                 batch.Id,
                 batch.TraceabilityCode,
+                batch.PlantId,
                 batch.CommonName,
                 batch.Variety,
                 batch.Source,
+                batch.HasPhoto,
                 batch.StartedAt,
                 [.. stock.Where(row => row.BatchId == batch.Id).Select(row => labels[row.ContainerId]).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)]))];
     }
@@ -109,7 +113,8 @@ internal static class MissingCostEndpoints
 
     /// <param name="StartedAt">When its first work was recorded, if any was.</param>
     /// <param name="Trays">The trays and pots it's in now.</param>
-    internal sealed record MissingCost(Guid BatchId, string TraceabilityCode, string CommonName, string? Variety, BatchSource Source, DateTimeOffset? StartedAt, IReadOnlyList<string> Trays);
+    /// <param name="HasPhoto">The plant has a picture, of its own or its species', to show beside its name.</param>
+    internal sealed record MissingCost(Guid BatchId, string TraceabilityCode, Guid PlantId, string CommonName, string? Variety, BatchSource Source, bool HasPhoto, DateTimeOffset? StartedAt, IReadOnlyList<string> Trays);
 
     internal sealed record NotKnownRequest(IReadOnlyList<Guid>? BatchIds);
 
