@@ -28,8 +28,13 @@ const chooser = (page: Page, name: string) =>
     .filter({ hasText: new RegExp(`^\\s*${name}`) })
     .locator("select");
 
+// A page of the owner's on a phone: Trace a batch from the row at the top of Production, the rest from More.
 async function openManage(page: Page, section: string) {
-  await button(page, "Manage").click();
+  if (section === "Trace a batch") {
+    await button(page, "Production").click();
+  } else {
+    await button(page, "More").click();
+  }
   await button(page, section).click();
   await expect(page.getByRole("heading", { name: section })).toBeVisible();
 
@@ -266,7 +271,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   // A place's own page opens it on the map again, outline and all. Breadcrumbs show the way back up.
   await page.locator(".place-row", { hasText: "Greenhouse 2" }).click();
   const crumbs = page.getByRole("navigation", { name: "Breadcrumb" });
-  await expect(crumbs).toContainText("Manage");
+  await expect(crumbs).toContainText("Places");
   await expect(crumbs).toContainText("Croft");
   await expect(crumbs.locator("[aria-current=page]")).toHaveText(
     "Greenhouse 2",
@@ -402,7 +407,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
     phonePage.getByRole("heading", { name: "Hello, Alex Moss" }),
   ).toBeVisible();
   await expectAccessible(phonePage, "Staff home on their phone");
-  await expect(button(phonePage, "Manage")).toHaveCount(0);
+  await expect(button(phonePage, "More")).toHaveCount(0);
   expect(new URL(phonePage.url()).search).toBe("");
 
   await phonePage.goto(link);
@@ -423,7 +428,13 @@ test("the owner sets up the nursery and staff can sign in", async ({
     page.getByRole("heading", { name: "Plants", exact: true }),
   ).toBeVisible();
   await expect(button(page, "Back")).toHaveCount(0);
-  await sidebar.getByRole("button", { name: "Figures" }).click();
+  // Figures is in Money and figures, by the row of buttons under its heading.
+  await sidebar.getByRole("button", { name: "Money and figures" }).click();
+  await expect(page.getByRole("heading", { name: "Money" })).toBeVisible();
+  await page
+    .getByRole("navigation", { name: "Money and figures" })
+    .getByRole("button", { name: "Figures" })
+    .click();
   await expect(page.getByRole("heading", { name: "Figures" })).toBeVisible();
   await expectAccessible(page, "Figures, with plants");
 
@@ -476,7 +487,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   // On a phone the sidebar gives way to a bar along the bottom.
   await page.setViewportSize({ width: 390, height: 900 });
   await expect(sidebar).toBeHidden();
-  await button(page, "Manage").click();
+  await button(page, "More").click();
   await button(page, "Plants").click();
   await expect(page.getByText("Lavender 'Munstead'")).toBeVisible();
   await expect(page.getByLabel("Find or add a plant")).toBeVisible();
@@ -517,7 +528,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(
     page.getByRole("heading", { name: "Hello, Jo Reed" }),
   ).toBeVisible();
-  await expect(button(page, "Manage")).toHaveCount(0);
+  await expect(button(page, "More")).toHaveCount(0);
 
   // The owner has a password, so tapping their name asks for it.
   await button(page, "Settings").click();
@@ -696,7 +707,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await button(page, "Back").click();
   await leaveManage(page);
 
-  // A nursery without sensors turns them off: Climate goes from Manage until it's turned back on.
+  // A nursery without sensors turns them off: Climate goes from More until it's turned back on.
   await openSettings(page, "Features");
   const climateSwitch = page.getByRole("switch", {
     name: /Sensors and climate/,
@@ -706,13 +717,13 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expect(climateSwitch).not.toBeChecked();
   await expect(
     page.getByText(
-      "It's off. Turning it on brings back Climate under Manage and Sensors under Settings.",
+      "It's off. Turning it on brings back Climate under Places and Sensors under Settings.",
     ),
   ).toBeVisible();
   await expectAccessible(page, "Features");
   await leaveManage(page);
-  await button(page, "Manage").click();
-  await expect(button(page, "Jobs")).toBeVisible();
+  await button(page, "More").click();
+  await expect(button(page, "Places")).toBeVisible();
   await expect(button(page, "Climate")).toHaveCount(0);
   await button(page, "Back").click();
   await openSettings(page, "Features");

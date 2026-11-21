@@ -49,7 +49,7 @@
   {#if me.isOwner}
     <button aria-current={here("manage")} onclick={onManage}>
       <LayoutGrid size={24} />
-      <span>Manage</span>
+      <span>More</span>
     </button>
   {:else}
     <button aria-current={here("plants")} onclick={onPlants}>

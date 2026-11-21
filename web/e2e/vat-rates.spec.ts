@@ -158,7 +158,7 @@ test("a new VAT rate is confirmed, kept, and offered on invoices", async ({
   // The next invoice starts at the new standard rate.
   await page
     .locator(".sidebar")
-    .getByRole("button", { name: "Invoices", exact: true })
+    .getByRole("button", { name: "Selling", exact: true })
     .click();
   await page.getByRole("button", { name: "New invoice" }).click();
   const vat = page.locator("label.line-vat select").first();

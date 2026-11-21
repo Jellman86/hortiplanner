@@ -1,4 +1,5 @@
 <script lang="ts">
+  import HubNav from "../HubNav.svelte";
   import { crumbs } from "../../lib/crumbs.svelte";
   import { isOn } from "../../lib/features.svelte";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
@@ -110,6 +111,7 @@
 {:else}
   <main>
     <h1>Places</h1>
+    <HubNav page="places" />
 
     <div class="split">
       <section>

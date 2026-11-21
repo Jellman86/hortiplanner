@@ -148,7 +148,7 @@ test("an invoice line for a plant starts at the plant's own VAT rate", async ({
   await page.goto("/");
   await page
     .locator(".sidebar")
-    .getByRole("button", { name: "Invoices", exact: true })
+    .getByRole("button", { name: "Selling", exact: true })
     .click();
   await page.getByRole("button", { name: "New invoice" }).click();
 

@@ -36,10 +36,17 @@
     work,
   } from "../lib/work";
   import {
+    firstPage,
+    hubOf,
     isManageSection,
+    pageItem,
     sectionLabel,
+    type Hub,
+    type HubName,
+    type HubPage,
     type ManageSection,
   } from "../lib/sections";
+  import { setHubNav } from "../lib/hubNav";
   import {
     movedToSettings,
     settingsLabel,
@@ -183,6 +190,76 @@
     go: () => void goHome(),
   };
 
+  /** A place's page, or a place on its first page: Production and staff's Plants have screens of their own. */
+  function pageView(page: HubPage): View {
+    return page === "production"
+      ? { name: "production" }
+      : page === "plants" && !me.isOwner
+        ? { name: "plants" }
+        : { name: "manage", section: page };
+  }
+
+  function openPage(page: HubPage) {
+    view = pageView(page);
+  }
+
+  // svelte-ignore state_referenced_locally
+  setHubNav({ open: openPage, isOwner: me.isOwner, atBench });
+
+  /**
+   * The trail for an owner's page starts at its place: "Selling, Invoices". When the place and its page share a name
+   * it's said once, and a page reached from another, such as Costs to fill in from Figures, has that one between.
+   */
+  function manageCrumbs(section: ManageSection | null): Crumb[] {
+    if (!section) {
+      return [{ label: "More" }];
+    }
+
+    const hub = hubOf(section);
+    const item = pageItem(section);
+    const placeCrumb: Crumb =
+      hub.hub === "home"
+        ? recordWorkCrumb
+        : {
+            label: hub.label,
+            go: () => again(pageView(firstPage(hub, me.isOwner))),
+          };
+    const between: Crumb[] = item?.parent
+      ? [
+          {
+            label: sectionLabel(item.parent),
+            go: () => again({ name: "manage", section: item.parent! }),
+          },
+        ]
+      : [];
+    const own: Crumb = {
+      label: sectionLabel(section),
+      go: () => again({ name: "manage", section }),
+    };
+
+    return hub.label === own.label
+      ? [own, ...between]
+      : [placeCrumb, ...between, own];
+  }
+
+  /** The place the sidebar marks: where the trail starts, so New batch, Scan and Jobs all mark Record work. */
+  const currentHub = $derived.by((): HubName | "settings" | null => {
+    switch (view.name) {
+      case "manage":
+        return view.section ? hubOf(view.section).hub : null;
+      case "container":
+        return view.fromProduction ? "production" : "home";
+      case "production":
+        return "production";
+      case "plants":
+        return "plants";
+      case "settings":
+        return "settings";
+      default:
+        return "home";
+    }
+  });
+
   // The top of the breadcrumb trail: the screens below add their own part.
   crumbs((): Crumb[] => {
     const current = view;
@@ -207,6 +284,8 @@
         return [
           { label: "Production", go: () => again({ name: "production" }) },
         ];
+      case "manage":
+        return manageCrumbs(current.section);
       case "needs":
         return [{ label: "Needs a look" }];
       case "place":
@@ -227,23 +306,6 @@
           },
           ...(current.page ? [{ label: settingsLabel(current.page) }] : []),
         ];
-      case "manage": {
-        const section = current.section;
-        return [
-          {
-            label: "Manage",
-            go: () => again({ name: "manage", section: null }),
-          },
-          ...(section
-            ? [
-                {
-                  label: sectionLabel(section),
-                  go: () => again({ name: "manage", section }),
-                },
-              ]
-            : []),
-        ];
-      }
     }
   });
 
@@ -323,7 +385,14 @@
       }
     }
 
-    document.title = `${screenTitles[current.name]} · Hortiplanner`;
+    // An owner's page is named for itself, More for the list of them.
+    document.title = `${
+      current.name === "manage"
+        ? current.section
+          ? sectionLabel(current.section)
+          : "More"
+        : screenTitles[current.name]
+    } · Hortiplanner`;
 
     // Someone using a screen reader or keyboard starts at the top of the new screen.
     if (current.name !== "home") {
@@ -1035,29 +1104,12 @@
       {me}
       {collapsed}
       {theme}
-      current={view.name === "manage"
-        ? view.section
-        : view.name === "container"
-          ? view.fromProduction
-            ? "production"
-            : "home"
-          : view.name === "home" ||
-              view.name === "needs" ||
-              view.name === "ask" ||
-              view.name === "start" ||
-              view.name === "settings" ||
-              view.name === "plants" ||
-              view.name === "production"
-            ? view.name
-            : null}
+      current={currentHub}
       onHome={goHome}
-      onNewBatch={() => (view = { name: "start" })}
-      onSection={(section) => (view = { name: "manage", section })}
+      onHub={(hub: Hub) => openPage(firstPage(hub, me.isOwner))}
       onToggleCollapsed={toggleCollapsed}
       onCycleTheme={() => setTheme(nextTheme(theme))}
       onSettings={() => (view = { name: "settings", page: null })}
-      onProduction={() => (view = { name: "production" })}
-      onPlants={() => (view = { name: "plants" })}
       onFinished={signOut}
     />
     <div class="content">

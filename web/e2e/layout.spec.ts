@@ -138,30 +138,40 @@ test("the screens fit the width of a phone, a tablet and a desk", async ({
   await expect(page.getByRole("heading", { name: "Recent" })).toBeVisible();
   await check("record-work");
 
-  for (const button of [
-    "New batch",
-    "Production",
-    "Plants",
-    "Places",
-    "Trace a batch",
-    "Mother plants",
-    "Jobs",
-    "Climate",
-    "Figures",
-    "Money",
-    "Invoices",
-    "Consignments",
-    "Customers",
-    "Purchases",
-    "Suppliers",
-  ]) {
-    await sidebar(page, button).click();
-    await expect(page.locator("main h1").first()).toBeVisible();
-    await check(button.toLowerCase().replaceAll(" ", "-"));
+  // Each place in the sidebar, then the other pages in its row: the screen's name is the page's.
+  const row = (hub: string, name: string) =>
+    page.getByRole("navigation", { name: hub }).getByRole("button", { name });
+  for (const [hub, pages] of [
+    ["Production", ["Production", "Trace a batch"]],
+    ["Plants", ["Plants", "Mother plants"]],
+    ["Places", ["Places", "Climate"]],
+    ["Selling", ["Invoices", "Customers", "Consignments"]],
+    ["Buying", ["Purchases", "Suppliers"]],
+    ["Money and figures", ["Money", "Figures"]],
+  ] as const) {
+    await sidebar(page, hub).click();
+    for (const [index, name] of pages.entries()) {
+      if (index > 0) await row(hub, name).click();
+      await expect(
+        page.getByRole("heading", { name, exact: true }),
+      ).toBeVisible();
+      await check(name.toLowerCase().replaceAll(" ", "-"));
+    }
   }
 
+  // New batch from the top of Production, and the jobs from Record work.
+  await sidebar(page, "Production").click();
+  await page.getByRole("button", { name: "Start a new batch" }).click();
+  await expect(page.locator("main h1").first()).toBeVisible();
+  await check("new-batch");
+  await sidebar(page, "Record work").click();
+  await page.getByRole("button", { name: "See all the jobs" }).click();
+  await expect(page.getByRole("heading", { name: "Jobs" })).toBeVisible();
+  await check("jobs");
+
   // Costs to fill in has no place in the sidebar: it's reached from Figures, as from the bell.
-  await sidebar(page, "Figures").click();
+  await sidebar(page, "Money and figures").click();
+  await row("Money and figures", "Figures").click();
   await page.getByRole("button", { name: "Go to Costs to fill in" }).click();
   await expect(
     page.getByRole("heading", { name: "Costs to fill in" }),
@@ -180,7 +190,8 @@ test("the screens fit the width of a phone, a tablet and a desk", async ({
   await expect(page.locator("h1")).toBeVisible();
   await check("place");
 
-  await sidebar(page, "Trace a batch").click();
+  await sidebar(page, "Production").click();
+  await row("Production", "Trace a batch").click();
   await page.locator(".place-row").first().click();
   await expect(page.locator("h1")).toContainText("Batch");
   await expect(
@@ -200,7 +211,7 @@ test("the screens fit the width of a phone, a tablet and a desk", async ({
   await check("lost");
 
   // A new invoice, whose lines are one row each on a wide desk.
-  await sidebar(page, "Invoices").click();
+  await sidebar(page, "Selling").click();
   await page.getByRole("button", { name: "New invoice" }).click();
   await expect(page.locator("main.invoice-page")).toBeVisible();
   await check("new-invoice");

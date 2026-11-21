@@ -1,4 +1,5 @@
 <script lang="ts">
+  import HubNav from "../HubNav.svelte";
   import Route from "@lucide/svelte/icons/route";
   import { crumbs } from "../../lib/crumbs.svelte";
   import { isoDay } from "../../lib/days";
@@ -126,6 +127,7 @@
 
 <main>
   <h1>Mother plants</h1>
+  <HubNav page="mothers" />
   <p class="muted">
     These are the plants kept for cuttings. Each batch of cuttings taken from
     one is numbered in turn, and leads back to it.

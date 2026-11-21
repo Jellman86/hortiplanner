@@ -1,4 +1,5 @@
 <script lang="ts">
+  import HubNav from "../HubNav.svelte";
   import Pencil from "@lucide/svelte/icons/pencil";
   import PrintButton from "../PrintButton.svelte";
   import type { AskAbout } from "../../lib/assistant.svelte";
@@ -512,6 +513,7 @@
 {:else}
   <main>
     <h1>Plants</h1>
+    <HubNav page="plants" />
     {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
 
     <PlantSearch

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import HubNav from "../HubNav.svelte";
   import Archive from "@lucide/svelte/icons/archive";
   import Pencil from "@lucide/svelte/icons/pencil";
   import FormPanel from "../FormPanel.svelte";
@@ -114,6 +115,7 @@
 
 <main>
   <h1>Suppliers</h1>
+  <HubNav page="suppliers" />
 
   <div class="split">
     <section>

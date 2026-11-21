@@ -1,4 +1,5 @@
 <script lang="ts">
+  import HubNav from "./HubNav.svelte";
   import Plus from "@lucide/svelte/icons/plus";
   import { lineAmount, seedOnly } from "../lib/sowing";
   import { onMount } from "svelte";
@@ -168,6 +169,7 @@
       {/if}
     </div>
   </div>
+  <HubNav page="production" />
   {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
   {#if notice}<p class="card done" role="status">{notice}</p>{/if}
   {#if choosing}

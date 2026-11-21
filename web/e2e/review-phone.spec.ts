@@ -102,7 +102,7 @@ test("phone edits open the customer form and slow climate replies cannot replace
   await page.goto("/");
   const button = (name: string) =>
     page.getByRole("button", { name, exact: true });
-  await button("Manage").click();
+  await button("More").click();
   await button("Customers").click();
   await button("Change").click();
   await expect(page.getByLabel("Name", { exact: true })).toBeVisible();
@@ -125,14 +125,15 @@ test("phone edits open the customer form and slow climate replies cannot replace
   );
   await button("Hide the form").click();
   await expect(button("Change the mother plant")).toBeVisible();
-  await button("Back").click();
-  await button("Jobs").click();
+  // The jobs are reached from the jobs due on Record work.
+  await button("Record").click();
+  await button("See all the jobs").click();
   await button("Change").click();
   await expect(page.getByLabel("What", { exact: true })).toBeFocused();
   await expect(page.getByLabel("What", { exact: true })).toHaveValue(
     "Water house 1",
   );
-  await button("Back").click();
+  await button("More").click();
   await button("Climate").click();
   await page.locator(".climate-card").click();
   await olderRequested;
