@@ -209,9 +209,7 @@ test("on a desk the plants are a table with the cost that counts in bold", async
   await expect(page.getByLabel("Scan a label")).toBeVisible();
 });
 
-test("on a phone the logo and name at the top go back to Record work, and Costs to fill in isn't in Manage", async ({
-  page,
-}) => {
+test("on a phone Costs to fill in isn't in Manage", async ({ page }) => {
   await standIn(page, []);
   await page.goto("/");
   await button(page, "Manage").click();
@@ -221,7 +219,4 @@ test("on a phone the logo and name at the top go back to Record work, and Costs 
   await expect(
     page.getByRole("heading", { name: "What the plants cost and made" }),
   ).toBeVisible();
-
-  await button(page, "Hortiplanner, go to Record work").click();
-  await expect(page.getByLabel("Scan a label")).toBeVisible();
 });

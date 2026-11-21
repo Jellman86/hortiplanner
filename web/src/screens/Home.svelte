@@ -1018,14 +1018,9 @@
     />
     <div class="content">
       <div class="topbar">
-        <button
-          class="topbar-brand"
-          aria-label="Hortiplanner, go to Record work"
-          onclick={goHome}
-        >
-          <img src="/logo-96.png" alt="" width="32" height="32" />
-          Hortiplanner
-        </button>
+        <!-- On a phone, Record in the bar at the bottom goes back to Record work. -->
+        <img src="/logo-96.png" alt="" width="32" height="32" />
+        Hortiplanner
         <button
           class="icon-button topbar-bell"
           aria-label={bellName(allNeeds.length)}
