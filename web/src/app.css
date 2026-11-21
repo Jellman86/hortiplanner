@@ -4365,6 +4365,10 @@ select:not([multiple]) {
   letter-spacing: 0.02em;
 }
 
+.avatar.initials::after {
+  content: attr(data-initials);
+}
+
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .avatar.initials {
     background: hsl(var(--avatar-hue, 120) 25% 28%);
@@ -5265,8 +5269,8 @@ button.link-button.ftree-leaf {
 
 /* The bell for what needs a look, and Ask Hortiplanner, at the right of the bar along the top, with a number on
    the bell's corner when there's something. The number is never the only sign: the button's name says it too. */
-.topbar-tools button,
-.topbar-tools button:hover:not(:disabled) {
+.topbar-tools > button,
+.topbar-tools > button:hover:not(:disabled) {
   position: relative;
   gap: 0.4rem;
   border-color: transparent;
@@ -5275,12 +5279,12 @@ button.link-button.ftree-leaf {
   color: inherit;
 }
 
-.topbar-tools button:focus-visible {
+.topbar-tools > button:focus-visible {
   outline-color: currentcolor;
 }
 
-.topbar-tools button:hover:not(:disabled),
-.topbar-tools button[aria-current="page"] {
+.topbar-tools > button:hover:not(:disabled),
+.topbar-tools > button[aria-current="page"] {
   border-color: color-mix(in srgb, currentcolor 30%, transparent);
   background: color-mix(in srgb, currentcolor 10%, transparent);
 }
@@ -5423,4 +5427,51 @@ button.link-button.ftree-leaf {
     display: flex;
     flex-wrap: wrap;
   }
+}
+
+/* The person's picture at the right of the bar along the top, on a desk only: a phone has Settings in its bottom bar. */
+.topbar-person {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .topbar-tools .topbar-person {
+    display: inline-flex;
+    padding: 0.2rem;
+  }
+}
+
+/* What the picture opens: the browser's own popover, so Escape and a click outside close it. Just under the bar's
+   right end. */
+.account-panel {
+  position: fixed;
+  inset: auto 1rem auto auto;
+  top: calc(var(--topbar-height, 3.25rem) + 0.35rem);
+  width: min(20rem, calc(100vw - 2rem));
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: var(--surface);
+  box-shadow:
+    0 12px 32px rgb(0 0 0 / 0.2),
+    0 2px 6px rgb(0 0 0 / 0.1);
+  color: var(--text);
+}
+
+.account-panel:popover-open {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.account-panel > button {
+  justify-content: flex-start;
+}
+
+.account-panel-heading {
+  font-weight: 700;
+}
+
+.account-panel .segmented {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }

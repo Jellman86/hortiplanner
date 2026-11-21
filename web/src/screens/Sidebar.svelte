@@ -1,42 +1,30 @@
 <script lang="ts">
-  import Avatar from "./Avatar.svelte";
-  import LogOut from "@lucide/svelte/icons/log-out";
-  import Monitor from "@lucide/svelte/icons/monitor";
-  import Moon from "@lucide/svelte/icons/moon";
   import PanelLeftClose from "@lucide/svelte/icons/panel-left-close";
   import PanelLeftOpen from "@lucide/svelte/icons/panel-left-open";
   import ScanLine from "@lucide/svelte/icons/scan-line";
   import Settings from "@lucide/svelte/icons/settings";
-  import Sun from "@lucide/svelte/icons/sun";
   import type { Me } from "../lib/boot";
   import { visibleHubs, type Hub, type HubName } from "../lib/sections";
-  import { themes, type Theme } from "../lib/theme";
 
   // Only shown on wide screens: phones get the bottom bar instead.
   let {
     me,
     current,
     collapsed,
-    theme,
     onHome,
     onHub,
     onToggleCollapsed,
-    onCycleTheme,
     onSettings,
-    onFinished,
   }: {
     me: Me;
     /** The place the person is in, marked in the list. */
     current: HubName | "settings" | null;
     collapsed: boolean;
-    theme: Theme;
     onHome: () => void;
     /** Opens a place on its first page. */
     onHub: (hub: Hub) => void;
     onToggleCollapsed: () => void;
-    onCycleTheme: () => void;
     onSettings: () => void;
-    onFinished: () => void;
   } = $props();
 
   // The rule goes before the first of the business's places that's shown.
@@ -49,9 +37,6 @@
   const here = (item: typeof current) =>
     current === item ? ("page" as const) : undefined;
 
-  const themeLabel = $derived(
-    themes.find((item) => item.theme === theme)?.label ?? "",
-  );
   const collapseLabel = $derived(
     collapsed ? "Expand sidebar" : "Collapse sidebar",
   );
@@ -94,10 +79,6 @@
   </nav>
 
   <div class="sidebar-foot">
-    <p class="signed-in nav-text">
-      <Avatar id={me.id} name={me.name} pictureAt={me.pictureAt} size={28} />
-      <span>Signed in as {me.name}</span>
-    </p>
     <button
       aria-current={here("settings")}
       aria-label="Settings"
@@ -106,20 +87,6 @@
     >
       <Settings size={20} />
       <span class="nav-text">Settings</span>
-    </button>
-    <button
-      aria-label="Theme: {themeLabel}"
-      title="Theme: {themeLabel}"
-      onclick={onCycleTheme}
-    >
-      {#if theme === "light"}
-        <Sun size={20} />
-      {:else if theme === "dark"}
-        <Moon size={20} />
-      {:else}
-        <Monitor size={20} />
-      {/if}
-      <span class="nav-text">{themeLabel}</span>
     </button>
     <button
       aria-label={collapseLabel}
@@ -132,16 +99,6 @@
         <PanelLeftClose size={20} />
       {/if}
       <span class="nav-text">Collapse</span>
-    </button>
-    <button
-      aria-label={me.isTeam ? "Sign in as yourself" : "Sign out"}
-      title={me.isTeam ? "Sign in as yourself" : "Sign out"}
-      onclick={onFinished}
-    >
-      <LogOut size={20} />
-      <span class="nav-text"
-        >{me.isTeam ? "Sign in as yourself" : "Sign out"}</span
-      >
     </button>
   </div>
 </aside>
