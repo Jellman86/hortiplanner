@@ -519,6 +519,65 @@ public sealed class CostTests(PostgresFixture database)
     }
 
     [Fact]
+    public async Task Costs_to_fill_in_lists_only_batches_with_no_answer_oldest_first_with_their_trays()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var plant = await AddPlantAsync(nursery.Owner, "Lavender");
+        var (older, olderTray) = await StartAsync(nursery.Staff, plant);
+        var newer = Json(await PostForTextAsync(nursery.Staff, "/api/batches", NewBatch(plant))).GetProperty("batchId").GetGuid();
+        var answered = Json(await PostForTextAsync(nursery.Staff, "/api/batches", NewBatch(plant, costAmount: 2m))).GetProperty("batchId").GetGuid();
+        await PostForTextAsync(nursery.Staff, "/api/batches", NewBatch(plant, source: "Cuttings"));
+
+        var missing = (await nursery.Owner.GetFromJsonAsync<JsonElement>(Route("/api/costs/missing"), Cancellation)).EnumerateArray().ToList();
+
+        Assert.Equal([older, newer], missing.Select(row => row.GetProperty("batchId").GetGuid()));
+        Assert.DoesNotContain(missing, row => row.GetProperty("batchId").GetGuid() == answered);
+        Assert.Equal("Lavender", missing[0].GetProperty("commonName").GetString());
+        var label = (await nursery.Owner.GetFromJsonAsync<JsonElement>(Route("/api/containers/active"), Cancellation)).EnumerateArray()
+            .Single(container => container.GetProperty("id").GetGuid() == olderTray).GetProperty("labelCode").GetString();
+        Assert.Equal([label!], missing[0].GetProperty("trays").EnumerateArray().Select(tray => tray.GetString()!), StringComparer.Ordinal);
+        Assert.Equal(HttpStatusCode.Forbidden, await GetStatusAsync(nursery.Staff, "/api/costs/missing"));
+    }
+
+    [Fact]
+    public async Task Saying_none_of_them_is_known_marks_each_in_one_go_and_leaves_an_answer_given_meanwhile()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var plant = await AddPlantAsync(nursery.Owner);
+        var (first, _) = await StartAsync(nursery.Staff, plant);
+        var (second, _) = await StartAsync(nursery.Staff, plant);
+        var (third, _) = await StartAsync(nursery.Staff, plant);
+
+        // The third is answered after the list was fetched, and before the owner says none of them is known.
+        await AddCostAsync(nursery.Staff, third, Cost(amount: 1.50m));
+        // The first had a cost removed, so its answer follows on from the removal.
+        await AddCostAsync(nursery.Staff, first, Cost(amount: 9m));
+        await AddCostAsync(nursery.Owner, first, Cost(answer: "Removed", amount: null, replacesId: await StandingAsync(nursery.Owner, first)));
+
+        var marked = Json(await PostForTextAsync(nursery.Owner, "/api/costs/not-known", new { batchIds = new[] { first, second, third, first } }));
+
+        Assert.Equal(2, marked.GetProperty("marked").GetInt32());
+        Assert.Equal("NotKnown", (await CostingAsync(nursery.Owner, first)).GetProperty("material").GetProperty("state").GetString());
+        Assert.Equal("NotKnown", (await CostingAsync(nursery.Owner, second)).GetProperty("material").GetProperty("state").GetString());
+        Assert.Equal("Amount", (await CostingAsync(nursery.Owner, third)).GetProperty("material").GetProperty("state").GetString());
+        Assert.Empty((await nursery.Owner.GetFromJsonAsync<JsonElement>(Route("/api/costs/missing"), Cancellation)).EnumerateArray());
+        Assert.Equal(HttpStatusCode.Forbidden, await PostStatusAsync(nursery.Staff, "/api/costs/not-known", new { batchIds = new[] { first } }));
+    }
+
+    [Fact]
+    public async Task With_costs_turned_off_there_is_nothing_to_fill_in()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        using (var off = await nursery.Owner.PutAsJsonAsync(Route("/api/settings/features/Costs"), new { on = false }, Cancellation))
+        {
+            off.EnsureSuccessStatusCode();
+        }
+
+        Assert.Equal(HttpStatusCode.NotFound, await GetStatusAsync(nursery.Owner, "/api/costs/missing"));
+        Assert.Equal(HttpStatusCode.NotFound, await PostStatusAsync(nursery.Owner, "/api/costs/not-known", new { batchIds = Array.Empty<Guid>() }));
+    }
+
+    [Fact]
     public async Task Costs_are_never_changed_or_deleted()
     {
         await using var nursery = await TwoPersonNursery.CreateAsync(database);

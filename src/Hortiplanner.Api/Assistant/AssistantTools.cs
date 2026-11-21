@@ -286,7 +286,7 @@ internal static partial class AssistantTools
     // The asker's own list, less anything about money, which the assistant is never given.
     private static async Task<object> NeedsALookAsync(ToolContext context) =>
         (await AlertEndpoints.ListAsync(context.Db, context.Store, context.Clock, context.IsOwner, context.Cancellation))
-            .Where(alert => !string.Equals(alert.Kind, "InvoicesOverdue", StringComparison.Ordinal))
+            .Where(alert => !string.Equals(alert.Kind, "InvoicesOverdue", StringComparison.Ordinal) && !string.Equals(alert.Kind, "BatchesNoCost", StringComparison.Ordinal))
             .Select(alert => new { alert.Title, alert.Why });
 
     private static async Task<object> JobsAsync(ToolContext context) =>

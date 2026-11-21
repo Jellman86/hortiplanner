@@ -4668,6 +4668,57 @@
         }
       }
     },
+    "/api/costs/missing": {
+      "get": {
+        "tags": [
+          "MissingCostEndpoints"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MissingCost"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/costs/not-known": {
+      "post": {
+        "tags": [
+          "MissingCostEndpoints"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotKnownRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarkedNotKnown"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/settings/features": {
       "get": {
         "tags": [
@@ -10579,6 +10630,22 @@
           }
         }
       },
+      "MarkedNotKnown": {
+        "required": [
+          "marked"
+        ],
+        "type": "object",
+        "properties": {
+          "marked": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "MaterialCost": {
         "required": [
           "state",
@@ -10643,6 +10710,52 @@
           "Cuttings",
           "Purchase"
         ]
+      },
+      "MissingCost": {
+        "required": [
+          "batchId",
+          "traceabilityCode",
+          "commonName",
+          "variety",
+          "source",
+          "startedAt",
+          "trays"
+        ],
+        "type": "object",
+        "properties": {
+          "batchId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "traceabilityCode": {
+            "type": "string"
+          },
+          "commonName": {
+            "type": "string"
+          },
+          "variety": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "source": {
+            "$ref": "#/components/schemas/BatchSource"
+          },
+          "startedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "trays": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
       },
       "ModelChoice": {
         "required": [
@@ -11031,6 +11144,21 @@
           },
           "note": {
             "type": "string"
+          }
+        }
+      },
+      "NotKnownRequest": {
+        "required": [
+          "batchIds"
+        ],
+        "type": "object",
+        "properties": {
+          "batchIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         }
       },
@@ -15601,6 +15729,9 @@
     },
     {
       "name": "VatRateEndpoints"
+    },
+    {
+      "name": "MissingCostEndpoints"
     },
     {
       "name": "FeatureEndpoints"

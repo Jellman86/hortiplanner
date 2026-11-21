@@ -372,3 +372,111 @@ test("the owner changes and removes anything else added, with the figures before
     { kind: "Other", answer: "Removed", replacesId: pellets.id },
   ]);
 });
+
+test("the bell leads the owner to costs to fill in, answered one by one or all at once", async ({
+  page,
+}) => {
+  const batch = (id: string, code: string, trays: string[]) => ({
+    batchId: id,
+    traceabilityCode: code,
+    commonName: "Lavender",
+    variety: "Hidcote",
+    source: "SeedLot",
+    startedAt: "2026-03-03T10:00:00Z",
+    trays,
+  });
+  let missing = [
+    batch("0193a6f0-0000-7000-8000-0000000000f1", "B000042", ["C000101"]),
+    batch("0193a6f0-0000-7000-8000-0000000000f2", "B000043", []),
+  ];
+  const costs: Record<string, unknown>[] = [];
+  const notKnown: unknown[] = [];
+
+  await page.route("**/api/**", async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+
+    if (path.endsWith("/costs") && request.method() === "POST") {
+      costs.push(request.postDataJSON());
+      missing = missing.filter((row) => !path.includes(row.batchId));
+      await route.fulfill({ status: 201, json: {} });
+      return;
+    }
+
+    if (path === "/api/costs/not-known") {
+      notKnown.push(request.postDataJSON());
+      const marked = missing.length;
+      missing = [];
+      await route.fulfill({ json: { marked } });
+      return;
+    }
+
+    const data: Record<string, unknown> = {
+      "/api/account/me": {
+        id: "owner",
+        name: "Sam Fielding",
+        isOwner: true,
+        isTeam: false,
+      },
+      "/api/bench/people": null,
+      "/api/backups/status": { known: true, healthy: true },
+      "/api/alerts": missing.length
+        ? [
+            {
+              kind: "BatchesNoCost",
+              title: `${missing.length} batches have no cost yet`,
+              why: "Nobody has said what their seed or plants cost, so we can't work out what they have made. You can add each cost, or say that it isn't known.",
+              where: "costs",
+              count: missing.length,
+              level: "Tidy",
+            },
+          ]
+        : [],
+      "/api/costs/missing": missing,
+    };
+    await route.fulfill({ json: Object.hasOwn(data, path) ? data[path] : [] });
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: /^Needs a look/ }).click();
+  await page.getByRole("button", { name: "Go to Costs to fill in" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Costs to fill in" }),
+  ).toBeVisible();
+  const first = page.getByRole("form", {
+    name: /^Lavender 'Hidcote', sown on .*, batch B000042, in tray C000101\.$/,
+  });
+  await expect(first).toBeVisible();
+  await expectAccessible(page, "Costs to fill in");
+
+  // Something that isn't money is pointed out at its box.
+  const box = first.getByLabel("What the seed cost, with VAT (£)");
+  await box.fill("lots");
+  await first.getByRole("button", { name: "Save the cost" }).click();
+  await expect(box).toHaveAttribute("aria-invalid", "true");
+  await box.fill("2.99");
+  await first.getByRole("button", { name: "Save the cost" }).click();
+  await expect(page.getByRole("status")).toHaveText(
+    "The cost of batch B000042 is saved.",
+  );
+  await expect(
+    page.getByRole("heading", { name: "Costs to fill in" }),
+  ).toBeFocused();
+  expect(costs).toMatchObject([
+    { kind: "Material", answer: "Amount", amount: 2.99 },
+  ]);
+
+  page.once("dialog", (dialog) => void dialog.accept());
+  await page
+    .getByRole("button", { name: "I don't know what any of these cost" })
+    .click();
+  await expect(page.getByRole("status")).toHaveText(
+    "1 batch is marked as cost not known.",
+  );
+  expect(notKnown).toEqual([
+    { batchIds: ["0193a6f0-0000-7000-8000-0000000000f2"] },
+  ]);
+  await expect(
+    page.getByText("Every batch has a cost, or you've said it isn't known."),
+  ).toBeVisible();
+});

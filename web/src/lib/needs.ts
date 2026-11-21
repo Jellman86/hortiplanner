@@ -10,6 +10,7 @@ export const placeNames: Record<string, string> = {
   invoices: "Invoices",
   production: "Production",
   jobs: "Jobs",
+  costs: "Costs to fill in",
 };
 
 /** The card's coloured edge: red for a problem, amber for something with a date, blue for the rest. */

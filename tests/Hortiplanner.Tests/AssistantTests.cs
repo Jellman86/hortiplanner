@@ -441,6 +441,10 @@ public sealed class AssistantTests(PostgresFixture database)
         var customer = await AddAsync(nursery.Owner, "/api/customers", new { name = "Hilltop", address = "1 High Street", email = "", phone = "", vatNumber = "" });
         using var issued = await PostAsync(nursery.Owner, "/api/invoices", new { customerId = customer, notes = "", lines = new[] { new { description = "Lavender 2L", quantity = 1, unitPrice = 5m, vatRate = 0m } } });
         Assert.Equal(HttpStatusCode.Created, issued.StatusCode);
+
+        // Nor a batch with no cost, which is money too.
+        var plant = await AddAsync(nursery.Owner, "/api/plants", new { commonName = "Primula", xylellaHost = false, protectedVariety = false });
+        await PostForTextAsync(nursery.Owner, "/api/batches", new { eventId = Guid.NewGuid(), occurredAt = DateTimeOffset.UtcNow.AddDays(-10), plantId = plant, quantity = 20, source = "SeedLot", originCountry = "GB", containerKind = "Tray" });
         clock.Advance(TimeSpan.FromDays(2));
 
         using var ownerAsked = await AskAsync(nursery.Owner, "What needs a look?");
@@ -448,6 +452,7 @@ public sealed class AssistantTests(PostgresFixture database)
         var ownersLookup = openRouter.Questions[^1].Body;
         Assert.Contains("authorisation", ownersLookup, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("invoice is overdue", ownersLookup, StringComparison.Ordinal);
+        Assert.DoesNotContain("no cost", ownersLookup, StringComparison.Ordinal);
     }
 
     [Fact]

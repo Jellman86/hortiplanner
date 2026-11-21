@@ -147,6 +147,7 @@ test("the screens fit the width of a phone, a tablet and a desk", async ({
     "Jobs",
     "Climate",
     "Figures",
+    "Costs to fill in",
     "Money",
     "Invoices",
     "Consignments",

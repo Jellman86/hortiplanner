@@ -14,6 +14,7 @@
   import Locations from "./manage/Locations.svelte";
   import Money from "./manage/Money.svelte";
   import Plants from "./manage/Plants.svelte";
+  import CostsToFillIn from "./manage/CostsToFillIn.svelte";
   import Purchases from "./manage/Purchases.svelte";
   import Suppliers from "./manage/Suppliers.svelte";
   import Trace from "./manage/Trace.svelte";
@@ -51,6 +52,8 @@
 
 {#if open === "figures"}
   <Figures onBack={back} />
+{:else if open === "costs"}
+  <CostsToFillIn onBack={back} />
 {:else if open === "money"}
   <Money onBack={back} />
 {:else if open === "purchases"}
