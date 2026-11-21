@@ -11154,7 +11154,10 @@
         "type": "object",
         "properties": {
           "batchIds": {
-            "type": "array",
+            "type": [
+              "null",
+              "array"
+            ],
             "items": {
               "type": "string",
               "format": "uuid"

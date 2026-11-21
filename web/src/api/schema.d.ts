@@ -9512,7 +9512,7 @@ export interface components {
             note: string;
         };
         NotKnownRequest: {
-            batchIds: string[];
+            batchIds: null | string[];
         };
         NurseryDetails: {
             name: null | string;
