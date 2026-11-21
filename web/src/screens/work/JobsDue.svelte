@@ -1,5 +1,6 @@
 <script lang="ts">
   import ArrowRight from "@lucide/svelte/icons/arrow-right";
+  import ClipboardList from "@lucide/svelte/icons/clipboard-list";
   import Undo2 from "@lucide/svelte/icons/undo-2";
   import { onMount } from "svelte";
   import { api } from "../../api/client";
@@ -13,8 +14,13 @@
   // person gets their own list from the server: staff what is theirs to do, the owner the whole nursery's.
   let {
     onGo,
+    owner = false,
+    onAllJobs,
   }: {
     onGo: (where: string) => void;
+    /** The owner always sees Jobs due, with a way to every job, so setting them up has a home. */
+    owner?: boolean;
+    onAllJobs?: () => void;
   } = $props();
 
   let jobs = $state<Schemas["JobSummary"][]>([]);
@@ -109,8 +115,9 @@
     {problem}
   </p>{/if}
 
-{#if due.length > 0}
+{#if due.length > 0 || (owner && onAllJobs && isOn("Jobs"))}
   <h2>Jobs due</h2>
+  {#if due.length === 0}<p class="muted">No jobs are due today.</p>{/if}
   {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
   {#each due as job (job.id)}
     <div class="card recent">
@@ -136,4 +143,11 @@
       </div>
     </div>
   {/each}
+  {#if owner && onAllJobs}
+    <div>
+      <button class="secondary" onclick={onAllJobs}
+        ><ClipboardList size={16} aria-hidden="true" /> See all the jobs</button
+      >
+    </div>
+  {/if}
 {/if}

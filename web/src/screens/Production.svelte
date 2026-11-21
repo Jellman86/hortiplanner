@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Plus from "@lucide/svelte/icons/plus";
   import { lineAmount, seedOnly } from "../lib/sowing";
   import { onMount } from "svelte";
   import { api } from "../api/client";
@@ -26,10 +27,13 @@
     onOpen,
     onBack,
     onLabels,
+    onNewBatch,
   }: {
     onOpen: (label: string) => void;
     onBack: () => void;
     onLabels: (labelCodes: string[]) => void;
+    /** Starts a new batch, from the top of Production. */
+    onNewBatch: () => void;
   } = $props();
 
   // Choosing several trays to work on at once, instead of opening one.
@@ -145,6 +149,9 @@
   <div class="title-row">
     <h1>Production</h1>
     <div class="row">
+      <button onclick={onNewBatch}
+        ><Plus size={16} aria-hidden="true" /> Start a new batch</button
+      >
       <button
         class="secondary"
         aria-pressed={choosing}

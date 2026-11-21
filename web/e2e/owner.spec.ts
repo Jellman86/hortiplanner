@@ -753,7 +753,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await expectAccessible(page, "Bench home");
 
   // Start a batch.
-  await button(page, "New batch").click();
+  await button(page, "Start a new batch").click();
   await expectAccessible(page, "New batch: plant");
   await page.locator(".plant-card", { hasText: "Lavender 'Munstead'" }).click();
   await button(page, "40").click();
@@ -1070,7 +1070,7 @@ test("the owner sets up the nursery and staff can sign in", async ({
   await button(page, "Back").click();
 
   // A plant not on any list can be added by hand, in the same steps.
-  await button(page, "New batch").click();
+  await button(page, "Start a new batch").click();
   await page.getByLabel("What are you planting?").fill("Cosmos");
   await button(page, "Not listed? Add it by hand").click();
   await expect(page.getByLabel("Common name")).toHaveValue("Cosmos");
