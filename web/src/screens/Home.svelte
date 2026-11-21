@@ -591,6 +591,42 @@
   // A change the owner makes to Settings, Features reaches this device when the app comes back into view.
   onMount(watchFeatures);
 
+  // On a phone the bar at the top stays put while the page scrolls under it. Safari can scroll a field given focus
+  // right under the bar, so the page is moved just enough to show it.
+  let topbar = $state<HTMLElement>();
+
+  onMount(() => {
+    const reveal = (field: Element) => {
+      // The bar's own buttons, and anything in a dialog, which doesn't scroll with the page, are left alone.
+      if (
+        !topbar ||
+        topbar.contains(field) ||
+        field.closest("dialog") ||
+        getComputedStyle(topbar).display === "none"
+      ) {
+        return;
+      }
+
+      const covered =
+        topbar.getBoundingClientRect().bottom -
+        field.getBoundingClientRect().top;
+
+      if (covered > 0) {
+        window.scrollBy({ top: -(covered + 8) });
+      }
+    };
+    const focused = (event: FocusEvent) => {
+      if (event.target instanceof Element) {
+        const field = event.target;
+        reveal(field);
+        requestAnimationFrame(() => reveal(field));
+      }
+    };
+
+    document.addEventListener("focusin", focused);
+    return () => document.removeEventListener("focusin", focused);
+  });
+
   // What needs a look, with anything this device couldn't save first. A bench station has no bell: it's shared.
   onMount(() => (atBench ? undefined : watchNeeds()));
   const allNeeds = $derived(withRefused(needs.alerts, failed.length));
@@ -1021,7 +1057,7 @@
       onNeeds={() => (view = { name: "needs" })}
     />
     <div class="content">
-      <div class="topbar">
+      <div class="topbar" bind:this={topbar}>
         <!-- On a phone, Record in the bar at the bottom goes back to Record work. -->
         <img src="/logo-96.png" alt="" width="32" height="32" />
         Hortiplanner
