@@ -16,6 +16,7 @@
     materialWord,
     moneyProblem,
     otherSentence,
+    potsSentences,
     readMoney,
     replacedParts,
     rowName,
@@ -422,6 +423,19 @@
               </td>
             </tr>
           {/if}
+          {#if costing.pots}
+            <tr>
+              <th scope="row" id="cost-pots">Pots and compost</th>
+              {@render amounts(costing.pots.cost)}
+            </tr>
+            <tr class="cost-said">
+              <td colspan="3" headers="cost-pots">
+                {#each potsSentences(costing.pots) as sentence, index (index)}
+                  <p>{sentence}</p>
+                {/each}
+              </td>
+            </tr>
+          {/if}
           {#each costing.others as entry (entry.id)}
             <tr>
               <th scope="row" id="cost-{entry.id}"
@@ -587,8 +601,9 @@
     {/if}
 
     <p class="muted">
-      These figures count what went into the plants: the {what} and anything else
-      added here. They leave out wages, heating and rent.
+      These figures count what went into the plants: the {what}, pots and
+      compost, and anything else added here. They leave out wages, heating and
+      rent.
     </p>
   {/if}
 

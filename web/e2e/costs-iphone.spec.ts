@@ -59,6 +59,19 @@ const costing = (material: Record<string, unknown>, history: unknown[]) => ({
   counts: "WithVat",
   material: { purchase: null, superseded: null, ...material },
   others: [],
+  pots: {
+    cost: { withVat: 8.4, beforeVat: 7 },
+    lines: [
+      {
+        size: "9cm",
+        plants: 20,
+        each: { withVat: 0.42, beforeVat: 0.35 },
+        cost: { withVat: 8.4, beforeVat: 7 },
+      },
+    ],
+    withoutAllowance: ["2L"],
+    unsizedPlants: 0,
+  },
   total: material.cost ?? null,
   history,
   standardRate: 20,
@@ -255,6 +268,20 @@ test("the owner sees both figures, changes the VAT and keeps the earlier answer"
   await expect(
     page.getByText(
       "Alex Moss added the cost of the seed on 3 November. Nobody has said how much of it was VAT, so it's taken as including VAT at 20%.",
+    ),
+  ).toBeVisible();
+  // Pots and compost, from the cost of potting set for each size.
+  await expect(
+    table.getByRole("row", { name: /^Pots and compost/ }),
+  ).toHaveText(/Pots and compost\s*£8\.40\s*£7\.00/);
+  await expect(
+    page.getByText(
+      "That's 20 plants potted into 9cm at £0.42 each with VAT, which is £0.35 before VAT.",
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      "Pots and compost for 2L aren't counted, because that pot size has no cost of potting yet.",
     ),
   ).toBeVisible();
   await expectAccessible(page, "Costs and takings");

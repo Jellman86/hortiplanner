@@ -282,3 +282,38 @@ export function missingCostWords(
     detail: `${started} on ${costDay(batch.startedAt, today)} and ${where}.`,
   };
 }
+
+type Pots = Schemas["PotsCost"];
+
+/** What's said beneath "Pots and compost": each size potted into, and anything not counted. */
+export function potsSentences(pots: Pots): string[] {
+  const lines = pots.lines.map((line) => {
+    const plants = Number(line.plants);
+    const withVat = money(Number(line.each.withVat));
+    const before = money(Number(line.each.beforeVat));
+    return plants === 1
+      ? `That's 1 plant potted into ${line.size} at ${withVat} with VAT, which is ${before} before VAT.`
+      : `That's ${plants} plants potted into ${line.size} at ${withVat} each with VAT, which is ${before} before VAT.`;
+  });
+  const missing = pots.withoutAllowance;
+
+  if (missing.length > 0) {
+    lines.push(
+      missing.length === 1
+        ? `Pots and compost for ${missing[0]} aren't counted, because that pot size has no cost of potting yet.`
+        : `Pots and compost for ${trayList(missing)} aren't counted, because those pot sizes have no cost of potting yet.`,
+    );
+  }
+
+  const unsized = Number(pots.unsizedPlants);
+
+  if (unsized > 0) {
+    lines.push(
+      unsized === 1
+        ? "1 plant was potted with no pot size recorded, so its pot isn't counted."
+        : `${unsized} plants were potted with no pot size recorded, so their pots aren't counted.`,
+    );
+  }
+
+  return lines;
+}

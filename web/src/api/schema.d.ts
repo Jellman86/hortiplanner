@@ -6187,6 +6187,82 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pot-sizes/allowances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PotAllowance"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pot-sizes/{id}/allowance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AllowanceRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AllowanceSaved"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/settings/features": {
         parameters: {
             query?: never;
@@ -8456,6 +8532,16 @@ export interface components {
             count: number | string;
             level: string;
         };
+        AllowanceRequest: {
+            /** Format: double */
+            costEach: null | number | string;
+            /** @default true */
+            includesVat: boolean;
+        };
+        AllowanceSaved: {
+            changed: boolean;
+            first: boolean;
+        };
         ArchiveRefused: {
             problem: string;
             /** Format: int32 */
@@ -8548,6 +8634,7 @@ export interface components {
             counts: components["schemas"]["VatCounts"];
             material: components["schemas"]["MaterialCost"];
             others: components["schemas"]["CostEntry"][];
+            pots: null | components["schemas"]["PotsCost"];
             total: null | components["schemas"]["MoneyPair"];
             history: components["schemas"]["CostEntry"][];
             /** Format: double */
@@ -9861,9 +9948,35 @@ export interface components {
             prices: components["schemas"]["PlantPriceDto"][];
             hasPhoto: boolean;
         };
+        PotAllowance: {
+            /** Format: uuid */
+            potSizeId: string;
+            name: string;
+            /** Format: double */
+            costEach: null | number | string;
+            includesVat: boolean;
+            /** Format: double */
+            vatRate: number | string;
+            each: null | components["schemas"]["MoneyPair"];
+            set: boolean;
+        };
+        PotLine: {
+            size: string;
+            /** Format: int32 */
+            plants: number | string;
+            each: components["schemas"]["MoneyPair"];
+            cost: components["schemas"]["MoneyPair"];
+        };
         PotQuantityRequest: {
             /** Format: int32 */
             quantity: null | number | string;
+        };
+        PotsCost: {
+            cost: components["schemas"]["MoneyPair"];
+            lines: components["schemas"]["PotLine"][];
+            withoutAllowance: string[];
+            /** Format: int32 */
+            unsizedPlants: number | string;
         };
         PotSizeRequest: {
             name: string;

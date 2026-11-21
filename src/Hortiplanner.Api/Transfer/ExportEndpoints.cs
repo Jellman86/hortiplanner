@@ -56,6 +56,7 @@ internal static class ExportEndpoints
             await PlacesAsync(db, names.Places, cancellationToken),
             await BatchesAsync(db, names, cancellationToken),
             await BatchCostsAsync(db, names, cancellationToken),
+            await PotSizeCostsAsync(db, names, cancellationToken),
             await TraysAsync(db, store, cancellationToken),
             await WorkAsync(db, names, cancellationToken),
             await AdjustmentsAsync(db, cancellationToken),
@@ -92,6 +93,31 @@ internal static class ExportEndpoints
         new("plants", ["Common name", "Variety", "Botanical name", "Category", "Position", "Watering", "Hardiness", "Xylella host", "Protected variety", "VAT rate", "No longer used"],
             (await db.Plants.AsNoTracking().OrderBy(plant => plant.CommonName).ThenBy(plant => plant.Variety).ToListAsync(cancellationToken))
                 .Select(plant => new object?[] { plant.CommonName, plant.Variety, plant.BotanicalName, plant.Category, plant.Position, plant.Watering, plant.Hardiness, plant.XylellaHost, plant.ProtectedVariety, VatRateWord(plant.VatBand), plant.ArchivedAt != null }));
+
+    /// <summary>Every pot size allowance ever set, with both figures for one plant.</summary>
+    private static async Task<Sheet> PotSizeCostsAsync(HortiplannerDbContext db, Names names, CancellationToken cancellationToken)
+    {
+        var sizes = await db.PotSizes.AsNoTracking().ToDictionaryAsync(size => size.Id, size => size.Name, cancellationToken);
+        var rows = await db.PotSizeCosts.AsNoTracking().OrderBy(row => row.SetAt).ThenBy(row => row.Id).ToListAsync(cancellationToken);
+
+        return new("pot-size-costs", ["Pot size", "Amount typed", "Includes VAT", "VAT rate (%)", "With VAT", "Before VAT", "From", "Set by", "Set"],
+            rows.Select(row =>
+            {
+                var each = row.CostEach is null ? null : Costs.PotAllowances.Each(row);
+                return new object?[]
+                {
+                    sizes[row.PotSizeId],
+                    row.CostEach,
+                    row.IncludesVat,
+                    row.VatRate,
+                    each is null ? null : Math.Round(each.WithVat, 4, MidpointRounding.AwayFromZero),
+                    each is null ? null : Math.Round(each.BeforeVat, 4, MidpointRounding.AwayFromZero),
+                    row.From,
+                    names.People.GetValueOrDefault(row.SetBy),
+                    row.SetAt,
+                };
+            }));
+    }
 
     /// <summary>Who said what VAT was in a cost, or that it was assumed. Nothing for a cost with no amount.</summary>
     private static string? VatSaidBy(BatchCost cost, Names names)

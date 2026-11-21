@@ -4719,6 +4719,68 @@
         }
       }
     },
+    "/api/pot-sizes/allowances": {
+      "get": {
+        "tags": [
+          "PotAllowances"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PotAllowance"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pot-sizes/{id}/allowance": {
+      "put": {
+        "tags": [
+          "PotAllowances"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllowanceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllowanceSaved"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/settings/features": {
       "get": {
         "tags": [
@@ -6758,6 +6820,42 @@
           }
         }
       },
+      "AllowanceRequest": {
+        "required": [
+          "costEach"
+        ],
+        "type": "object",
+        "properties": {
+          "costEach": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "includesVat": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "AllowanceSaved": {
+        "required": [
+          "changed",
+          "first"
+        ],
+        "type": "object",
+        "properties": {
+          "changed": {
+            "type": "boolean"
+          },
+          "first": {
+            "type": "boolean"
+          }
+        }
+      },
       "ArchiveRefused": {
         "required": [
           "problem",
@@ -7124,6 +7222,7 @@
           "counts",
           "material",
           "others",
+          "pots",
           "total",
           "history",
           "standardRate",
@@ -7158,6 +7257,16 @@
             "items": {
               "$ref": "#/components/schemas/CostEntry"
             }
+          },
+          "pots": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PotsCost"
+              }
+            ]
           },
           "total": {
             "oneOf": [
@@ -12679,6 +12788,88 @@
           }
         }
       },
+      "PotAllowance": {
+        "required": [
+          "potSizeId",
+          "name",
+          "costEach",
+          "includesVat",
+          "vatRate",
+          "each",
+          "set"
+        ],
+        "type": "object",
+        "properties": {
+          "potSizeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "costEach": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "includesVat": {
+            "type": "boolean"
+          },
+          "vatRate": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "each": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MoneyPair"
+              }
+            ]
+          },
+          "set": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PotLine": {
+        "required": [
+          "size",
+          "plants",
+          "each",
+          "cost"
+        ],
+        "type": "object",
+        "properties": {
+          "size": {
+            "type": "string"
+          },
+          "plants": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "each": {
+            "$ref": "#/components/schemas/MoneyPair"
+          },
+          "cost": {
+            "$ref": "#/components/schemas/MoneyPair"
+          }
+        }
+      },
       "PotQuantityRequest": {
         "required": [
           "quantity"
@@ -12689,6 +12880,40 @@
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "PotsCost": {
+        "required": [
+          "cost",
+          "lines",
+          "withoutAllowance",
+          "unsizedPlants"
+        ],
+        "type": "object",
+        "properties": {
+          "cost": {
+            "$ref": "#/components/schemas/MoneyPair"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PotLine"
+            }
+          },
+          "withoutAllowance": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unsizedPlants": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
               "integer",
               "string"
             ],
@@ -15735,6 +15960,9 @@
     },
     {
       "name": "MissingCostEndpoints"
+    },
+    {
+      "name": "PotAllowances"
     },
     {
       "name": "FeatureEndpoints"

@@ -1962,6 +1962,61 @@ namespace Hortiplanner.Api.Data.Migrations
                     b.ToTable("pot_sizes", (string)null);
                 });
 
+            modelBuilder.Entity("Hortiplanner.Api.Data.PotSizeCost", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal?>("CostEach")
+                        .HasPrecision(8, 2)
+                        .HasColumnType("numeric(8,2)")
+                        .HasColumnName("cost_each");
+
+                    b.Property<DateOnly>("From")
+                        .HasColumnType("date")
+                        .HasColumnName("from");
+
+                    b.Property<bool>("IncludesVat")
+                        .HasColumnType("boolean")
+                        .HasColumnName("includes_vat");
+
+                    b.Property<Guid>("PotSizeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("pot_size_id");
+
+                    b.Property<DateTimeOffset>("SetAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("set_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<Guid>("SetBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("set_by");
+
+                    b.Property<decimal>("VatRate")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("vat_rate");
+
+                    b.HasKey("Id")
+                        .HasName("pk_pot_size_costs");
+
+                    b.HasIndex("SetBy")
+                        .HasDatabaseName("ix_pot_size_costs_set_by");
+
+                    b.HasIndex("PotSizeId", "From")
+                        .HasDatabaseName("ix_pot_size_costs_pot_size_id_from");
+
+                    b.ToTable("pot_size_costs", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_pot_size_costs_cost_each", "cost_each IS NULL OR (cost_each > 0 AND cost_each < 1000)");
+
+                            t.HasCheckConstraint("ck_pot_size_costs_vat_rate", "vat_rate >= 0 AND vat_rate <= 100");
+                        });
+                });
+
             modelBuilder.Entity("Hortiplanner.Api.Data.Printer", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3479,6 +3534,23 @@ namespace Hortiplanner.Api.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_plant_prices_pot_sizes_pot_size_id");
+                });
+
+            modelBuilder.Entity("Hortiplanner.Api.Data.PotSizeCost", b =>
+                {
+                    b.HasOne("Hortiplanner.Api.Data.PotSize", null)
+                        .WithMany()
+                        .HasForeignKey("PotSizeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_pot_size_costs_pot_sizes_pot_size_id");
+
+                    b.HasOne("Hortiplanner.Api.Accounts.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("SetBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_pot_size_costs_asp_net_users_set_by");
                 });
 
             modelBuilder.Entity("Hortiplanner.Api.Data.Purchase", b =>

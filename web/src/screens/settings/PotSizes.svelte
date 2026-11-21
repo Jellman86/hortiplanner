@@ -8,6 +8,8 @@
   import { api } from "../../api/client";
   import { stopUsing } from "../../lib/archive";
   import ArchivedEntries from "../manage/ArchivedEntries.svelte";
+  import PotAllowance from "./PotAllowance.svelte";
+  import { isOn } from "../../lib/features.svelte";
   import { attempt, optional, type Schemas } from "../../lib/types";
 
   let { onBack }: { onBack: () => void } = $props();
@@ -20,6 +22,9 @@
   let problem = $state("");
   let renaming = $state<string | null>(null);
   let newName = $state("");
+  // What potting into each size costs, while costs are kept.
+  let allowances = $state<Record<string, Schemas["PotAllowance"]>>({});
+  let standardRate = $state(20);
 
   const setProblem = (message: string) => (problem = message);
 
@@ -32,6 +37,14 @@
 
   async function load() {
     sizes = (await api.GET("/api/pot-sizes")).data ?? [];
+
+    if (isOn("Costs")) {
+      const list = (await api.GET("/api/pot-sizes/allowances")).data ?? [];
+      allowances = Object.fromEntries(list.map((row) => [row.potSizeId, row]));
+      standardRate = Number(
+        (await api.GET("/api/settings/vat-rates")).data?.standard ?? 20,
+      );
+    }
   }
 
   onMount(() => void attempt(load, setProblem));
@@ -140,6 +153,14 @@
                   ? "These haven't been counted yet."
                   : `There are ${size.quantityInStock} in stock.`}
               </span>
+              {#if isOn("Costs")}
+                <PotAllowance
+                  {size}
+                  allowance={allowances[size.id]}
+                  {standardRate}
+                  onSaved={load}
+                />
+              {/if}
               <EntryPhotos
                 entry="PotSize"
                 id={size.id}
