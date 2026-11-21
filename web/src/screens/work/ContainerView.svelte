@@ -44,6 +44,7 @@
     type TrayAction,
   } from "../../lib/tray";
   import {
+    canUndo,
     isRecorded,
     outcomeProblem,
     plantName,
@@ -54,6 +55,7 @@
   import Lose from "./Lose.svelte";
   import Move from "./Move.svelte";
   import Note from "./Note.svelte";
+  import Sell from "./Sell.svelte";
   import Passports from "./Passports.svelte";
   import Transfer from "./Transfer.svelte";
   import Treat from "./Treat.svelte";
@@ -107,13 +109,15 @@
   let fromDevice = $state(false);
 
   const now = new Date();
-  const first = $derived(container ? likelyNext(container) : []);
+  // Actions for parts turned off under Settings, Features aren't offered.
+  const offered = (action: TrayAction) =>
+    (action !== "passports" || isOn("Passports")) &&
+    (action !== "sold" || isOn("TraySales"));
+  const first = $derived(
+    container ? likelyNext(container).filter(offered) : [],
+  );
   const rest = $derived(
-    container
-      ? otherActions(container).filter(
-          (action) => action !== "passports" || isOn("Passports"),
-        )
-      : [],
+    container ? otherActions(container).filter(offered) : [],
   );
   // Each action and the plant card is a step in the browser's history, so Back returns to the tray.
   const back = () => window.history.back();
@@ -397,6 +401,8 @@
   <Passports {container} onCancel={back} />
 {:else if action === "note"}
   <Note {container} {when} {onDone} onCancel={back} />
+{:else if action === "sold" && isOn("TraySales")}
+  <Sell {container} {when} owner={!!onTrace} {onDone} onCancel={back} />
 {:else}
   <main class="tray">
     <header class="plant-title">
@@ -562,7 +568,7 @@
                     ? `, ${entry.recordedBy}`
                     : ""}{entry.undone ? " · undone" : ""}
                 </span>
-                {#if !entry.undone && entry.type !== "Sold" && !(entry.details as { forPassport?: boolean } | null)?.forPassport}
+                {#if !entry.undone && canUndo(entry.type, entry.details)}
                   <button
                     class="link-button"
                     disabled={busy}

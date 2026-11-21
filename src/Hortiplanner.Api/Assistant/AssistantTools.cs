@@ -204,7 +204,8 @@ internal static partial class AssistantTools
                 quantity = entry.Quantity,
                 place = entry.LocationName,
                 pot = entry.PotSizeName,
-                details = entry.Details,
+                // A sale's price and VAT are money, which the assistant is never given.
+                details = entry.Type == EventType.Sold ? (JsonElement?)null : entry.Details,
             }),
         };
     }

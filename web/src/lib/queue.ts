@@ -167,7 +167,8 @@ export class WorkQueue {
 export async function flush(
   queue: WorkQueue,
   send: (request: WorkRequest) => Promise<Outcome>,
-  explain: (outcome: Outcome) => string,
+  /** Words for a refusal; the address says what kind of work it was. */
+  explain: (outcome: Outcome, url: string) => string,
 ): Promise<void> {
   for (let item = queue.next; item && !queue.stopped; item = queue.next) {
     const outcome = await send(item.request);
@@ -178,7 +179,7 @@ export async function flush(
       return;
     } else {
       // Kept where the person can see it, as it can't be sent as it stands.
-      queue.fail(item, explain(outcome));
+      queue.fail(item, explain(outcome, item.request.url));
     }
   }
 }

@@ -4,6 +4,8 @@
   import {
     materialWord,
     perPlantSentences,
+    soFarSentence,
+    takingsSentences,
     wholeCost,
     type Costing,
   } from "../../lib/costs";
@@ -37,7 +39,7 @@
 </script>
 
 <section class="stack no-print" aria-labelledby="trace-cost">
-  <h2 id="trace-cost">What it cost</h2>
+  <h2 id="trace-cost">What it cost and took</h2>
   {#if problem}<p class="muted">{problem}</p>{/if}
   {#if costing}
     {#if nothingSpent}
@@ -60,5 +62,10 @@
         no total. You can add it in Costs to fill in, under Manage.
       </p>
     {/if}
+    <!-- What it took is said whether or not its cost is known. -->
+    {#each takingsSentences(costing) as sentence, index (index)}
+      <p>{sentence}</p>
+    {/each}
+    {#if soFarSentence(costing)}<p>{soFarSentence(costing)}</p>{/if}
   {/if}
 </section>

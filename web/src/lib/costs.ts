@@ -441,3 +441,104 @@ export function perPlantSentences(costing: Costing): string[] {
 
   return sentences;
 }
+
+/** The figure that counts, in words: "£21.00", or "£17.50 before VAT" once registered. */
+function counted(cost: MoneyPair, counts: Costing["counts"]): string {
+  return counts === "BeforeVat"
+    ? `${money(Number(cost.beforeVat))} before VAT`
+    : money(Number(cost.withVat));
+}
+
+/** What the batch has taken, on invoices and from trays. */
+export function takingsSentences(costing: Costing): string[] {
+  const takings = costing.takings;
+  const invoiced = Number(takings.invoiced);
+  const fromTrays = Number(takings.fromTrays);
+  const noPrice = Number(takings.noPrice);
+  const sentences: string[] = [];
+
+  if (invoiced > 0) {
+    sentences.push(
+      invoiced === 1
+        ? `1 was sold on an invoice for ${counted(takings.invoiceTakings, costing.counts)}.`
+        : `${invoiced} were sold on invoices for ${counted(takings.invoiceTakings, costing.counts)}.`,
+    );
+  }
+
+  if (fromTrays > 0) {
+    sentences.push(
+      `${fromTrays === 1 ? "1 was" : `${fromTrays} were`} sold from the tray for ${counted(takings.trayTakings, costing.counts)}.`,
+    );
+  }
+
+  if (noPrice > 0) {
+    const more = invoiced + fromTrays > 0 ? " more" : "";
+    sentences.push(
+      noPrice === 1
+        ? `1${more} was sold from the tray with no price recorded, so it isn't in the takings.`
+        : `${noPrice}${more} were sold from the tray with no price recorded, so they aren't in the takings.`,
+    );
+  }
+
+  return sentences.length > 0
+    ? sentences
+    : ["Nothing from this batch has been sold yet."];
+}
+
+/**
+ * What the batch has made so far, on the figures that count: takings less costs with VAT while the nursery isn't
+ * registered, both before VAT once it is. Only when the cost is known. The difference is worked out from the two
+ * figures as shown, so the sentence always adds up.
+ */
+export function soFarSentence(costing: Costing): string {
+  if (!costing.total) {
+    return "";
+  }
+
+  const before = costing.counts === "BeforeVat";
+  const pennies = (pair: MoneyPair) =>
+    Math.round(Number(before ? pair.beforeVat : pair.withVat) * 100);
+  const taken = pennies(costing.takings.total);
+  const cost = pennies(costing.total);
+  const made = taken - cost;
+  const pounds = (value: number) => money(value / 100);
+  const plant = costing.perPlant;
+  const left = plant.notCounted
+    ? null
+    : Math.max(Number(plant.alive) - Number(costing.takings.sold ?? 0), 0);
+  const still =
+    left === null || left === 0
+      ? ""
+      : left === 1
+        ? ", with 1 plant still to sell"
+        : `, with ${left} plants still to sell`;
+
+  // Nothing spent and nothing taken has nothing to say.
+  if (taken === 0 && cost === 0) {
+    return "";
+  }
+
+  if (left === 0) {
+    const how =
+      made > 0
+        ? `so it made ${pounds(made)}`
+        : made < 0
+          ? `so it lost ${pounds(-made)}`
+          : "so it broke even";
+    return cost === 0
+      ? `This batch has finished. It took ${pounds(taken)} and cost nothing, ${how}.`
+      : `This batch has finished. It took ${pounds(taken)} and cost ${pounds(cost)}${before ? ", both before VAT," : " with VAT,"} ${how}.`;
+  }
+
+  if (taken === 0) {
+    return `It has cost ${pounds(cost)}${before ? " before VAT" : " with VAT"} so far${still}.`;
+  }
+
+  if (cost === 0) {
+    return `It has taken ${pounds(taken)} and cost nothing, so it has made ${pounds(made)} so far${still}.`;
+  }
+
+  return made >= 0
+    ? `It has taken ${pounds(taken)} and cost ${pounds(cost)}${before ? ", both before VAT," : " with VAT,"} so it has made ${pounds(made)} so far${still}.`
+    : `So far it has cost ${pounds(cost)}${before ? " and taken " + pounds(taken) + ", both before VAT" : " with VAT and taken " + pounds(taken)}${still}.`;
+}

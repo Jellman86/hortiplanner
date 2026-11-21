@@ -25,6 +25,7 @@
   } from "../lib/queue";
   import type { Schemas } from "../lib/types";
   import {
+    canUndo,
     describeRecent,
     isRecorded,
     outcomeProblem,
@@ -943,7 +944,7 @@
                       ><Repeat size={16} aria-hidden="true" /> Do it again</button
                     >
                   {/if}
-                  {#if action.type !== "Sold" && !(action.details as { forPassport?: boolean } | null)?.forPassport}
+                  {#if canUndo(action.type, action.details)}
                     <button
                       class="link-button"
                       onclick={() => undoRecent(action)}

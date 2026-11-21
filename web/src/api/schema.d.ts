@@ -4878,6 +4878,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/containers/{id}/sold": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SaleRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkRecorded"];
+                    };
+                };
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkRecorded"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkRefused"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/events/recent": {
         parameters: {
             query?: never;
@@ -8638,6 +8697,7 @@ export interface components {
             pots: null | components["schemas"]["PotsCost"];
             total: null | components["schemas"]["MoneyPair"];
             perPlant: components["schemas"]["PerPlant"];
+            takings: components["schemas"]["Takings"];
             history: components["schemas"]["CostEntry"][];
             /** Format: double */
             standardRate: number | string;
@@ -9621,7 +9681,7 @@ export interface components {
             setsRenewal: boolean;
         };
         /** @enum {unknown} */
-        NurseryFeature: "Climate" | "PlacesMap" | "Passports" | "MotherPlants" | "Jobs" | "Invoices" | "Purchases" | "BatchPhotos" | "BenchStations" | "Assistant" | "Costs";
+        NurseryFeature: "Climate" | "PlacesMap" | "Passports" | "MotherPlants" | "Jobs" | "Invoices" | "Purchases" | "BatchPhotos" | "BenchStations" | "Assistant" | "Costs" | "TraySales";
         OutlineRequest: {
             points: null | (number | string)[][];
             /** @default false */
@@ -10189,6 +10249,18 @@ export interface components {
             genus: null | components["schemas"]["TaxonName"];
             species: null | components["schemas"]["TaxonName"];
         };
+        SaleRequest: {
+            /** Format: uuid */
+            eventId: string;
+            /** Format: date-time */
+            occurredAt: string;
+            /** Format: uuid */
+            batchId: string;
+            /** Format: int32 */
+            quantity: number | string;
+            /** Format: double */
+            priceEach?: null | number | string;
+        };
         SavedMessage: {
             /** Format: uuid */
             id: string;
@@ -10482,6 +10554,19 @@ export interface components {
             /** Format: double */
             amount: number | string;
             notes: null | string;
+        };
+        Takings: {
+            /** Format: int32 */
+            invoiced: number | string;
+            invoiceTakings: components["schemas"]["MoneyPair"];
+            /** Format: int32 */
+            fromTrays: number | string;
+            trayTakings: components["schemas"]["MoneyPair"];
+            /** Format: int32 */
+            noPrice: number | string;
+            total: components["schemas"]["MoneyPair"];
+            /** Format: int32 */
+            sold?: number | string;
         };
         TaxonName: {
             /** Format: uuid */

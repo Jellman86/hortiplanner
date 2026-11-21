@@ -7,6 +7,8 @@ import {
   missingCostWords,
   perPlantSentences,
   potsSentences,
+  soFarSentence,
+  takingsSentences,
   materialSentence,
   readMoney,
   replacedParts,
@@ -62,6 +64,15 @@ const costing = (overrides: Partial<Costing> = {}): Costing => ({
     allLost: false,
     each: null,
     lostValue: null,
+  },
+  takings: {
+    invoiced: 0,
+    invoiceTakings: { withVat: 0, beforeVat: 0 },
+    fromTrays: 0,
+    trayTakings: { withVat: 0, beforeVat: 0 },
+    noPrice: 0,
+    total: { withVat: 0, beforeVat: 0 },
+    sold: 0,
   },
   history: [],
   standardRate: 20,
@@ -452,5 +463,129 @@ describe("what each plant has cost", () => {
     ).toEqual([
       "40 plants are still growing or have been sold, so each one has cost about £0.07, the same with VAT and before VAT.",
     ]);
+  });
+});
+
+describe("what a batch has taken and made", () => {
+  const sold = (
+    takings: Partial<Costing["takings"]>,
+    perPlant: Partial<Costing["perPlant"]> = {},
+    counts: Costing["counts"] = "WithVat",
+  ) =>
+    costing({
+      counts,
+      total: { withVat: 14.39, beforeVat: 11.99 },
+      perPlant: { ...costing().perPlant, alive: 18, ...perPlant },
+      takings: { ...costing().takings, ...takings },
+    });
+
+  it("says what was sold on invoices and from trays, and what had no price", () => {
+    expect(
+      takingsSentences(
+        sold({
+          invoiced: 6,
+          invoiceTakings: { withVat: 21, beforeVat: 21 },
+          fromTrays: 4,
+          trayTakings: { withVat: 18, beforeVat: 18 },
+          noPrice: 2,
+        }),
+      ),
+    ).toEqual([
+      "6 were sold on invoices for £21.00.",
+      "4 were sold from the tray for £18.00.",
+      "2 more were sold from the tray with no price recorded, so they aren't in the takings.",
+    ]);
+    expect(takingsSentences(sold({}))).toEqual([
+      "Nothing from this batch has been sold yet.",
+    ]);
+  });
+
+  it("says what it has made so far, or lost, with how many are still to sell", () => {
+    expect(
+      soFarSentence(sold({ total: { withVat: 39, beforeVat: 39 }, sold: 10 })),
+    ).toBe(
+      "It has taken £39.00 and cost £14.39 with VAT, so it has made £24.61 so far, with 8 plants still to sell.",
+    );
+    expect(
+      soFarSentence(sold({ total: { withVat: 4.5, beforeVat: 4.5 }, sold: 4 })),
+    ).toBe(
+      "So far it has cost £14.39 with VAT and taken £4.50, with 14 plants still to sell.",
+    );
+    expect(
+      soFarSentence(
+        sold(
+          { total: { withVat: 39, beforeVat: 32.5 }, sold: 10 },
+          {},
+          "BeforeVat",
+        ),
+      ),
+    ).toBe(
+      "It has taken £32.50 and cost £11.99, both before VAT, so it has made £20.51 so far, with 8 plants still to sell.",
+    );
+  });
+
+  it("adds up as shown, and says nothing sold, nothing spent and broke even plainly", () => {
+    // Taken £9.996 and cost £5.004 show as £10.00 and £5.00, so it made £5.00, not £4.99.
+    expect(
+      soFarSentence({
+        ...sold({ total: { withVat: 9.996, beforeVat: 9.996 }, sold: 10 }),
+        total: { withVat: 5.004, beforeVat: 5.004 },
+      }),
+    ).toBe(
+      "It has taken £10.00 and cost £5.00 with VAT, so it has made £5.00 so far, with 8 plants still to sell.",
+    );
+    expect(soFarSentence(sold({}))).toBe(
+      "It has cost £14.39 with VAT so far, with 18 plants still to sell.",
+    );
+    expect(
+      soFarSentence({
+        ...sold({ total: { withVat: 18, beforeVat: 18 }, sold: 10 }),
+        total: { withVat: 0, beforeVat: 0 },
+      }),
+    ).toBe(
+      "It has taken £18.00 and cost nothing, so it has made £18.00 so far, with 8 plants still to sell.",
+    );
+    expect(
+      soFarSentence({ ...sold({}), total: { withVat: 0, beforeVat: 0 } }),
+    ).toBe("");
+    expect(
+      soFarSentence(
+        sold({ total: { withVat: 14.39, beforeVat: 14.39 }, sold: 18 }),
+      ),
+    ).toBe(
+      "This batch has finished. It took £14.39 and cost £14.39 with VAT, so it broke even.",
+    );
+    expect(
+      soFarSentence(
+        sold(
+          { total: { withVat: 4.5, beforeVat: 3.75 }, sold: 4 },
+          {},
+          "BeforeVat",
+        ),
+      ),
+    ).toBe(
+      "So far it has cost £11.99 and taken £3.75, both before VAT, with 14 plants still to sell.",
+    );
+    expect(
+      takingsSentences(
+        sold({ invoiced: 1, invoiceTakings: { withVat: 3.5, beforeVat: 3.5 } }),
+      ),
+    ).toEqual(["1 was sold on an invoice for £3.50."]);
+    expect(takingsSentences(sold({ noPrice: 1 }))).toEqual([
+      "1 was sold from the tray with no price recorded, so it isn't in the takings.",
+    ]);
+  });
+
+  it("says when a batch has finished", () => {
+    expect(
+      soFarSentence(sold({ total: { withVat: 81, beforeVat: 81 }, sold: 18 })),
+    ).toBe(
+      "This batch has finished. It took £81.00 and cost £14.39 with VAT, so it made £66.61.",
+    );
+    expect(
+      soFarSentence(sold({ total: { withVat: 9, beforeVat: 9 }, sold: 18 })),
+    ).toBe(
+      "This batch has finished. It took £9.00 and cost £14.39 with VAT, so it lost £5.39.",
+    );
   });
 });

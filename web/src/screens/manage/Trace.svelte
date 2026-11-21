@@ -46,6 +46,14 @@
   let searched = $state(false);
   let loaded = $state(false);
   let trace = $state<BatchTrace | null>(null);
+  // Sales recorded from a tray, as invoices' sales are listed: how many, from which tray, and when.
+  const traySales = $derived(
+    trace?.steps.filter(
+      (step) =>
+        step.type === "Sold" &&
+        (step.details as { sale?: string } | null)?.sale === "tray",
+    ) ?? [],
+  );
 
   crumbs(() => (trace ? [{ label: `Batch ${trace.traceabilityCode}` }] : []));
   let problem = $state("");
@@ -311,9 +319,24 @@
               >
             </div>
           {:else}
-            <p class="note-empty muted">
-              No invoices have taken plants from this batch.
-            </p>
+            {#if traySales.length === 0}
+              <p class="note-empty muted">
+                Nothing from this batch has been sold yet.
+              </p>
+            {/if}
+          {/each}
+          {#each traySales as sale (sale.eventId)}
+            <div class="card stack tight">
+              <strong
+                >{Math.abs(Number(sale.quantity ?? 0))} sold from {sale.labelCode ??
+                  "a tray"}</strong
+              >
+              <span class="muted"
+                >{momentLabel(sale.occurredAt, now)}{sale.corrected
+                  ? " · corrected"
+                  : ""}</span
+              >
+            </div>
           {/each}
           {#if trace.children.length > 0}
             <p>

@@ -222,7 +222,7 @@ internal static class CostEndpoints
     }
 
     /// <summary>A cost timed by a device whose clock is out is put back on the server's clock, and never in the future.</summary>
-    private static DateTimeOffset OnServerClock(DateTimeOffset occurredAt, DeviceClock device, TimeProvider clock)
+    internal static DateTimeOffset OnServerClock(DateTimeOffset occurredAt, DeviceClock device, TimeProvider clock)
     {
         var now = clock.GetUtcNow();
         var adjusted = device.Skew is { } skew && skew.Duration() > DeviceClock.Tolerance ? occurredAt + skew : occurredAt;

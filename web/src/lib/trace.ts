@@ -56,7 +56,9 @@ export function describeStep(step: TraceStep): string {
       return reason ? `${how} lost (${reason})` : `${how} lost`;
     }
     case "Sold":
-      return `${quantity} sold`;
+      return details?.sale === "tray"
+        ? `${quantity} sold from the tray`
+        : `${quantity} sold`;
     case "Treated": {
       const dose = text("dose");
       const area = text("area");

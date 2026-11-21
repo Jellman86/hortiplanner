@@ -38,4 +38,7 @@ internal enum NurseryFeature
 
     /// <summary>What each batch cost: its seed or plants, and anything else added to it.</summary>
     Costs,
+
+    /// <summary>Recording plants sold from a tray, with the price for each.</summary>
+    TraySales,
 }

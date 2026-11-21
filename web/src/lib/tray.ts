@@ -12,7 +12,8 @@ export type TrayAction =
   | "note"
   | "passports"
   | "germinated"
-  | "ready";
+  | "ready"
+  | "sold";
 
 type Container = Schemas["ContainerResponse"];
 export type HistoryEntry = Schemas["HistoryEntry"];
@@ -44,7 +45,7 @@ export function likelyNext(container: Container): TrayAction[] {
     case "PottedOn":
       return ["ready", "potOn"];
     case "Ready":
-      return ["move", "count"];
+      return ["sold", "move", "count"];
     default:
       return ["lost", "move"];
   }
@@ -61,6 +62,7 @@ export function otherActions(container: Container): TrayAction[] {
         "prickOut",
         ...(canGerminate(container) ? (["germinated"] as const) : []),
         "ready",
+        "sold",
         "count",
         "move",
         "treat",
@@ -83,6 +85,7 @@ export const actionLabels: Record<TrayAction, string> = {
   passports: "Plant passports",
   germinated: "Germinated",
   ready: "Ready",
+  sold: "Sold",
 };
 
 /** A short, friendly time: "today", "yesterday", "3 days ago", then the date. */
@@ -160,6 +163,10 @@ export function describeHistory(entry: HistoryEntry): string {
       return `Note: ${details?.note ?? ""}`;
     case "Ready":
       return "Marked ready";
+    case "Sold":
+      return details?.sale === "tray"
+        ? `Sold ${quantity} from this tray`
+        : `Sold ${quantity} on an invoice`;
     case "Examined":
       return details?.forPassport
         ? `Examined for a plant passport: ${details?.findings ?? "no pests or diseases seen"}`

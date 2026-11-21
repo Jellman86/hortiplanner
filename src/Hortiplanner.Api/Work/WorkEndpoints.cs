@@ -12,7 +12,7 @@ using Npgsql;
 namespace Hortiplanner.Api.Work;
 
 /// <summary>Recording what happened. Every request carries a client-made event identifier, so a resend is safe.</summary>
-internal static class WorkEndpoints
+internal static partial class WorkEndpoints
 {
     private const int MaxQuantity = 1_000_000;
     private const int MaxRecent = 50;
@@ -34,6 +34,7 @@ internal static class WorkEndpoints
         containers.MapPost("/{id:guid}/count", CountAsync).ProducesWork();
         containers.MapPost("/{id:guid}/treatments", RecordTreatmentAsync).ProducesWork();
         containers.MapPost("/{id:guid}/notes", RecordNoteAsync).ProducesWork();
+        containers.MapPost("/{id:guid}/sold", RecordSaleAsync).ProducesWork();
 
         var events = app.MapGroup("/api/events").AddEndpointFilter(RequestFingerprint.Capture);
         events.MapGet("/recent", RecentAsync);
@@ -574,10 +575,9 @@ internal static class WorkEndpoints
             return TypedResults.BadRequest();
         }
 
-        // A sale belongs to its invoice, and is reversed only by a credit note, so the two always agree.
-        if (original.Type == EventType.Sold)
+        if (original.Type == EventType.Sold && SaleRefusal(original.Payload, request) is { } refusedSale)
         {
-            return Refused("SoldByInvoice");
+            return refusedSale;
         }
 
         // A passport is issued only after an examination, so that examination stays with it.

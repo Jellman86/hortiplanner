@@ -81,6 +81,15 @@ const costing = (material: Record<string, unknown>, history: unknown[]) => ({
     each: { withVat: 0.8, beforeVat: 0.6667 },
     lostValue: { withVat: 1.14, beforeVat: 0.95 },
   },
+  takings: {
+    invoiced: 0,
+    invoiceTakings: { withVat: 0, beforeVat: 0 },
+    fromTrays: 4,
+    trayTakings: { withVat: 18, beforeVat: 18 },
+    noPrice: 0,
+    total: { withVat: 18, beforeVat: 18 },
+    sold: 4,
+  },
   total: material.cost ?? null,
   history,
   standardRate: 20,
@@ -292,6 +301,14 @@ test("the owner sees both figures, changes the VAT and keeps the earlier answer"
     page.getByText(
       "2 were lost. Between them they had cost about £1.14 with VAT, or about £0.95 before VAT. That's already counted in what each plant has cost.",
     ),
+  ).toBeVisible();
+
+  // What it has taken, and what it has made so far.
+  await expect(
+    page.getByText("4 were sold from the tray for £18.00."),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/^It has taken £18\.00 and cost £/),
   ).toBeVisible();
 
   // Pots and compost, from the cost of potting set for each size.
@@ -623,5 +640,194 @@ test("the bell leads the owner to costs to fill in, answered one by one or all a
   );
   await expect(
     page.getByText("Every batch has a cost, or you've said it isn't known."),
+  ).toHaveCount(0);
+});
+
+test("plants sold from a ready tray are recorded with the price from the plant list", async ({
+  page,
+}) => {
+  const sent: Record<string, unknown>[] = [];
+  const potSize = "0193a6f0-0000-7000-8000-0000000000a9";
+
+  await page.route("**/api/**", async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+
+    if (path.endsWith("/sold") && request.method() === "POST") {
+      sent.push(request.postDataJSON());
+      await route.fulfill({
+        status: 201,
+        json: {
+          eventId: (request.postDataJSON() as { eventId: string }).eventId,
+        },
+      });
+      return;
+    }
+
+    const data: Record<string, unknown> = {
+      "/api/account/me": {
+        id: "owner",
+        name: "Sam Fielding",
+        isOwner: true,
+        isTeam: false,
+      },
+      "/api/bench/people": null,
+      "/api/backups/status": { known: true, healthy: true },
+      "/api/containers/by-label/C000001": {
+        ...tray(false),
+        stage: "Ready",
+        potSizeId: potSize,
+        potSizeName: "9cm",
+        contents: [{ ...tray(false).contents[0], quantity: 12 }],
+      },
+      "/api/plants": [
+        {
+          id: "0193a6f0-0000-7000-8000-0000000000a1",
+          commonName: "Foxglove",
+          variety: null,
+          botanicalName: null,
+          category: null,
+          position: null,
+          watering: null,
+          hardiness: null,
+          xylellaHost: false,
+          protectedVariety: false,
+          vatBand: "Standard",
+          archived: false,
+          prices: [{ potSizeId: potSize, price: 4.5 }],
+          hasPhoto: false,
+        },
+      ],
+    };
+    await route.fulfill({ json: Object.hasOwn(data, path) ? data[path] : [] });
+  });
+
+  await openTray(page);
+  // A ready tray offers Sold first.
+  await page.getByRole("button", { name: "Sold", exact: true }).first().click();
+  await expect(page.getByRole("heading", { name: "Sold" })).toBeVisible();
+
+  const price = page.getByLabel("Price for each one (£)");
+  await expect(price).toHaveValue("4.50");
+  await expect(price).toHaveAccessibleDescription(
+    "This is the price on the plant list for 9cm. Change it if they went for something different.",
+  );
+  await expect(
+    page.getByText(
+      "This takes the plants off the tray. The day's till total still goes in under Money.",
+    ),
+  ).toBeVisible();
+  await expectAccessible(page, "Sold");
+
+  await page.getByRole("button", { name: "+1", exact: true }).click();
+  await page.getByRole("button", { name: "+1", exact: true }).click();
+  await price.fill("4");
+  await page.getByRole("button", { name: "Record the sale" }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "Recorded 3 Foxglove as sold.",
+  );
+  expect(sent).toMatchObject([{ quantity: 3, priceEach: 4 }]);
+});
+
+test("a sale with no price can be undone, waits without a signal, and a tray not counted is counted first", async ({
+  page,
+}) => {
+  const sent: Record<string, unknown>[] = [];
+  const undone: string[] = [];
+  let online = true;
+  let notCounted = false;
+
+  await page.route("**/api/**", async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+
+    if (path.endsWith("/sold") && request.method() === "POST") {
+      if (!online) {
+        await route.abort("internetdisconnected");
+        return;
+      }
+
+      sent.push(request.postDataJSON());
+      await route.fulfill({
+        status: 201,
+        json: {
+          eventId: (request.postDataJSON() as { eventId: string }).eventId,
+        },
+      });
+      return;
+    }
+
+    if (path.endsWith("/correct") && request.method() === "POST") {
+      undone.push(path);
+      await route.fulfill({ status: 201, json: { eventId: "x" } });
+      return;
+    }
+
+    const data: Record<string, unknown> = {
+      "/api/account/me": {
+        id: "staff",
+        name: "Alex Moss",
+        isOwner: false,
+        isTeam: false,
+      },
+      "/api/bench/people": null,
+      "/api/containers/by-label/C000001": {
+        ...tray(false),
+        stage: "Ready",
+        potSizeId: null,
+        potSizeName: null,
+        contents: [
+          {
+            ...tray(false).contents[0],
+            quantity: notCounted ? 0 : 12,
+            notCounted,
+          },
+        ],
+      },
+    };
+    await route.fulfill({ json: Object.hasOwn(data, path) ? data[path] : [] });
+  });
+
+  // With no pot size, there's no price to fill in, and none is needed.
+  await openTray(page);
+  await page.getByRole("button", { name: "Sold", exact: true }).first().click();
+  const price = page.getByLabel("Price for each one (£)");
+  await expect(price).toHaveValue("");
+  await expect(price).toHaveAccessibleDescription(
+    /^This tray has no pot size, so there's no price to fill in from the plant list\./,
+  );
+  await expect(
+    page.getByText("The day's till total still goes in under Money."),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Record the sale" }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "Recorded 1 Foxglove as sold.",
+  );
+  expect(sent).toMatchObject([{ quantity: 1, priceEach: null }]);
+
+  // A sale from a tray can be undone.
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect.poll(() => undone.length).toBe(1);
+
+  // Without a signal it waits on the phone.
+  online = false;
+  await openTray(page);
+  await page.getByRole("button", { name: "Sold", exact: true }).first().click();
+  await page.getByRole("button", { name: "Record the sale" }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "Saved on this device for now.",
+  );
+
+  // A tray nobody has counted is counted first.
+  notCounted = true;
+  await openTray(page);
+  await page.getByRole("button", { name: "Sold", exact: true }).first().click();
+  await expect(
+    page.getByText(
+      "This tray hasn't been counted yet, so please count it before recording a sale.",
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Record the sale" }),
   ).toHaveCount(0);
 });

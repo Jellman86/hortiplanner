@@ -152,6 +152,12 @@ export const featureInfo: FeatureInfo[] = [
     note: "While it's off, a cost already waiting on a phone is still saved when it's sent.",
   },
   {
+    feature: "TraySales",
+    label: "Sales from trays",
+    hides: "Sold on a tray",
+    note: "Sales already recorded still show in each tray's history and on the trace report, and a sale waiting on a phone is still saved when it's sent.",
+  },
+  {
     feature: "BenchStations",
     label: "Bench stations",
     hides:

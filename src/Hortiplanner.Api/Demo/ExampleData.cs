@@ -185,7 +185,7 @@ internal sealed class ExampleData(HortiplannerDbContext db, EventStore store)
 
         if (seed.Ready is { } ready)
         {
-            await store.AppendAsync(NewEvent(EventType.Ready, ready, latest.Id), cancellationToken);
+            await ReadyAndSoldAsync(ready, plant, batch, latest, cancellationToken);
         }
 
         if (seed.Source == BatchSource.BoughtIn && supplier is not null)
@@ -232,6 +232,15 @@ internal sealed class ExampleData(HortiplannerDbContext db, EventStore store)
             RecordedBy = recordedBy,
         });
         await db.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>Marked ready, then a couple sold from the tray at the plant list's price, with no VAT as the example isn't registered.</summary>
+    private async Task ReadyAndSoldAsync(int ready, Plant plant, Batch batch, Container tray, CancellationToken cancellationToken)
+    {
+        await store.AppendAsync(NewEvent(EventType.Ready, ready, tray.Id), cancellationToken);
+        var sale = NewEvent(EventType.Sold, Math.Max(ready - 1, 0), tray.Id, details: new { sale = "tray", priceEach = plant.Prices.First().Price, vatRate = 0m });
+        AddLine(sale, tray.Id, batch.Id, -2);
+        await store.AppendAsync(sale, cancellationToken);
     }
 
     private async Task AddPurchasesAsync(CancellationToken cancellationToken)
