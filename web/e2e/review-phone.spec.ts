@@ -102,7 +102,7 @@ test("phone edits open the customer form and slow climate replies cannot replace
   await page.goto("/");
   const button = (name: string) =>
     page.getByRole("button", { name, exact: true });
-  await button("Manage").click();
+  await button("More").click();
   await button("Customers").click();
   await button("Change").click();
   await expect(page.getByLabel("Name", { exact: true })).toBeVisible();

@@ -3883,8 +3883,9 @@ button.ask-card:hover:not(:disabled) {
     min-width: 9rem;
   }
 
-  /* Breadcrumbs lead back on a desk, so a page with them doesn't need a Back button too. */
-  .with-sidebar:has(.breadcrumbs) button.back {
+  /* On a desk the sidebar and the breadcrumbs lead back from every screen, so none needs a Back button too. A place's
+     first page has a trail of one, which isn't shown, and still has the sidebar. */
+  .with-sidebar button.back {
     display: none;
   }
 
@@ -3896,7 +3897,7 @@ button.ask-card:hover:not(:disabled) {
     padding-top: 0.75rem;
   }
 
-  /* The Manage menu as a grid of cards, rather than a long column repeating the sidebar. */
+  /* More, if a desk ever lands on it, as a grid of cards rather than a long column repeating the sidebar. */
   .with-sidebar .menu-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
@@ -5380,4 +5381,46 @@ button.link-button.ftree-leaf {
 .cost-table .cost-total th,
 .cost-table .cost-total td {
   border-top: 2px solid var(--border);
+}
+
+/* The row of buttons under a page's heading for the other pages in its place. Ordinary buttons; the open one has
+   the accent's surface and a bar beneath, so it isn't told by colour alone. They wrap to a second row on a phone
+   before their words shrink. */
+.hub-nav {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.5rem;
+  margin: 0.25rem 0 0.5rem;
+}
+
+.hub-nav button {
+  gap: 0.4rem;
+  min-height: 2.75rem;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.hub-nav button:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  color: var(--primary);
+}
+
+.hub-nav button[aria-current="page"],
+.hub-nav button[aria-current="page"]:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-surface);
+  box-shadow: inset 0 -3px 0 var(--accent);
+  color: var(--accent-text);
+}
+
+@media (min-width: 900px) {
+  .hub-nav {
+    display: flex;
+    flex-wrap: wrap;
+  }
 }

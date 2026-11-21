@@ -1,4 +1,5 @@
 <script lang="ts">
+  import HubNav from "../HubNav.svelte";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import { crumbs } from "../../lib/crumbs.svelte";
   import { isOn } from "../../lib/features.svelte";
@@ -528,6 +529,7 @@
 {:else}
   <main>
     <h1>Consignments</h1>
+    <HubNav page="consignments" />
     <p class="muted">
       A consignment is a set of plants going out together, packed in one or more
       packages. A package going to a business, or by post or courier, gets one

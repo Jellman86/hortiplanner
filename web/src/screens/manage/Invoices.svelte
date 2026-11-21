@@ -1,4 +1,5 @@
 <script lang="ts">
+  import HubNav from "../HubNav.svelte";
   import FileDown from "@lucide/svelte/icons/file-down";
   import Coins from "@lucide/svelte/icons/coins";
   import Trash2 from "@lucide/svelte/icons/trash-2";
@@ -335,6 +336,7 @@
 
 <main class:page-form={writing} class:invoice-page={writing}>
   <h1>{writing ? "New invoice" : "Invoices"}</h1>
+  {#if !writing}<HubNav page="invoices" />{/if}
   {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
   {#if issued}
     <div class="card done" role="status">

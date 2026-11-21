@@ -1,4 +1,5 @@
 <script lang="ts">
+  import HubNav from "../HubNav.svelte";
   import { lossWords } from "../../lib/losses";
   import { onMount } from "svelte";
   import { api } from "../../api/client";
@@ -142,6 +143,7 @@
 
 <main>
   <h1>Figures</h1>
+  <HubNav page="figures" />
 
   {#if isOn("Costs")}
     <MoneyFigures {onCosts} />

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import HubNav from "../HubNav.svelte";
   import { showForm } from "../../lib/showForm";
   import { onMount } from "svelte";
   import { api } from "../../api/client";
@@ -91,6 +92,7 @@
 
 <main>
   <h1>Customers</h1>
+  <HubNav page="customers" />
 
   <div class="split">
     <section>

@@ -93,7 +93,7 @@ export const featureInfo: FeatureInfo[] = [
   {
     feature: "Climate",
     label: "Sensors and climate",
-    hides: "Climate under Manage and Sensors under Settings",
+    hides: "Climate under Places and Sensors under Settings",
     note: "While it's off, readings that sensors send in are turned away.",
   },
   {
@@ -106,31 +106,31 @@ export const featureInfo: FeatureInfo[] = [
     feature: "Passports",
     label: "Plant passports",
     hides:
-      "passports on trays, issuing them, received passports, Consignments under Manage and the authorisation renewal reminder",
+      "passports on trays, issuing them, received passports, Consignments under Selling and the authorisation renewal reminder",
   },
   {
     feature: "MotherPlants",
     label: "Mother plants",
     hides:
-      "Mother plants under Manage and choosing a mother for cuttings in New batch",
+      "Mother plants under Plants and choosing a mother for cuttings in New batch",
     note: "Mothers already recorded still show on their batches.",
   },
   {
     feature: "Jobs",
     label: "Jobs",
     hides:
-      "Jobs under Manage, the jobs due on Record work and the late jobs reminder",
+      "the jobs due on Record work, the list of all the jobs and the late jobs reminder",
   },
   {
     feature: "Invoices",
     label: "Trade invoices",
     hides:
-      "Invoices under Manage, the overdue invoices reminder and invoiced plants in Consignments",
+      "Invoices under Selling, the overdue invoices reminder and invoiced plants in Consignments",
   },
   {
     feature: "Purchases",
     label: "Purchases",
-    hides: "Purchases under Manage and what's owed to suppliers",
+    hides: "Purchases under Buying and what's owed to suppliers",
   },
   {
     feature: "BatchPhotos",
@@ -148,7 +148,7 @@ export const featureInfo: FeatureInfo[] = [
     feature: "Costs",
     label: "Costs",
     hides:
-      "Costs and takings on each tray, the question about what a batch's seed or plants cost on a tray and in New batch, Costs to fill in under Manage, what the plants cost and made under Figures, the cost of potting under Pot sizes, and the reminder about batches with no cost",
+      "Costs and takings on each tray, the question about what a batch's seed or plants cost on a tray and in New batch, Costs to fill in, what the plants cost and made under Figures, the cost of potting under Pot sizes, and the reminder about batches with no cost",
     note: "While it's off, a cost already waiting on a phone is still saved when it's sent.",
   },
   {

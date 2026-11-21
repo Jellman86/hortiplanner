@@ -2,17 +2,14 @@
   import Avatar from "./Avatar.svelte";
   import LogOut from "@lucide/svelte/icons/log-out";
   import Monitor from "@lucide/svelte/icons/monitor";
-  import Flower2 from "@lucide/svelte/icons/flower-2";
   import Moon from "@lucide/svelte/icons/moon";
   import PanelLeftClose from "@lucide/svelte/icons/panel-left-close";
   import PanelLeftOpen from "@lucide/svelte/icons/panel-left-open";
-  import Plus from "@lucide/svelte/icons/plus";
   import ScanLine from "@lucide/svelte/icons/scan-line";
   import Settings from "@lucide/svelte/icons/settings";
-  import Sprout from "@lucide/svelte/icons/sprout";
   import Sun from "@lucide/svelte/icons/sun";
   import type { Me } from "../lib/boot";
-  import { visibleManageGroups, type ManageSection } from "../lib/sections";
+  import { visibleHubs, type Hub, type HubName } from "../lib/sections";
   import { themes, type Theme } from "../lib/theme";
 
   // Only shown on wide screens: phones get the bottom bar instead.
@@ -22,38 +19,32 @@
     collapsed,
     theme,
     onHome,
-    onNewBatch,
-    onProduction,
-    onPlants,
-    onSection,
+    onHub,
     onToggleCollapsed,
     onCycleTheme,
     onSettings,
     onFinished,
   }: {
     me: Me;
-    current:
-      | "home"
-      | "ask"
-      | "start"
-      | "settings"
-      | "production"
-      | "plants"
-      | "needs"
-      | ManageSection
-      | null;
+    /** The place the person is in, marked in the list. */
+    current: HubName | "settings" | null;
     collapsed: boolean;
     theme: Theme;
     onHome: () => void;
-    onNewBatch: () => void;
-    onProduction: () => void;
-    onPlants: () => void;
-    onSection: (section: ManageSection) => void;
+    /** Opens a place on its first page. */
+    onHub: (hub: Hub) => void;
     onToggleCollapsed: () => void;
     onCycleTheme: () => void;
     onSettings: () => void;
     onFinished: () => void;
   } = $props();
+
+  // The rule goes before the first of the business's places that's shown.
+  const firstBusiness = $derived(
+    visibleHubs(me.isOwner).find((hub) =>
+      ["selling", "buying", "money"].includes(hub.hub),
+    )?.hub,
+  );
 
   const here = (item: typeof current) =>
     current === item ? ("page" as const) : undefined;
@@ -87,55 +78,19 @@
       <ScanLine size={20} />
       <span class="nav-text">Record work</span>
     </button>
-    <button
-      aria-current={here("start")}
-      aria-label="New batch"
-      title="New batch"
-      onclick={onNewBatch}
-    >
-      <Plus size={20} />
-      <span class="nav-text">New batch</span>
-    </button>
-
-    <button
-      aria-current={here("production")}
-      aria-label="Production"
-      title="Production"
-      onclick={onProduction}
-    >
-      <Sprout size={20} />
-      <span class="nav-text">Production</span>
-    </button>
-
-    {#if !me.isOwner}
+    {#each visibleHubs(me.isOwner) as hub (hub.hub)}
+      <!-- A thin rule between growing and the business. -->
+      {#if hub.hub === firstBusiness}<hr class="nav-rule" />{/if}
       <button
-        aria-current={here("plants")}
-        aria-label="Plants"
-        title="Plants"
-        onclick={onPlants}
+        aria-current={here(hub.hub)}
+        aria-label={hub.label}
+        title={hub.label}
+        onclick={() => onHub(hub)}
       >
-        <Flower2 size={20} />
-        <span class="nav-text">Plants</span>
+        <hub.icon size={20} />
+        <span class="nav-text">{hub.label}</span>
       </button>
-    {/if}
-
-    {#if me.isOwner}
-      {#each visibleManageGroups() as group (group.heading)}
-        <p class="nav-heading nav-text">{group.heading}</p>
-        <hr class="nav-rule" />
-        {#each group.items as item (item.section)}
-          <button
-            aria-current={here(item.section)}
-            aria-label={item.label}
-            title={item.label}
-            onclick={() => onSection(item.section)}
-          >
-            <item.icon size={20} />
-            <span class="nav-text">{item.label}</span>
-          </button>
-        {/each}
-      {/each}
-    {/if}
+    {/each}
   </nav>
 
   <div class="sidebar-foot">

@@ -88,7 +88,7 @@ async function openGreenhouse(page: Page) {
   await page.goto("/");
   await page
     .getByRole("navigation", { name: "Phone" })
-    .getByRole("button", { name: "Manage" })
+    .getByRole("button", { name: "More" })
     .click();
   await page.getByRole("button", { name: "Places" }).click();
   await page.locator(".place-row", { hasText: "Greenhouse 2" }).click();

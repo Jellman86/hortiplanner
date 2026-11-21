@@ -89,7 +89,7 @@ test("the owner sees what the plants cost and made, and goes on to fill in the c
   const asked: string[] = [];
   await standIn(page, asked);
   await page.goto("/");
-  await button(page, "Manage").click();
+  await button(page, "More").click();
   await button(page, "Figures").click();
 
   await expect(
@@ -158,7 +158,7 @@ test("Money points the owner to Figures for what each batch cost and made", asyn
 }) => {
   await standIn(page, []);
   await page.goto("/");
-  await button(page, "Manage").click();
+  await button(page, "More").click();
   await button(page, "Money").click();
 
   await expect(
@@ -180,6 +180,10 @@ test("on a desk the plants are a table with the cost that counts in bold", async
   await page.goto("/");
   await page
     .getByRole("navigation", { name: "Main" })
+    .getByRole("button", { name: "Money and figures" })
+    .click();
+  await page
+    .getByRole("navigation", { name: "Money and figures" })
     .getByRole("button", { name: "Figures" })
     .click();
 
@@ -209,10 +213,10 @@ test("on a desk the plants are a table with the cost that counts in bold", async
   await expect(page.getByLabel("Scan a label")).toBeVisible();
 });
 
-test("on a phone Costs to fill in isn't in Manage", async ({ page }) => {
+test("on a phone Costs to fill in isn't in More", async ({ page }) => {
   await standIn(page, []);
   await page.goto("/");
-  await button(page, "Manage").click();
+  await button(page, "More").click();
   await expect(button(page, "Figures")).toBeVisible();
   await expect(button(page, "Costs to fill in")).toHaveCount(0);
   await button(page, "Figures").click();

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import HubNav from "../HubNav.svelte";
   import FileDown from "@lucide/svelte/icons/file-down";
   import Coins from "@lucide/svelte/icons/coins";
   import Trash2 from "@lucide/svelte/icons/trash-2";
@@ -205,6 +206,7 @@
 
 <main>
   <h1>Purchases</h1>
+  <HubNav page="purchases" />
 
   <div class="split wide-list">
     <section>

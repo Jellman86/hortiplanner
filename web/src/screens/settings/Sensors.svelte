@@ -148,9 +148,9 @@ automation:
 <main>
   <h1>Sensors</h1>
   <p class="muted">
-    Temperature and humidity sensors send readings to Hortiplanner, and Manage,
-    Climate charts them for each place. Home Assistant, or any small board that
-    can send a web request, can send them.
+    Temperature and humidity sensors send readings to Hortiplanner, and Climate,
+    under Places, charts them for each place. Home Assistant, or any small board
+    that can send a web request, can send them.
   </p>
   {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
 

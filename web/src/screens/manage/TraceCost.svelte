@@ -59,7 +59,7 @@
     {:else}
       <p class="muted">
         Nobody has said what the {materialWord(costing.source)} cost yet, so there's
-        no total. You can add it in Costs to fill in, under Manage.
+        no total. You can add it in Costs to fill in, which you'll find under Figures.
       </p>
     {/if}
     <!-- What it took is said whether or not its cost is known. -->

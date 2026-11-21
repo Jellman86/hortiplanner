@@ -1,4 +1,5 @@
 <script lang="ts">
+  import HubNav from "../HubNav.svelte";
   import { crumbs } from "../../lib/crumbs.svelte";
   import Droplets from "@lucide/svelte/icons/droplets";
   import Thermometer from "@lucide/svelte/icons/thermometer";
@@ -199,6 +200,7 @@
 {:else}
   <main>
     <h1>Climate</h1>
+    <HubNav page="climate" />
     <p class="muted">
       This shows how warm and damp each place is, from the readings its sensors
       send in. The owner adds sensors under Settings, Sensors.

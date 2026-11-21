@@ -1,4 +1,5 @@
 <script lang="ts">
+  import HubNav from "../HubNav.svelte";
   import TraceCost from "./TraceCost.svelte";
   import type { AskAbout } from "../../lib/assistant.svelte";
   import { crumbs } from "../../lib/crumbs.svelte";
@@ -412,6 +413,7 @@
 {:else}
   <main>
     <h1>Trace a batch</h1>
+    <HubNav page="trace" />
     <p class="muted">
       This shows where a batch came from, every passport received with it, what
       was done to it and who bought it, which is what a plant health inspector

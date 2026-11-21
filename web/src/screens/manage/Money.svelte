@@ -1,4 +1,5 @@
 <script lang="ts">
+  import HubNav from "../HubNav.svelte";
   import ArrowRight from "@lucide/svelte/icons/arrow-right";
   import FileDown from "@lucide/svelte/icons/file-down";
   import Trash2 from "@lucide/svelte/icons/trash-2";
@@ -135,6 +136,7 @@
 
 <main>
   <h1>Money</h1>
+  <HubNav page="money" />
 
   {#if isOn("Costs") && onFigures}
     <div class="card done stack tight">
