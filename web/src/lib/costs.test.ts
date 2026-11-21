@@ -5,6 +5,7 @@ import {
   firstOf,
   halfOf,
   missingCostWords,
+  perPlantSentences,
   potsSentences,
   materialSentence,
   readMoney,
@@ -53,6 +54,15 @@ const costing = (overrides: Partial<Costing> = {}): Costing => ({
   others: [],
   pots: null,
   total: null,
+  perPlant: {
+    alive: 40,
+    lost: 0,
+    adjusted: 0,
+    notCounted: false,
+    allLost: false,
+    each: null,
+    lostValue: null,
+  },
   history: [],
   standardRate: 20,
   reducedRate: 5,
@@ -329,6 +339,118 @@ describe("what potting cost", () => {
     ).toEqual([
       "That's 20 plants potted into 9cm at £0.42 each with VAT, which is £0.35 before VAT.",
       "Pots and compost for 2L aren't counted, because no cost of potting is set for that size.",
+    ]);
+  });
+});
+
+describe("what each plant has cost", () => {
+  const priced = (
+    perPlant: Partial<Costing["perPlant"]>,
+    counts: Costing["counts"] = "WithVat",
+    total = { withVat: 14.39, beforeVat: 11.99 },
+  ) =>
+    perPlantSentences(
+      costing({
+        counts,
+        total,
+        perPlant: { ...costing().perPlant, ...perPlant },
+      }),
+    );
+
+  it("shares the cost between the plants still growing or sold, and says the lost share is already in it", () => {
+    expect(
+      priced({
+        alive: 18,
+        lost: 2,
+        each: { withVat: 0.7994, beforeVat: 0.6661 },
+        lostValue: { withVat: 1.14, beforeVat: 0.95 },
+      }),
+    ).toEqual([
+      "18 plants are still growing or have been sold, so each one has cost about £0.80 with VAT, or about £0.67 before VAT.",
+      "2 were lost. Between them they had cost about £1.14 with VAT, or about £0.95 before VAT. That's already counted in what each plant has cost.",
+    ]);
+    expect(
+      priced({
+        alive: 1,
+        lost: 1,
+        each: { withVat: 1.2, beforeVat: 1 },
+        lostValue: { withVat: 0.57, beforeVat: 0.48 },
+      }),
+    ).toEqual([
+      "1 plant is still growing or has been sold, so it has cost about £1.20 with VAT, or about £1.00 before VAT.",
+      "1 was lost. It had cost about £0.57 with VAT, or about £0.48 before VAT. That's already counted in what each plant has cost.",
+    ]);
+  });
+
+  it("puts the figures before VAT first once they're the ones that count", () => {
+    expect(
+      priced(
+        {
+          alive: 9,
+          lost: 1,
+          each: { withVat: 1.2, beforeVat: 1 },
+          lostValue: { withVat: 1.2, beforeVat: 1 },
+        },
+        "BeforeVat",
+      ),
+    ).toEqual([
+      "9 plants are still growing or have been sold, so each one has cost about £1.00 before VAT, or about £1.20 with VAT.",
+      "1 was lost. It had cost about £1.00 before VAT, or about £1.20 with VAT. That's already counted in what each plant has cost.",
+    ]);
+    expect(priced({ alive: 0, lost: 10, allLost: true }, "BeforeVat")).toEqual([
+      "Every plant in this batch was lost, so the whole cost was lost with them: £11.99 before VAT, or £14.39 with VAT.",
+    ]);
+  });
+
+  it("says when every plant was lost, when none are left without all being lost, and when there's no count", () => {
+    expect(priced({ alive: 0, lost: 10, allLost: true })).toEqual([
+      "Every plant in this batch was lost, so the whole cost was lost with them: £14.39 with VAT, or £11.99 before VAT.",
+    ]);
+    expect(
+      priced({
+        alive: 0,
+        lost: 10,
+        adjusted: -30,
+        lostValue: { withVat: 1.2, beforeVat: 1 },
+      }),
+    ).toEqual([
+      "None of this batch's plants are left, so there are none to share the cost between.",
+      "10 were lost. Between them they had cost about £1.20 with VAT, or about £1.00 before VAT.",
+      "30 fewer were found at a stock count. They aren't counted as lost.",
+    ]);
+    expect(priced({ notCounted: true })).toEqual([
+      "These plants haven't been counted yet, so the cost can't be shared out between them.",
+    ]);
+  });
+
+  it("says what counts found, nothing spent, no total, and equal figures plainly", () => {
+    expect(
+      priced({
+        alive: 45,
+        adjusted: 5,
+        each: { withVat: 0.1, beforeVat: 0.0833 },
+      }),
+    ).toEqual([
+      "45 plants are still growing or have been sold, so each one has cost about £0.10 with VAT, or about £0.08 before VAT.",
+      "5 more were found at a stock count than had been recorded, so they share the cost too.",
+    ]);
+    expect(
+      priced({ alive: 40, each: { withVat: 0, beforeVat: 0 } }, "WithVat", {
+        withVat: 0,
+        beforeVat: 0,
+      }),
+    ).toEqual([
+      "Nothing has been spent on this batch, so its plants have cost nothing.",
+    ]);
+    expect(perPlantSentences(costing())).toEqual([]);
+    expect(
+      priced(
+        { alive: 40, each: { withVat: 0.07, beforeVat: 0.07 } },
+        "WithVat",
+        { withVat: 2.8, beforeVat: 2.8 },
+      ),
+    ).toEqual([
+      "40 plants are still growing or have been sold, so each one has cost about £0.07, the same with VAT and before VAT.",
     ]);
   });
 });

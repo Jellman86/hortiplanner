@@ -333,3 +333,111 @@ export function potsSentences(pots: Pots): string[] {
 
   return lines;
 }
+
+/**
+ * Both figures in words, the one that counts first, always "about" as they're shares: "about £0.80 with VAT, or
+ * about £0.67 before VAT", or "about £0.07, the same with VAT and before VAT" when they're equal.
+ */
+export function bothFigures(
+  cost: MoneyPair,
+  counts: Costing["counts"],
+): string {
+  const withVat = Number(cost.withVat);
+  const before = Number(cost.beforeVat);
+
+  if (money(withVat) === money(before)) {
+    return `about ${money(withVat)}, the same with VAT and before VAT`;
+  }
+
+  const withWords = `about ${money(withVat)} with VAT`;
+  const beforeWords = `about ${money(before)} before VAT`;
+  return counts === "BeforeVat"
+    ? `${beforeWords}, or ${withWords}`
+    : `${withWords}, or ${beforeWords}`;
+}
+
+/** A whole cost in words, exactly, the one that counts first: "£14.39 with VAT, or £11.99 before VAT". */
+export function wholeCost(cost: MoneyPair, counts: Costing["counts"]): string {
+  const withVat = money(Number(cost.withVat));
+  const before = money(Number(cost.beforeVat));
+
+  if (withVat === before) {
+    return `${withVat}, the same with VAT and before VAT`;
+  }
+
+  return counts === "BeforeVat"
+    ? `${before} before VAT, or ${withVat} with VAT`
+    : `${withVat} with VAT, or ${before} before VAT`;
+}
+
+/** What each plant has cost, what the lost ones had cost, and what stock counts found. */
+export function perPlantSentences(costing: Costing): string[] {
+  const plant = costing.perPlant;
+  const alive = Number(plant.alive);
+  const lost = Number(plant.lost);
+  const adjusted = Number(plant.adjusted);
+  const total = costing.total;
+
+  if (plant.notCounted) {
+    return [
+      "These plants haven't been counted yet, so the cost can't be shared out between them.",
+    ];
+  }
+
+  if (!total) {
+    return [];
+  }
+
+  if (Number(total.withVat) === 0 && Number(total.beforeVat) === 0) {
+    return [
+      "Nothing has been spent on this batch, so its plants have cost nothing.",
+    ];
+  }
+
+  const sentences: string[] = [];
+  const already = " That's already counted in what each plant has cost.";
+
+  if (plant.allLost) {
+    sentences.push(
+      `Every plant in this batch was lost, so the whole cost was lost with them: ${wholeCost(total, costing.counts)}.`,
+    );
+  } else {
+    if (alive <= 0) {
+      sentences.push(
+        "None of this batch's plants are left, so there are none to share the cost between.",
+      );
+    } else if (plant.each) {
+      sentences.push(
+        alive === 1
+          ? `1 plant is still growing or has been sold, so it has cost ${bothFigures(plant.each, costing.counts)}.`
+          : `${alive} plants are still growing or have been sold, so each one has cost ${bothFigures(plant.each, costing.counts)}.`,
+      );
+    }
+
+    if (lost > 0 && plant.lostValue) {
+      // Said as part of the cost already shared out, unless there are no plants left to share it.
+      const tail = alive > 0 ? already : "";
+      sentences.push(
+        lost === 1
+          ? `1 was lost. It had cost ${bothFigures(plant.lostValue, costing.counts)}.${tail}`
+          : `${lost} were lost. Between them they had cost ${bothFigures(plant.lostValue, costing.counts)}.${tail}`,
+      );
+    }
+  }
+
+  if (adjusted < 0) {
+    sentences.push(
+      adjusted === -1
+        ? "1 fewer was found at a stock count. It isn't counted as lost."
+        : `${-adjusted} fewer were found at a stock count. They aren't counted as lost.`,
+    );
+  } else if (adjusted > 0) {
+    sentences.push(
+      adjusted === 1
+        ? "1 more was found at a stock count than had been recorded, so it shares the cost too."
+        : `${adjusted} more were found at a stock count than had been recorded, so they share the cost too.`,
+    );
+  }
+
+  return sentences;
+}

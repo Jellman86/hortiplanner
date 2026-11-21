@@ -1,59 +1,30 @@
 using System.Globalization;
-using System.Text.Json;
 using Hortiplanner.Api.Accounts;
 using Hortiplanner.Api.Catalogue;
 using Hortiplanner.Api.Data;
-using Microsoft.EntityFrameworkCore;
+using BatchFacts = Hortiplanner.Api.Figures.BatchLedger.BatchFacts;
+using EventFacts = Hortiplanner.Api.Figures.BatchLedger.EventFacts;
+using Row = Hortiplanner.Api.Figures.BatchLedger.Row;
 
 namespace Hortiplanner.Api.Figures;
 
 /// <summary>Germination and survival, worked out from events each time, so corrections are always reflected.</summary>
 internal static class FigureEndpoints
 {
-    private static readonly EventType[] StartingTypes = [EventType.Sown, EventType.Received, EventType.CuttingsTaken];
+    private static readonly EventType[] StartingTypes = BatchLedger.StartingTypes;
 
     public static void MapFigureEndpoints(this IEndpointRouteBuilder app) =>
         app.MapGet("/api/figures", GetFiguresAsync).RequireAuthorization(AccountServices.OwnerPolicy);
 
-    private static string? LossReasonOf(string payload)
-    {
-        using var details = JsonDocument.Parse(payload);
-        return details.RootElement.TryGetProperty("reason", out var reason) ? reason.GetString() : null;
-    }
+    private static string? LossReasonOf(string payload) => BatchLedger.LossReasonOf(payload);
 
     private static async Task<Figures> GetFiguresAsync(HortiplannerDbContext db, EventStore store, CancellationToken cancellationToken)
     {
-        var events = await db.Events
-            .AsNoTracking()
-            .Select(e => new EventFacts(e.Id, e.Type, e.CorrectsEventId, e.ContainerId, e.Payload, e.OccurredAt))
-            .ToDictionaryAsync(e => e.Id, cancellationToken);
-
-        var reversed = events.Values.Where(e => e.CorrectsEventId is not null).Select(e => e.CorrectsEventId!.Value).ToHashSet();
-
-        var batches = await db.Batches
-            .AsNoTracking()
-            .Join(db.Plants, batch => batch.PlantId, plant => plant.Id, (batch, plant) => new BatchFacts(
-                batch.Id,
-                batch.PlantId,
-                plant.CommonName,
-                plant.Variety,
-                db.Suppliers.Where(supplier => supplier.Id == batch.SupplierId).Select(supplier => supplier.Name).FirstOrDefault(),
-                batch.SownAs,
-                batch.SownAmount))
-            .ToDictionaryAsync(batch => batch.Id, cancellationToken);
-
-        var lines = FirstCountsAsStarts(
-            (await db.EventLines.AsNoTracking().ToListAsync(cancellationToken))
-                .Where(line => !reversed.Contains(line.EventId))
-                .Select(line => new Row(line, events[line.EventId], WorkDoneBy(events[line.EventId], events)))
-                .ToList(),
-            batches);
-
-        // Changes stock counts absorbed when earlier work arrived late or was undone: part of each count's adjustment.
-        var absorbed = (await db.CountAdjustments.AsNoTracking().ToListAsync(cancellationToken))
-            .Where(adjustment => !reversed.Contains(adjustment.EventId) && !reversed.Contains(adjustment.CountEventId))
-            .GroupBy(adjustment => batches[adjustment.BatchId].PlantId)
-            .ToDictionary(group => group.Key, group => group.Sum(adjustment => adjustment.QuantityChange));
+        var ledger = await BatchLedger.LoadAsync(db, cancellationToken);
+        var (events, reversed, batches, lines) = (ledger.Events, ledger.Reversed, ledger.Batches, ledger.Rows);
+        var absorbed = ledger.Absorbed
+            .GroupBy(entry => batches[entry.Key].PlantId)
+            .ToDictionary(group => group.Key, group => group.Sum(entry => entry.Value));
 
         var germinatedBatches = GerminatedBatches(events, reversed, lines, batches);
 
@@ -168,8 +139,8 @@ internal static class FigureEndpoints
 
     private static Measured Measure(List<Row> rows, HashSet<Guid> germinatedBatches)
     {
-        var started = rows.Where(row => StartingTypes.Contains(row.Type)).Sum(row => row.Line.QuantityChange) + rows.Where(row => row.FirstCount).Sum(row => row.StartCount);
-        var lost = -rows.Where(row => row.Type == EventType.Lost).Sum(row => row.Line.QuantityChange);
+        // The same counts every batch's costing reads, so the two can't disagree.
+        var (started, lost, _) = BatchLedger.CountsOf(rows, 0);
         var watched = rows.Where(row => germinatedBatches.Contains(row.Line.BatchId)).ToList();
 
         // Counted sowings: seeds sown, less those that failed to germinate.
@@ -197,32 +168,10 @@ internal static class FigureEndpoints
             started > 0 ? (started - lost) / (double)started : null);
     }
 
-    /// <summary>
-    /// Seed sown without a count is first counted later, so that count is where it starts for the figures, not an
-    /// adjustment. Rows for "about so many" sowings carry the seeds thought sown.
-    /// </summary>
-    private static List<Row> FirstCountsAsStarts(List<Row> rows, Dictionary<Guid, BatchFacts> batches)
-    {
-        var firsts = rows
-            .Where(row => row.Type == EventType.StockCounted && batches[row.Line.BatchId].SownAs is not (null or SownMeasure.Counted))
-            .GroupBy(row => row.Line.BatchId)
-            .Select(group => group.OrderBy(row => row.Event.OccurredAt).First())
-            .ToHashSet();
-
-        // Only the sowing carries the seeds, so a tray pricked out elsewhere doesn't count them again.
-        return rows.ConvertAll(row => row with
-        {
-            FirstCount = firsts.Contains(row),
-            StartCount = firsts.Contains(row) ? EventStore.CountOf(row.Event.Payload)?.Counted ?? row.Line.QuantityChange : 0,
-            SownAbout = row.Type == EventType.Sown && batches[row.Line.BatchId] is { SownAs: SownMeasure.About, SownAmount: { } amount } ? (int)amount : null,
-        });
-    }
-
     private static PlantFigures ForPlant(BatchFacts batch, List<Row> rows, HashSet<Guid> germinatedBatches, int absorbed)
     {
         var measured = Measure(rows, germinatedBatches);
-        // A first count's own line can differ from what it counted, if an earlier count was undone: the rest is adjustment.
-        var adjusted = rows.Where(row => row.Type == EventType.StockCounted).Sum(row => row.FirstCount ? row.Line.QuantityChange - row.StartCount : row.Line.QuantityChange) + absorbed;
+        var adjusted = BatchLedger.CountsOf(rows, absorbed).Adjusted;
 
         return new PlantFigures(
             batch.PlantId,
@@ -237,27 +186,7 @@ internal static class FigureEndpoints
             measured.Approximate);
     }
 
-    /// <summary>A correction stands in for the event it reversed, so it counts as that kind of work.</summary>
-    private static EventType WorkDoneBy(EventFacts work, Dictionary<Guid, EventFacts> events)
-    {
-        while (work.Type == EventType.Corrected)
-        {
-            work = events[work.CorrectsEventId!.Value];
-        }
-
-        return work.Type;
-    }
-
-    private sealed record BatchFacts(Guid Id, Guid PlantId, string CommonName, string? Variety, string? SupplierName, SownMeasure? SownAs, decimal? SownAmount);
-
-    /// <param name="FirstCount">The first count of seed sown without one: where it starts, for the figures.</param>
-    /// <param name="SownAbout">For "about so many" sowings, the seeds thought sown.</param>
-    /// <param name="StartCount">For a first count, the number it counted: where the batch starts.</param>
-    private sealed record Row(EventLine Line, EventFacts Event, EventType Type, bool FirstCount = false, int? SownAbout = null, int StartCount = 0);
-
     private sealed record Measured(int Started, int Lost, double? GerminationRate, bool Approximate, double? SurvivalRate);
-
-    private sealed record EventFacts(Guid Id, EventType Type, Guid? CorrectsEventId, Guid? ContainerId, string Payload, DateTimeOffset OccurredAt);
 
     internal sealed record PlantFigures(
         Guid PlantId,

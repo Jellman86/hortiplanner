@@ -1,4 +1,5 @@
 <script lang="ts">
+  import TraceCost from "./TraceCost.svelte";
   import type { AskAbout } from "../../lib/assistant.svelte";
   import { crumbs } from "../../lib/crumbs.svelte";
   import { isOn } from "../../lib/features.svelte";
@@ -325,6 +326,10 @@
                   >{child.traceabilityCode}</button
                 >{/each}.
             </p>
+          {/if}
+
+          {#if isOn("Costs")}
+            {#key trace.id}<TraceCost batchId={trace.id} />{/key}
           {/if}
 
           {#if trace.corrections.length > 0}

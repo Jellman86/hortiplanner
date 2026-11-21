@@ -7228,6 +7228,7 @@
           "others",
           "pots",
           "total",
+          "perPlant",
           "history",
           "standardRate",
           "reducedRate"
@@ -7281,6 +7282,9 @@
                 "$ref": "#/components/schemas/MoneyPair"
               }
             ]
+          },
+          "perPlant": {
+            "$ref": "#/components/schemas/PerPlant"
           },
           "history": {
             "type": "array",
@@ -11902,6 +11906,70 @@
           },
           "password": {
             "type": "string"
+          }
+        }
+      },
+      "PerPlant": {
+        "required": [
+          "alive",
+          "lost",
+          "adjusted",
+          "notCounted",
+          "allLost",
+          "each",
+          "lostValue"
+        ],
+        "type": "object",
+        "properties": {
+          "alive": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "lost": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "adjusted": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "notCounted": {
+            "type": "boolean"
+          },
+          "allLost": {
+            "type": "boolean"
+          },
+          "each": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MoneyPair"
+              }
+            ]
+          },
+          "lostValue": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MoneyPair"
+              }
+            ]
           }
         }
       },

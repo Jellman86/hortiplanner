@@ -107,13 +107,14 @@ internal static class PotAllowances
     /// times that size's allowance on that day. Undone potting isn't charged, and a corrected one is charged as
     /// corrected. Sizes with no allowance, and potting with no size, are named rather than charged.
     /// </summary>
-    internal static async Task<PotsCost?> ForBatchAsync(Guid batchId, HortiplannerDbContext db, TimeProvider clock, CancellationToken cancellationToken)
+    /// <remarks>Also gives each potting's charge with its time, so what lost plants had cost can be worked out.</remarks>
+    internal static async Task<(PotsCost? Pots, List<PlantCosts.Charge> Charges)> ForBatchAsync(Guid batchId, HortiplannerDbContext db, TimeProvider clock, CancellationToken cancellationToken)
     {
         var potting = await PottingAsync(batchId, db, cancellationToken);
 
         if (potting.Count == 0)
         {
-            return null;
+            return (null, []);
         }
 
         var rows = (await db.PotSizeCosts.AsNoTracking().ToListAsync(cancellationToken)).ToLookup(row => row.PotSizeId);
@@ -136,12 +137,22 @@ internal static class PotAllowances
             })
             .ToList();
 
-        return new PotsCost(
+        var charges = charged
+            .Where(row => row.Allowance is { CostEach: not null })
+            .Select(row =>
+            {
+                var each = Each(row.Allowance!);
+                return new PlantCosts.Charge(row.Pot.OccurredAt, new MoneyPair(each.WithVat * row.Pot.Plants, each.BeforeVat * row.Pot.Plants));
+            })
+            .ToList();
+
+        return (new PotsCost(
             new MoneyPair(lines.Sum(line => line.Cost.WithVat), lines.Sum(line => line.Cost.BeforeVat)),
             lines,
             [.. charged.Where(row => row.Allowance is not { CostEach: not null }).Select(row => names[row.Pot.PotSizeId!.Value]).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)],
-            potting.Where(pot => pot.PotSizeId is null).Sum(pot => pot.Plants));
+            potting.Where(pot => pot.PotSizeId is null).Sum(pot => pot.Plants)), charges);
     }
+
 
     private sealed record Potting(DateTimeOffset OccurredAt, Guid? PotSizeId, int Plants);
 

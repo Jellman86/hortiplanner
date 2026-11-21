@@ -1,5 +1,6 @@
 import { type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
+import { expectAccessible } from "./accessibility";
 import { expect, test } from "./fixtures";
 
 // The everyday screens and every Settings page, with the example data, at a phone, a tablet, a small laptop and two
@@ -175,7 +176,11 @@ test("the screens fit the width of a phone, a tablet and a desk", async ({
   await sidebar(page, "Trace a batch").click();
   await page.locator(".place-row").first().click();
   await expect(page.locator("h1")).toContainText("Batch");
+  await expect(
+    page.getByRole("heading", { name: "What it cost" }),
+  ).toBeVisible();
   await check("batch");
+  await expectAccessible(page, "Trace report, with what it cost");
 
   // One of the batch's trays.
   await page.locator(".split.trace .place-row").first().click();
