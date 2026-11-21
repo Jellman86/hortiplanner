@@ -789,85 +789,89 @@
     {/key}
   {:else}
     <main>
-      <h1>Hello, {me.name}</h1>
-
-      {#if offline}
-        <p class="card notice" data-testid="offline">
-          There's no connection, so the work you record is being saved on this
-          device.
-        </p>
-      {/if}
-
-      {#if backupStopped}
-        <div class="card problem" role="alert">
-          <span
-            >{backupNeverReported
-              ? "Hortiplanner has never heard from the backups. Please check that the nursery's records are being backed up."
-              : "The backups may have stopped. The nursery's records aren't being protected until this is put right."}</span
-          >
-          <button
-            class="secondary"
-            onclick={() => (view = { name: "settings", page: "data" })}
-            >See backups</button
-          >
-        </div>
-      {/if}
-
-      {#if waiting > 0}
-        <p class="card notice" data-testid="waiting">
-          {waiting}
-          {waiting === 1 ? "thing is" : "things are"} waiting to send. Keep Hortiplanner
-          open once you're back in signal and {waiting === 1 ? "it" : "they"}'ll
-          go.
-        </p>
-      {/if}
-
-      {#each failed as item (item.eventId)}
-        <div class="card problem" role="alert">
-          <strong>This couldn't be saved: {item.description}</strong>
-          <span>{item.reason}</span>
-          <div class="row">
-            {#if item.request}
-              <button onclick={() => retry(item.eventId)}>Try again</button>
-            {/if}
-            <button class="secondary" onclick={() => dismiss(item.eventId)}
-              >Forget it</button
-            >
-          </div>
-        </div>
-      {/each}
-
-      {#if done}
-        <div class="card done" role="status">
-          <strong class="done-heading"
-            ><CircleCheck size={22} />{done.message}</strong
-          >
-          {#if done.newLabel}
-            <PrintButton
-              href="/api/labels/containers/{encodeURIComponent(done.newLabel)}"
-              label="Print label"
-              onPrinted={() => scanBox?.focus()}
-            />
-          {/if}
-          <button
-            class="secondary"
-            onclick={() => undo(done!.eventId, done!.message)}>Undo</button
-          >
-        </div>
-      {/if}
-      {#if notice}<p class="card notice" role="status">{notice}</p>{/if}
-      {#each othersWaiting as other (other.owner)}
-        <p class="card notice">
-          {other.count}
-          {other.count === 1 ? "thing" : "things"} recorded by {other.name}
-          {other.count === 1 ? "is" : "are"} waiting on this device. They'll send
-          when {other.name} signs in here.
-        </p>
-      {/each}
-      {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
-
       <div class="split home">
         <section class="fill">
+          <!-- The greeting and any messages head the first column, so both columns start level on a desk. -->
+          <h1>Hello, {me.name}</h1>
+
+          {#if offline}
+            <p class="card notice" data-testid="offline">
+              There's no connection, so the work you record is being saved on
+              this device.
+            </p>
+          {/if}
+
+          {#if backupStopped}
+            <div class="card problem" role="alert">
+              <span
+                >{backupNeverReported
+                  ? "Hortiplanner has never heard from the backups. Please check that the nursery's records are being backed up."
+                  : "The backups may have stopped. The nursery's records aren't being protected until this is put right."}</span
+              >
+              <button
+                class="secondary"
+                onclick={() => (view = { name: "settings", page: "data" })}
+                >See backups</button
+              >
+            </div>
+          {/if}
+
+          {#if waiting > 0}
+            <p class="card notice" data-testid="waiting">
+              {waiting}
+              {waiting === 1 ? "thing is" : "things are"} waiting to send. Keep Hortiplanner
+              open once you're back in signal and {waiting === 1
+                ? "it"
+                : "they"}'ll go.
+            </p>
+          {/if}
+
+          {#each failed as item (item.eventId)}
+            <div class="card problem" role="alert">
+              <strong>This couldn't be saved: {item.description}</strong>
+              <span>{item.reason}</span>
+              <div class="row">
+                {#if item.request}
+                  <button onclick={() => retry(item.eventId)}>Try again</button>
+                {/if}
+                <button class="secondary" onclick={() => dismiss(item.eventId)}
+                  >Forget it</button
+                >
+              </div>
+            </div>
+          {/each}
+
+          {#if done}
+            <div class="card done" role="status">
+              <strong class="done-heading"
+                ><CircleCheck size={22} />{done.message}</strong
+              >
+              {#if done.newLabel}
+                <PrintButton
+                  href="/api/labels/containers/{encodeURIComponent(
+                    done.newLabel,
+                  )}"
+                  label="Print label"
+                  onPrinted={() => scanBox?.focus()}
+                />
+              {/if}
+              <button
+                class="secondary"
+                onclick={() => undo(done!.eventId, done!.message)}>Undo</button
+              >
+            </div>
+          {/if}
+          {#if notice}<p class="card notice" role="status">{notice}</p>{/if}
+          {#each othersWaiting as other (other.owner)}
+            <p class="card notice">
+              {other.count}
+              {other.count === 1 ? "thing" : "things"} recorded by {other.name}
+              {other.count === 1 ? "is" : "are"} waiting on this device. They'll send
+              when {other.name} signs in here.
+            </p>
+          {/each}
+          {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+
           {#if assistant.canAsk && !atBench}
             <button class="ask-card" onclick={() => (view = { name: "ask" })}>
               <Sparkles size={22} aria-hidden="true" />
