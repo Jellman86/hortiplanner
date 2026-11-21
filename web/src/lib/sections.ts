@@ -37,6 +37,8 @@ export type ManageItem = {
   icon: typeof Flower2;
   /** Shown while any of these parts of Hortiplanner is on; always shown without. */
   features?: Feature[];
+  /** False for a section reached from elsewhere, such as the bell, and not listed in the menus. */
+  listed?: false;
 };
 
 export const manageGroups: { heading: string; items: ManageItem[] }[] = [
@@ -75,6 +77,8 @@ export const manageGroups: { heading: string; items: ManageItem[] }[] = [
         label: "Costs to fill in",
         icon: PoundSterling,
         features: ["Costs"],
+        // Reached from the bell and from Figures, so it needs no place in the menus.
+        listed: false,
       },
       { section: "money", label: "Money", icon: Wallet },
       {
@@ -113,7 +117,10 @@ const shown = (item: ManageItem) => !item.features || anyOn(...item.features);
 /** The owner's sections, less any whose part of Hortiplanner is turned off. */
 export const visibleManageGroups = () =>
   manageGroups
-    .map((group) => ({ ...group, items: group.items.filter(shown) }))
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => item.listed !== false && shown(item)),
+    }))
     .filter((group) => group.items.length > 0);
 
 /** Whether a section can be opened, so a remembered or linked one that's been turned off isn't. */

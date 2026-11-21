@@ -78,10 +78,15 @@
 </script>
 
 <aside class="sidebar">
-  <div class="brand">
+  <button
+    class="brand"
+    aria-label="Hortiplanner, go to Record work"
+    title="Go to Record work"
+    onclick={onHome}
+  >
     <img src="/logo-96.png" alt="" width="40" height="40" />
     <span class="nav-text">Hortiplanner</span>
-  </div>
+  </button>
 
   <nav aria-label="Main">
     <button
