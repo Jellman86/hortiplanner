@@ -533,6 +533,8 @@ public sealed class CostTests(PostgresFixture database)
         Assert.Equal([older, newer], missing.Select(row => row.GetProperty("batchId").GetGuid()));
         Assert.DoesNotContain(missing, row => row.GetProperty("batchId").GetGuid() == answered);
         Assert.Equal("Lavender", missing[0].GetProperty("commonName").GetString());
+        Assert.Equal(plant, missing[0].GetProperty("plantId").GetGuid());
+        Assert.False(missing[0].GetProperty("hasPhoto").GetBoolean());
         var label = (await nursery.Owner.GetFromJsonAsync<JsonElement>(Route("/api/containers/active"), Cancellation)).EnumerateArray()
             .Single(container => container.GetProperty("id").GetGuid() == olderTray).GetProperty("labelCode").GetString();
         Assert.Equal([label!], missing[0].GetProperty("trays").EnumerateArray().Select(tray => tray.GetString()!), StringComparer.Ordinal);

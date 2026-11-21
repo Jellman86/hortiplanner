@@ -12,6 +12,7 @@
   } from "../../lib/costs";
   import { loadNeeds } from "../../lib/needs.svelte";
   import type { Schemas } from "../../lib/types";
+  import PlantThumb from "../work/PlantThumb.svelte";
 
   // The batches nobody has said the cost of, for the owner to answer one by one or all at once as not known.
   let { onBack }: { onBack: () => void } = $props();
@@ -220,21 +221,29 @@
           : `${batches.length} batches have no cost yet.`}</strong
       >
     </p>
-    <ul class="plain-list card-grid">
+    <!-- One row for each batch on a desk, lined up, and a card for each on a phone. -->
+    <ul class="plain-list cost-rows">
       {#each batches as batch (batch.batchId)}
         {@const words = missingCostWords(batch)}
-        <li class="card stack tight">
-          <h2 class="form-heading" id="cost-{batch.batchId}" tabindex="-1">
-            {words.name}
-          </h2>
-          <p class="muted">{words.detail}</p>
+        <li class="card cost-row">
+          <PlantThumb
+            url={batch.hasPhoto ? `/api/plants/${batch.plantId}/photo` : null}
+          />
+          <div class="cost-who">
+            <h2 class="form-heading" id="cost-{batch.batchId}" tabindex="-1">
+              {words.name}
+            </h2>
+            <p class="muted">{words.detail}</p>
+          </div>
           <form
-            class="stack tight"
+            class="cost-amount"
             aria-labelledby="cost-{batch.batchId}"
             onsubmit={(event) => saveAmount(event, batch)}
           >
-            <label
-              >What the {materialWord(batch.source)} cost, with VAT (£)
+            <label for="cost-amount-{batch.batchId}"
+              >What the {materialWord(batch.source)} cost, with VAT (£)</label
+            >
+            <div class="cost-entry">
               <input
                 id="cost-amount-{batch.batchId}"
                 bind:value={amounts[batch.batchId]}
@@ -246,8 +255,11 @@
                 aria-describedby={problems[batch.batchId]
                   ? `cost-problem-${batch.batchId}`
                   : undefined}
-              /></label
-            >
+              />
+              <button type="submit" disabled={busy}
+                ><Check size={16} aria-hidden="true" /> Save the cost</button
+              >
+            </div>
             {#if problems[batch.batchId]}<p
                 class="problem"
                 role="alert"
@@ -255,31 +267,27 @@
               >
                 {problems[batch.batchId]}
               </p>{/if}
-            <div class="row">
-              <button type="submit" disabled={busy}
-                ><Check size={16} aria-hidden="true" /> Save the cost</button
-              >
-              <button
-                type="button"
-                class="secondary"
-                disabled={busy}
-                onclick={() =>
-                  answer(
-                    batch,
-                    { answer: "Free" },
-                    `Batch ${batch.traceabilityCode} is saved as costing nothing.`,
-                  )}
-                ><Gift size={16} aria-hidden="true" /> It cost nothing</button
-              >
-              <button
-                type="button"
-                class="secondary"
-                disabled={busy}
-                onclick={() => notKnown(batch)}
-                ><CircleHelp size={16} aria-hidden="true" /> I don't know</button
-              >
-            </div>
           </form>
+          <div class="cost-other">
+            <button
+              type="button"
+              class="link-button"
+              disabled={busy}
+              onclick={() =>
+                answer(
+                  batch,
+                  { answer: "Free" },
+                  `Batch ${batch.traceabilityCode} is saved as costing nothing.`,
+                )}><Gift size={16} aria-hidden="true" /> It cost nothing</button
+            >
+            <button
+              type="button"
+              class="link-button"
+              disabled={busy}
+              onclick={() => notKnown(batch)}
+              ><CircleHelp size={16} aria-hidden="true" /> I don't know</button
+            >
+          </div>
         </li>
       {/each}
     </ul>
@@ -291,3 +299,95 @@
 
   <button class="back" onclick={onBack}>Back</button>
 </main>
+
+<style>
+  .cost-rows {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  /* On a phone: the picture beside the name, then the box with Save on one line, then the other two answers. */
+  .cost-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.6rem 0.75rem;
+    align-items: start;
+  }
+
+  .cost-amount,
+  .cost-other {
+    grid-column: 1 / -1;
+  }
+
+  .cost-who {
+    display: grid;
+    gap: 0.2rem;
+  }
+
+  .cost-amount {
+    display: grid;
+    gap: 0.3rem;
+  }
+
+  .cost-amount label {
+    font-weight: 600;
+  }
+
+  .cost-entry {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .cost-entry input {
+    flex: 1 1 6rem;
+    min-width: 0;
+  }
+
+  .cost-entry button {
+    flex: none;
+  }
+
+  /* Side by side even on a narrow phone, as two equal buttons. */
+  .cost-other {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .cost-other button {
+    align-self: stretch;
+    gap: 0.3rem;
+    padding-inline: 0.4rem;
+    font-size: 0.95rem;
+  }
+
+  /* With room, every batch is one row and the rows line up: picture, name, the box and Save, the other answers. */
+  @container page (min-width: 60rem) {
+    .cost-rows {
+      grid-template-columns: auto minmax(14rem, 1fr) minmax(18rem, 24rem) auto;
+      gap: 0.6rem 0;
+    }
+
+    .cost-row {
+      grid-column: 1 / -1;
+      grid-template-columns: subgrid;
+      gap: 0 1rem;
+      align-items: center;
+    }
+
+    .cost-amount,
+    .cost-other {
+      grid-column: auto;
+    }
+
+    .cost-other {
+      display: flex;
+    }
+
+    .cost-other button {
+      gap: 0.4rem;
+      padding-inline: 0.9rem;
+      font-size: inherit;
+    }
+  }
+</style>

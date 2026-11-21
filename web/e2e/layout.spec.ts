@@ -160,6 +160,14 @@ test("the screens fit the width of a phone, a tablet and a desk", async ({
     await check(button.toLowerCase().replaceAll(" ", "-"));
   }
 
+  // Costs to fill in has no place in the sidebar: it's reached from Figures, as from the bell.
+  await sidebar(page, "Figures").click();
+  await page.getByRole("button", { name: "Go to Costs to fill in" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Costs to fill in" }),
+  ).toBeVisible();
+  await check("costs-to-fill-in");
+
   await sidebar(page, "Plants").click();
   await page.locator(".plant-card").first().click();
   await expect(

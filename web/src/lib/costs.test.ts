@@ -269,9 +269,11 @@ describe("a batch waiting for its cost", () => {
   ) => ({
     batchId: "b",
     traceabilityCode: "B000042",
+    plantId: "p",
     commonName: "Lavender",
     variety: "Hidcote",
     source: source as "SeedLot",
+    hasPhoto: false,
     startedAt,
     trays,
   });
