@@ -87,6 +87,7 @@
   import Sparkles from "@lucide/svelte/icons/sparkles";
   import CameraIcon from "@lucide/svelte/icons/camera";
   import Move from "@lucide/svelte/icons/move";
+  import Plus from "@lucide/svelte/icons/plus";
   import Printer from "@lucide/svelte/icons/printer";
   import Repeat from "@lucide/svelte/icons/repeat";
   import Undo2 from "@lucide/svelte/icons/undo-2";
@@ -788,6 +789,7 @@
       onOpen={(code) => open(code, true)}
       onBack={goHome}
       onLabels={(trays) => (view = { name: "labelSheets", trays })}
+      onNewBatch={() => (view = { name: "start" })}
     />
   {:else if view.name === "settings"}
     <Settings
@@ -942,6 +944,9 @@
               ><CameraIcon size={18} aria-hidden="true" /> Use camera</button
             >
           {/if}
+          <button class="secondary" onclick={() => (view = { name: "start" })}
+            ><Plus size={18} aria-hidden="true" /> Start a new batch</button
+          >
           <button
             class="secondary"
             onclick={() => (view = { name: "moveMany" })}
@@ -956,8 +961,6 @@
           {/if}
 
           {#if atBench}
-            <button onclick={() => (view = { name: "start" })}>New batch</button
-            >
             <button
               class="secondary"
               onclick={() => (view = { name: "production" })}>Production</button
@@ -971,7 +974,11 @@
 
         <section>
           {#if !atBench}
-            <JobsDue onGo={(where) => (view = needsView(where))} />
+            <JobsDue
+              onGo={(where) => (view = needsView(where))}
+              owner={me.isOwner}
+              onAllJobs={() => (view = { name: "manage", section: "jobs" })}
+            />
           {/if}
           {#if recent.length > 0}
             <h2>Recent</h2>
