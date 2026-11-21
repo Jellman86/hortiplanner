@@ -4365,6 +4365,10 @@ select:not([multiple]) {
   letter-spacing: 0.02em;
 }
 
+.avatar.initials::after {
+  content: attr(data-initials);
+}
+
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .avatar.initials {
     background: hsl(var(--avatar-hue, 120) 25% 28%);
@@ -5265,8 +5269,8 @@ button.link-button.ftree-leaf {
 
 /* The bell for what needs a look, and Ask Hortiplanner, at the right of the bar along the top, with a number on
    the bell's corner when there's something. The number is never the only sign: the button's name says it too. */
-.topbar-tools button,
-.topbar-tools button:hover:not(:disabled) {
+.topbar-tools > button,
+.topbar-tools > button:hover:not(:disabled) {
   position: relative;
   gap: 0.4rem;
   border-color: transparent;
@@ -5275,12 +5279,12 @@ button.link-button.ftree-leaf {
   color: inherit;
 }
 
-.topbar-tools button:focus-visible {
+.topbar-tools > button:focus-visible {
   outline-color: currentcolor;
 }
 
-.topbar-tools button:hover:not(:disabled),
-.topbar-tools button[aria-current="page"] {
+.topbar-tools > button:hover:not(:disabled),
+.topbar-tools > button[aria-current="page"] {
   border-color: color-mix(in srgb, currentcolor 30%, transparent);
   background: color-mix(in srgb, currentcolor 10%, transparent);
 }

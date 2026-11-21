@@ -59,10 +59,13 @@
     onerror={() => (failed = true)}
   />
 {:else}
+  <!-- The letters are drawn from an attribute, not written as text, so a button holding them is named only by its
+       own words, as the bell's number is. -->
   <span
     class="avatar initials"
     aria-hidden="true"
+    data-initials={initials}
     style:--avatar-size="{size}px"
-    style:--avatar-hue={hue}>{initials}</span
-  >
+    style:--avatar-hue={hue}
+  ></span>
 {/if}
