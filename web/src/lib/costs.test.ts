@@ -5,6 +5,7 @@ import {
   firstOf,
   halfOf,
   missingCostWords,
+  perPlantSentences,
   potsSentences,
   materialSentence,
   readMoney,
@@ -53,6 +54,14 @@ const costing = (overrides: Partial<Costing> = {}): Costing => ({
   others: [],
   pots: null,
   total: null,
+  perPlant: {
+    alive: 40,
+    lost: 0,
+    adjusted: 0,
+    notCounted: false,
+    each: null,
+    lostValue: null,
+  },
   history: [],
   standardRate: 20,
   reducedRate: 5,
@@ -329,6 +338,61 @@ describe("what potting cost", () => {
     ).toEqual([
       "That's 20 plants potted into 9cm at £0.42 each with VAT, which is £0.35 before VAT.",
       "Pots and compost for 2L aren't counted, because no cost of potting is set for that size.",
+    ]);
+  });
+});
+
+describe("what each plant has cost", () => {
+  const priced = (
+    perPlant: Partial<Costing["perPlant"]>,
+    counts: Costing["counts"] = "WithVat",
+  ) =>
+    perPlantSentences(
+      costing({
+        counts,
+        total: { withVat: 14.39, beforeVat: 11.99 },
+        perPlant: { ...costing().perPlant, ...perPlant },
+      }),
+    );
+
+  it("shares the cost between the plants still growing or sold, and says what the lost had cost", () => {
+    expect(
+      priced({
+        alive: 18,
+        lost: 2,
+        each: { withVat: 0.7994, beforeVat: 0.6661 },
+        lostValue: { withVat: 1.14, beforeVat: 0.95 },
+      }),
+    ).toEqual([
+      "18 plants are still growing or have been sold, so each one has cost about £0.80 with VAT, or about £0.67 before VAT.",
+      "2 were lost. They had cost £1.14 between them with VAT, or £0.95 before VAT.",
+    ]);
+  });
+
+  it("puts the figures before VAT first once they're the ones that count", () => {
+    expect(
+      priced({ alive: 1, each: { withVat: 1.2, beforeVat: 1 } }, "BeforeVat"),
+    ).toEqual([
+      "1 plant is still growing or has been sold, so it has cost £1.00 before VAT, or £1.20 with VAT.",
+    ]);
+  });
+
+  it("says when every plant was lost, when there's no count, and what counts found", () => {
+    expect(priced({ alive: 0, lost: 10 })).toEqual([
+      "Every plant in this batch was lost, so the whole £14.39 was lost with them.",
+    ]);
+    expect(priced({ notCounted: true })).toEqual([
+      "This tray hasn't been counted yet, so the cost can't be shared out between the plants.",
+    ]);
+    expect(
+      priced({
+        alive: 32,
+        adjusted: -8,
+        each: { withVat: 0.2, beforeVat: 0.1667 },
+      }),
+    ).toEqual([
+      "32 plants are still growing or have been sold, so each one has cost £0.20 with VAT, or about £0.17 before VAT.",
+      "8 fewer were found at a stock count. They aren't counted as lost.",
     ]);
   });
 });

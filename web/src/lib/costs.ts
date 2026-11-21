@@ -333,3 +333,74 @@ export function potsSentences(pots: Pots): string[] {
 
   return lines;
 }
+
+/** Both figures in words, the one that counts first: "about £0.80 with VAT, or about £0.67 before VAT". */
+export function bothFigures(
+  cost: MoneyPair,
+  counts: Costing["counts"],
+  /** Words that belong with the first figure only, such as " between them". */
+  after = "",
+): string {
+  const beforeFirst = counts === "BeforeVat";
+  const withVat = `${aboutMoney(Number(cost.withVat))}${beforeFirst ? "" : after} with VAT`;
+  const before = `${aboutMoney(Number(cost.beforeVat))}${beforeFirst ? after : ""} before VAT`;
+  return counts === "BeforeVat"
+    ? `${before}, or ${withVat}`
+    : `${withVat}, or ${before}`;
+}
+
+/** What each plant has cost, what the lost ones had cost, and what stock counts found. */
+export function perPlantSentences(costing: Costing): string[] {
+  const plant = costing.perPlant;
+  const alive = Number(plant.alive);
+  const lost = Number(plant.lost);
+  const adjusted = Number(plant.adjusted);
+
+  if (plant.notCounted) {
+    return [
+      "This tray hasn't been counted yet, so the cost can't be shared out between the plants.",
+    ];
+  }
+
+  if (!costing.total) {
+    return [];
+  }
+
+  const sentences: string[] = [];
+
+  if (alive <= 0) {
+    sentences.push(
+      `Every plant in this batch was lost, so the whole ${aboutMoney(Number(costing.counts === "BeforeVat" ? costing.total.beforeVat : costing.total.withVat))} was lost with them.`,
+    );
+  } else if (plant.each) {
+    sentences.push(
+      alive === 1
+        ? `1 plant is still growing or has been sold, so it has cost ${bothFigures(plant.each, costing.counts)}.`
+        : `${alive} plants are still growing or have been sold, so each one has cost ${bothFigures(plant.each, costing.counts)}.`,
+    );
+
+    if (lost > 0 && plant.lostValue) {
+      sentences.push(
+        lost === 1
+          ? `1 was lost. It had cost ${bothFigures(plant.lostValue, costing.counts)}.`
+          : `${lost} were lost. They had cost ${bothFigures(plant.lostValue, costing.counts, " between them")}.`,
+      );
+    }
+  }
+
+  if (adjusted < 0) {
+    sentences.push(
+      adjusted === -1
+        ? "1 fewer was found at a stock count. It isn't counted as lost."
+        : `${-adjusted} fewer were found at a stock count. They aren't counted as lost.`,
+    );
+  } else if (adjusted > 0) {
+    sentences.push(
+      adjusted === 1
+        ? "1 more was found at a stock count than the work recorded."
+        : `${adjusted} more were found at a stock count than the work recorded.`,
+    );
+  }
+
+  return sentences;
+}

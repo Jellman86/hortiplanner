@@ -829,6 +829,82 @@ public sealed class CostTests(PostgresFixture database)
         Assert.Equal(HttpStatusCode.NotFound, set.StatusCode);
     }
 
+    private static async Task LoseAsync(HttpClient client, Guid tray, Guid batch, int quantity, DateTimeOffset at) =>
+        Assert.Equal(HttpStatusCode.Created, await PostStatusAsync(client, $"/api/containers/{tray}/losses", new { eventId = Guid.NewGuid(), occurredAt = at, batchId = batch, quantity, reason = "Disease" }));
+
+    private static async Task<(Guid Batch, Guid Tray)> SowAsync(TwoPersonNursery nursery, int quantity, decimal cost, DateTimeOffset at, string? sownAs = null) =>
+        Json(await PostForTextAsync(nursery.Staff, "/api/batches", new { eventId = Guid.NewGuid(), occurredAt = at, plantId = await AddPlantAsync(nursery.Owner, $"Plant {Guid.NewGuid():N}"), quantity, source = "SeedLot", originCountry = "GB", containerKind = "Tray", costAmount = cost, sownAs })) is var started
+            ? (started.GetProperty("batchId").GetGuid(), started.GetProperty("containerId").GetGuid())
+            : default;
+
+    [Fact]
+    public async Task The_plants_still_growing_carry_the_cost_and_a_loss_is_valued_at_what_had_been_spent_by_then()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var size = await AddPotSizeAsync(nursery.Owner, "9cm");
+        await SetAllowanceAsync(nursery.Owner, size, 1.00m);
+        var now = DateTimeOffset.UtcNow;
+        var (batch, tray) = await SowAsync(nursery, 40, 4.80m, now.AddDays(-10));
+
+        // 20 lost while only the seed had been spent on them: £4.80 over 40, so £2.40 between them.
+        await LoseAsync(nursery.Staff, tray, batch, 20, now.AddDays(-8));
+        // Then the other 20 are potted on at £1 each, which the lost ones never had.
+        await PotOnAsync(nursery.Staff, tray, batch, 20, size, now.AddDays(-5));
+
+        var perPlant = (await CostingAsync(nursery.Owner, batch)).GetProperty("perPlant");
+        Assert.Equal(20, perPlant.GetProperty("alive").GetInt32());
+        Assert.Equal(20, perPlant.GetProperty("lost").GetInt32());
+        Assert.Equal((1.24m, 1.03m), Rounded(perPlant.GetProperty("each")));
+        Assert.Equal((2.40m, 2.00m), Rounded(perPlant.GetProperty("lostValue")));
+    }
+
+    [Fact]
+    public async Task A_tray_not_counted_yet_has_no_cost_for_each_plant_and_one_all_lost_lost_the_lot()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var now = DateTimeOffset.UtcNow;
+        var (uncounted, _) = await SowAsync(nursery, 0, 3m, now.AddDays(-5), "Unknown");
+        var (gone, goneTray) = await SowAsync(nursery, 10, 6m, now.AddDays(-5));
+        await LoseAsync(nursery.Staff, goneTray, gone, 10, now.AddDays(-1));
+
+        var notCounted = (await CostingAsync(nursery.Owner, uncounted)).GetProperty("perPlant");
+        Assert.True(notCounted.GetProperty("notCounted").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, notCounted.GetProperty("each").ValueKind);
+
+        var allLost = (await CostingAsync(nursery.Owner, gone)).GetProperty("perPlant");
+        Assert.Equal(0, allLost.GetProperty("alive").GetInt32());
+        Assert.Equal(JsonValueKind.Null, allLost.GetProperty("each").ValueKind);
+        Assert.Equal((6m, 5m), Rounded(allLost.GetProperty("lostValue")));
+    }
+
+    [Fact]
+    public async Task Fewer_found_at_a_count_move_the_cost_for_each_plant_but_are_not_losses()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var now = DateTimeOffset.UtcNow;
+        var (batch, tray) = await SowAsync(nursery, 40, 6.40m, now.AddDays(-5));
+        Assert.Equal(HttpStatusCode.Created, await PostStatusAsync(nursery.Staff, $"/api/containers/{tray}/count", new { eventId = Guid.NewGuid(), occurredAt = now.AddDays(-1), batchId = batch, counted = 32 }));
+
+        var perPlant = (await CostingAsync(nursery.Owner, batch)).GetProperty("perPlant");
+        Assert.Equal(32, perPlant.GetProperty("alive").GetInt32());
+        Assert.Equal(-8, perPlant.GetProperty("adjusted").GetInt32());
+        Assert.Equal(0, perPlant.GetProperty("lost").GetInt32());
+        Assert.Equal((0.20m, 0.17m), Rounded(perPlant.GetProperty("each")));
+        Assert.Equal(JsonValueKind.Null, perPlant.GetProperty("lostValue").ValueKind);
+    }
+
+    [Fact]
+    public async Task With_no_cost_known_there_is_nothing_for_each_plant()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var (batch, _) = await StartAsync(nursery.Staff, await AddPlantAsync(nursery.Owner));
+
+        var perPlant = (await CostingAsync(nursery.Owner, batch)).GetProperty("perPlant");
+
+        Assert.Equal(40, perPlant.GetProperty("alive").GetInt32());
+        Assert.Equal(JsonValueKind.Null, perPlant.GetProperty("each").ValueKind);
+    }
+
     [Fact]
     public async Task Costs_are_never_changed_or_deleted()
     {

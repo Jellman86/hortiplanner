@@ -1,4 +1,5 @@
 using Hortiplanner.Api.Data;
+using Hortiplanner.Api.Figures;
 using Hortiplanner.Api.Settings;
 using Microsoft.EntityFrameworkCore;
 
@@ -54,7 +55,9 @@ internal static class BatchCostings
         var purchase = batch.PurchaseLineId is { } lineId ? await PurchaseShareAsync(lineId, id, db, cancellationToken) : null;
         var material = Material(batch.Source, history, purchase);
         var others = history.Where(entry => entry is { Kind: CostKind.Other, Replaced: false, Answer: CostAnswer.Amount }).ToList();
-        var pots = await PotAllowances.ForBatchAsync(id, db, clock, cancellationToken);
+        var (pots, potCharges) = await PotAllowances.ForBatchAsync(id, db, clock, cancellationToken);
+        var total = Total(material, pots, others);
+        var perPlant = PlantCosts.Work(await BatchLedger.LoadAsync(db, id, cancellationToken), id, total, Spent(material, others, potCharges));
         var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(clock.GetUtcNow(), clock.LocalTimeZone).DateTime);
 
         return TypedResults.Ok(new BatchCosting(
@@ -67,7 +70,8 @@ internal static class BatchCostings
             material,
             others,
             pots,
-            Total(material, pots, others),
+            total,
+            perPlant,
             history,
             await VatRates.PercentAsync(db, VatBand.Standard, today, cancellationToken),
             await VatRates.PercentAsync(db, VatBand.Reduced, today, cancellationToken)));
@@ -193,6 +197,17 @@ internal static class BatchCostings
         };
     }
 
+    /// <summary>
+    /// What was spent on the batch and when: the seed or plants from the start, anything else on the day it was for,
+    /// and each potting as it happened.
+    /// </summary>
+    private static List<PotAllowances.Charge> Spent(MaterialCost material, List<CostEntry> others, List<PotAllowances.Charge> potting) =>
+        [
+            .. material.Cost is { } cost ? [new PotAllowances.Charge(DateTimeOffset.MinValue, cost)] : Array.Empty<PotAllowances.Charge>(),
+            .. others.Select(entry => new PotAllowances.Charge(entry.OccurredAt, entry.Cost!)),
+            .. potting,
+        ];
+
     /// <summary>Only when the seed or plants are known, as a cost, nothing, or cuttings; worked out exactly, rounded only for showing.</summary>
     private static MoneyPair? Total(MaterialCost material, PotAllowances.PotsCost? pots, List<CostEntry> others) =>
         material.Cost is { } cost
@@ -241,6 +256,7 @@ internal static class BatchCostings
         IReadOnlyList<CostEntry> Others,
         PotAllowances.PotsCost? Pots,
         MoneyPair? Total,
+        PlantCosts.PerPlant PerPlant,
         IReadOnlyList<CostEntry> History,
         decimal StandardRate,
         decimal ReducedRate);

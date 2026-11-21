@@ -16,6 +16,7 @@
     materialWord,
     moneyProblem,
     otherSentence,
+    perPlantSentences,
     potsSentences,
     readMoney,
     replacedParts,
@@ -481,6 +482,17 @@
         >
       {/if}
     </section>
+
+    {#if perPlantSentences(costing).length > 0}
+      <section class="stack tight" aria-labelledby="per-plant-heading">
+        <h2 id="per-plant-heading" class="form-heading">
+          What each plant has cost
+        </h2>
+        {#each perPlantSentences(costing) as sentence, index (index)}
+          <p>{sentence}</p>
+        {/each}
+      </section>
+    {/if}
 
     {#if form?.kind === "vat"}
       {@const entry = form.entry}

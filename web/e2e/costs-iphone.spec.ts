@@ -72,6 +72,14 @@ const costing = (material: Record<string, unknown>, history: unknown[]) => ({
     withoutAllowance: ["2L"],
     unsizedPlants: 0,
   },
+  perPlant: {
+    alive: 18,
+    lost: 2,
+    adjusted: 0,
+    notCounted: false,
+    each: { withVat: 0.8, beforeVat: 0.6667 },
+    lostValue: { withVat: 1.14, beforeVat: 0.95 },
+  },
   total: material.cost ?? null,
   history,
   standardRate: 20,
@@ -270,6 +278,21 @@ test("the owner sees both figures, changes the VAT and keeps the earlier answer"
       "Alex Moss added the cost of the seed on 3 November. Nobody has said how much of it was VAT, so it's taken as including VAT at 20%.",
     ),
   ).toBeVisible();
+  // What each plant has cost, with what the lost ones had cost.
+  await expect(
+    page.getByRole("heading", { name: "What each plant has cost" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      "18 plants are still growing or have been sold, so each one has cost £0.80 with VAT, or about £0.67 before VAT.",
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      "2 were lost. They had cost £1.14 between them with VAT, or £0.95 before VAT.",
+    ),
+  ).toBeVisible();
+
   // Pots and compost, from the cost of potting set for each size.
   await expect(
     table.getByRole("row", { name: /^Pots and compost/ }),

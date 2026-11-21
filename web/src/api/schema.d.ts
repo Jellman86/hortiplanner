@@ -8637,6 +8637,7 @@ export interface components {
             others: components["schemas"]["CostEntry"][];
             pots: null | components["schemas"]["PotsCost"];
             total: null | components["schemas"]["MoneyPair"];
+            perPlant: components["schemas"]["PerPlant"];
             history: components["schemas"]["CostEntry"][];
             /** Format: double */
             standardRate: number | string;
@@ -9755,6 +9756,17 @@ export interface components {
             /** Format: uuid */
             userId: string;
             password: string;
+        };
+        PerPlant: {
+            /** Format: int32 */
+            alive: number | string;
+            /** Format: int32 */
+            lost: number | string;
+            /** Format: int32 */
+            adjusted: number | string;
+            notCounted: boolean;
+            each: null | components["schemas"]["MoneyPair"];
+            lostValue: null | components["schemas"]["MoneyPair"];
         };
         Person: {
             /** Format: uuid */

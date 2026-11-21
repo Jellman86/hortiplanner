@@ -175,6 +175,9 @@ test("the screens fit the width of a phone, a tablet and a desk", async ({
   await sidebar(page, "Trace a batch").click();
   await page.locator(".place-row").first().click();
   await expect(page.locator("h1")).toContainText("Batch");
+  await expect(
+    page.getByRole("heading", { name: "What it cost" }),
+  ).toBeVisible();
   await check("batch");
 
   // One of the batch's trays.
