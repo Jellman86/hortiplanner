@@ -6322,6 +6322,78 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/figures/money": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    started?: components["schemas"]["StartedIn"];
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Money"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/figures/money.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    started?: components["schemas"]["StartedIn"];
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/settings/features": {
         parameters: {
             query?: never;
@@ -9189,6 +9261,13 @@ export interface components {
             /** @default false */
             germinationApproximate: boolean;
         };
+        GroupMoney: {
+            name: string;
+            takings: components["schemas"]["MoneyPair"];
+            cost: null | components["schemas"]["MoneyPair"];
+            complete: boolean;
+            profit: null | components["schemas"]["MoneyPair"];
+        };
         HealthResponse: {
             status: string;
         };
@@ -9566,6 +9645,19 @@ export interface components {
             /** Format: int32 */
             contextLength: number | string;
         };
+        Money: {
+            counts: components["schemas"]["VatCounts"];
+            vatRegistered: boolean;
+            totals: components["schemas"]["MoneyTotals"];
+            /** Format: int32 */
+            unanswered: number | string;
+            /** Format: int32 */
+            notKnown: number | string;
+            plants: components["schemas"]["PlantMoney"][];
+            byYear: components["schemas"]["GroupMoney"][];
+            bySupplier: components["schemas"]["GroupMoney"][];
+            till: components["schemas"]["Till"];
+        };
         MoneyPair: {
             /** Format: double */
             withVat: number | string;
@@ -9578,6 +9670,13 @@ export interface components {
             owed: number | string;
             /** Format: double */
             owedToUs: number | string;
+        };
+        MoneyTotals: {
+            taken: components["schemas"]["MoneyPair"];
+            spent: null | components["schemas"]["MoneyPair"];
+            made: null | components["schemas"]["MoneyPair"];
+            lost: null | components["schemas"]["MoneyPair"];
+            complete: boolean;
         };
         MonthFigures: {
             month: string;
@@ -9960,6 +10059,23 @@ export interface components {
             variety: null | string;
             botanicalName: null | string;
             hasPhoto: boolean;
+        };
+        PlantMoney: {
+            /** Format: uuid */
+            plantId: string;
+            commonName: string;
+            variety: null | string;
+            /** Format: int32 */
+            batches: number | string;
+            /** Format: int32 */
+            sold: number | string;
+            takings: components["schemas"]["MoneyPair"];
+            unbatched: null | components["schemas"]["MoneyPair"];
+            cost: null | components["schemas"]["MoneyPair"];
+            complete: boolean;
+            profit: null | components["schemas"]["MoneyPair"];
+            each: null | components["schemas"]["MoneyPair"];
+            lostValue: null | components["schemas"]["MoneyPair"];
         };
         PlantNoteResponse: {
             /** Format: uuid */
@@ -10491,6 +10607,8 @@ export interface components {
             /** @default false */
             costNothing: boolean;
         };
+        /** @enum {unknown} */
+        StartedIn: "ThisYear" | "LastYear" | "All";
         StationSummary: {
             /** Format: uuid */
             id: string;
@@ -10580,6 +10698,11 @@ export interface components {
             rank: string;
             scientificName: string;
             commonName: null | string;
+        };
+        Till: {
+            /** Format: double */
+            taken: number | string;
+            fromTrays: components["schemas"]["MoneyPair"];
         };
         TraceBatchLink: {
             /** Format: uuid */

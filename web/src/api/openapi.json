@@ -4841,6 +4841,57 @@
         }
       }
     },
+    "/api/figures/money": {
+      "get": {
+        "tags": [
+          "MoneyFigures"
+        ],
+        "parameters": [
+          {
+            "name": "started",
+            "in": "query",
+            "schema": {
+              "default": "ThisYear",
+              "$ref": "#/components/schemas/StartedIn"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Money"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/figures/money.csv": {
+      "get": {
+        "tags": [
+          "MoneyFigures"
+        ],
+        "parameters": [
+          {
+            "name": "started",
+            "in": "query",
+            "schema": {
+              "default": "All",
+              "$ref": "#/components/schemas/StartedIn"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/settings/features": {
       "get": {
         "tags": [
@@ -9425,6 +9476,47 @@
           }
         }
       },
+      "GroupMoney": {
+        "required": [
+          "name",
+          "takings",
+          "cost",
+          "complete",
+          "profit"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "takings": {
+            "$ref": "#/components/schemas/MoneyPair"
+          },
+          "cost": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MoneyPair"
+              }
+            ]
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "profit": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MoneyPair"
+              }
+            ]
+          }
+        }
+      },
       "HealthResponse": {
         "required": [
           "status"
@@ -10984,6 +11076,68 @@
           }
         }
       },
+      "Money": {
+        "required": [
+          "counts",
+          "vatRegistered",
+          "totals",
+          "unanswered",
+          "notKnown",
+          "plants",
+          "byYear",
+          "bySupplier",
+          "till"
+        ],
+        "type": "object",
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/VatCounts"
+          },
+          "vatRegistered": {
+            "type": "boolean"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/MoneyTotals"
+          },
+          "unanswered": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "notKnown": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "plants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlantMoney"
+            }
+          },
+          "byYear": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupMoney"
+            }
+          },
+          "bySupplier": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupMoney"
+            }
+          },
+          "till": {
+            "$ref": "#/components/schemas/Till"
+          }
+        }
+      },
       "MoneyPair": {
         "required": [
           "withVat",
@@ -11038,6 +11192,54 @@
               "string"
             ],
             "format": "double"
+          }
+        }
+      },
+      "MoneyTotals": {
+        "required": [
+          "taken",
+          "spent",
+          "made",
+          "lost",
+          "complete"
+        ],
+        "type": "object",
+        "properties": {
+          "taken": {
+            "$ref": "#/components/schemas/MoneyPair"
+          },
+          "spent": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MoneyPair"
+              }
+            ]
+          },
+          "made": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MoneyPair"
+              }
+            ]
+          },
+          "lost": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MoneyPair"
+              }
+            ]
+          },
+          "complete": {
+            "type": "boolean"
           }
         }
       },
@@ -12637,6 +12839,110 @@
           },
           "hasPhoto": {
             "type": "boolean"
+          }
+        }
+      },
+      "PlantMoney": {
+        "required": [
+          "plantId",
+          "commonName",
+          "variety",
+          "batches",
+          "sold",
+          "takings",
+          "unbatched",
+          "cost",
+          "complete",
+          "profit",
+          "each",
+          "lostValue"
+        ],
+        "type": "object",
+        "properties": {
+          "plantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "commonName": {
+            "type": "string"
+          },
+          "variety": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "batches": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "sold": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "takings": {
+            "$ref": "#/components/schemas/MoneyPair"
+          },
+          "unbatched": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MoneyPair"
+              }
+            ]
+          },
+          "cost": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MoneyPair"
+              }
+            ]
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "profit": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MoneyPair"
+              }
+            ]
+          },
+          "each": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MoneyPair"
+              }
+            ]
+          },
+          "lostValue": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MoneyPair"
+              }
+            ]
           }
         }
       },
@@ -14841,6 +15147,13 @@
           }
         }
       },
+      "StartedIn": {
+        "enum": [
+          "ThisYear",
+          "LastYear",
+          "All"
+        ]
+      },
       "StationSummary": {
         "required": [
           "id",
@@ -15243,6 +15556,26 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "Till": {
+        "required": [
+          "taken",
+          "fromTrays"
+        ],
+        "type": "object",
+        "properties": {
+          "taken": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "fromTrays": {
+            "$ref": "#/components/schemas/MoneyPair"
           }
         }
       },
@@ -16194,6 +16527,9 @@
     },
     {
       "name": "PotAllowances"
+    },
+    {
+      "name": "MoneyFigures"
     },
     {
       "name": "FeatureEndpoints"

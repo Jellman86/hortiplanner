@@ -54,7 +54,9 @@
             class:numeric={column.numeric}
           >
             <button class="sort-button" onclick={() => sortOn(index)}>
-              {column.label}
+              {column.label}{#if column.hint}<span class="visually-hidden"
+                  >, {column.hint}</span
+                >{/if}
               <span class="sort-mark" aria-hidden="true"
                 >{sortBy === index ? (ascending ? "▲" : "▼") : ""}</span
               >
@@ -90,6 +92,8 @@
                 <button class="link-button" onclick={() => onSelect(row)}
                   >{cellText(column, row)}</button
                 >
+              {:else if column.strong}
+                <strong>{cellText(column, row)}</strong>
               {:else}
                 {cellText(column, row)}
               {/if}

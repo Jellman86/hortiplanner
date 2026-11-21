@@ -4,6 +4,10 @@ export interface Column<T> {
   value: (row: T) => string | number | null | undefined;
   text?: (row: T) => string;
   numeric?: boolean;
+  /** Shown in bold, as the figure that counts beside one there to compare. */
+  strong?: boolean;
+  /** Read out after the heading, such as "the figures that count", for what the bold says by sight. */
+  hint?: string;
 }
 
 export function cellText<T>(column: Column<T>, row: T): string {
