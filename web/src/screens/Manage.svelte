@@ -51,11 +51,11 @@
 </script>
 
 {#if open === "figures"}
-  <Figures onBack={back} />
+  <Figures onBack={back} onCosts={() => onSection("costs")} />
 {:else if open === "costs"}
   <CostsToFillIn onBack={back} />
 {:else if open === "money"}
-  <Money onBack={back} />
+  <Money onBack={back} onFigures={() => onSection("figures")} />
 {:else if open === "purchases"}
   <Purchases onBack={back} {onStartBatch} />
 {:else if open === "plants"}

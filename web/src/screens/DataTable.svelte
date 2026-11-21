@@ -90,6 +90,8 @@
                 <button class="link-button" onclick={() => onSelect(row)}
                   >{cellText(column, row)}</button
                 >
+              {:else if column.strong}
+                <strong>{cellText(column, row)}</strong>
               {:else}
                 {cellText(column, row)}
               {/if}

@@ -33,14 +33,16 @@ internal static class Sales
                 var before = line.Quantity * line.UnitPrice;
                 return new Sale(line.PlantId ?? plantId, batchId, line.Quantity, new MoneyPair(before * (1 + (line.VatRate / 100m)), before), SaleSource.Invoice);
             }),
-            .. fromTrays.Where(row => WorkEndpoints.IsTraySale(row.Payload)).Select(row =>
-            {
-                var (priceEach, vatRate) = TraySale(row.Payload);
-                var quantity = -row.QuantityChange;
-                var takings = priceEach is { } price ? new MoneyPair(quantity * price, quantity * price / (1 + (vatRate / 100m))) : null;
-                return new Sale(plantId, batchId, quantity, takings, SaleSource.Tray);
-            }),
+            .. fromTrays.Where(row => WorkEndpoints.IsTraySale(row.Payload))
+                .Select(row => new Sale(plantId, batchId, -row.QuantityChange, TraySaleTakings(row.Payload, -row.QuantityChange), SaleSource.Tray)),
         ];
+    }
+
+    /// <summary>What a sale from a tray took, with VAT and before VAT, or null when no price was recorded.</summary>
+    internal static MoneyPair? TraySaleTakings(string payload, int quantity)
+    {
+        var (priceEach, vatRate) = TraySale(payload);
+        return priceEach is { } price ? new MoneyPair(quantity * price, quantity * price / (1 + (vatRate / 100m))) : null;
     }
 
     /// <summary>The price for each, VAT included, and the VAT rate a sale from a tray was charged at.</summary>

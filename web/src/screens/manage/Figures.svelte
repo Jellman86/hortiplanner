@@ -7,8 +7,11 @@
   import { lossReasons, percent, plantName } from "../../lib/work";
   import BarList from "../BarList.svelte";
   import DataTable from "../DataTable.svelte";
+  import { isOn } from "../../lib/features.svelte";
+  import MoneyFigures from "./MoneyFigures.svelte";
 
-  let { onBack }: { onBack: () => void } = $props();
+  let { onBack, onCosts }: { onBack: () => void; onCosts: () => void } =
+    $props();
 
   type PlantFigures = Schemas["PlantFigures"];
   type GroupFigures = Schemas["GroupFigures"];
@@ -136,6 +139,11 @@
 
 <main>
   <h1>Figures</h1>
+
+  {#if isOn("Costs")}
+    <MoneyFigures {onCosts} />
+    <h2>How the plants are growing</h2>
+  {/if}
 
   {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
 

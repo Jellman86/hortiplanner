@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ArrowRight from "@lucide/svelte/icons/arrow-right";
   import FileDown from "@lucide/svelte/icons/file-down";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import { isOn } from "../../lib/features.svelte";
@@ -13,7 +14,14 @@
   import { attempt, type Schemas } from "../../lib/types";
   import { money } from "../../lib/work";
 
-  let { onBack }: { onBack: () => void } = $props();
+  let {
+    onBack,
+    onFigures,
+  }: {
+    onBack: () => void;
+    /** Opens Figures, where what each batch cost and made is shown. */
+    onFigures?: () => void;
+  } = $props();
 
   const today = () => isoDay(new Date());
 
@@ -127,6 +135,20 @@
 
 <main>
   <h1>Money</h1>
+
+  {#if isOn("Costs") && onFigures}
+    <div class="card done stack tight">
+      <p>
+        Money shows what the nursery took and spent. What each batch cost and
+        made is under Figures.
+      </p>
+      <div>
+        <button class="secondary" onclick={onFigures}
+          >Go to Figures <ArrowRight size={16} aria-hidden="true" /></button
+        >
+      </div>
+    </div>
+  {/if}
 
   <div class="split wide-list">
     <section>

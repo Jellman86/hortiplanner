@@ -40,14 +40,18 @@ internal static class BatchCostings
             .ToListAsync(cancellationToken)).ToHashSet();
     }
 
-    internal static async Task<IResult> GetAsync(Guid id, HortiplannerDbContext db, TimeProvider clock, CancellationToken cancellationToken)
+    internal static async Task<IResult> GetAsync(Guid id, HortiplannerDbContext db, TimeProvider clock, CancellationToken cancellationToken) =>
+        await CostingAsync(id, db, clock, cancellationToken) is { } costing ? TypedResults.Ok(costing) : TypedResults.NotFound();
+
+    /// <summary>A batch's whole costing, as Costs and takings shows it, or null when there's no such batch.</summary>
+    internal static async Task<BatchCosting?> CostingAsync(Guid id, HortiplannerDbContext db, TimeProvider clock, CancellationToken cancellationToken)
     {
         if (await db.Batches.AsNoTracking()
                 .Where(batch => batch.Id == id)
                 .Join(db.Plants, batch => batch.PlantId, plant => plant.Id, (batch, plant) => new { batch.TraceabilityCode, batch.Source, batch.PurchaseLineId, plant.VatBand })
                 .FirstOrDefaultAsync(cancellationToken) is not { } batch)
         {
-            return TypedResults.NotFound();
+            return null;
         }
 
         var registered = await db.NurserySettings.AsNoTracking().Select(settings => settings.VatRegistered).FirstOrDefaultAsync(cancellationToken);
@@ -61,7 +65,7 @@ internal static class BatchCostings
         var takings = TakingsOf(await Sales.ForBatchAsync(id, db, cancellationToken));
         var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(clock.GetUtcNow(), clock.LocalTimeZone).DateTime);
 
-        return TypedResults.Ok(new BatchCosting(
+        return new BatchCosting(
             id,
             batch.TraceabilityCode,
             batch.Source,
@@ -76,7 +80,7 @@ internal static class BatchCostings
             takings,
             history,
             await VatRates.PercentAsync(db, VatBand.Standard, today, cancellationToken),
-            await VatRates.PercentAsync(db, VatBand.Reduced, today, cancellationToken)));
+            await VatRates.PercentAsync(db, VatBand.Reduced, today, cancellationToken));
     }
 
     /// <summary>Every entry, replaced ones too, oldest first.</summary>

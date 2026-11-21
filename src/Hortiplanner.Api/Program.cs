@@ -143,6 +143,7 @@ app.MapVatRateEndpoints();
 app.MapCostEndpoints();
 app.MapMissingCostEndpoints();
 app.MapPotAllowanceEndpoints();
+app.MapMoneyFigureEndpoints();
 app.MapFeatureEndpoints();
 app.MapClearRecordsEndpoints();
 app.MapProductionEndpoints();
