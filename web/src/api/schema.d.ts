@@ -9765,6 +9765,7 @@ export interface components {
             /** Format: int32 */
             adjusted: number | string;
             notCounted: boolean;
+            allLost: boolean;
             each: null | components["schemas"]["MoneyPair"];
             lostValue: null | components["schemas"]["MoneyPair"];
         };

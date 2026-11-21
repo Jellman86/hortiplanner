@@ -12,70 +12,89 @@ namespace Hortiplanner.Api.Costs;
 internal static class PlantCosts
 {
     /// <param name="total">The batch's whole cost, when known.</param>
-    /// <param name="charges">Each part of the cost with the moment it was spent, oldest first.</param>
-    internal static PerPlant Work(BatchLedger.Ledger ledger, Guid batchId, MoneyPair? total, IReadOnlyList<PotAllowances.Charge> charges)
+    /// <param name="charges">Each part of the cost with the moment it was spent.</param>
+    internal static PerPlant Work(BatchLedger.Ledger ledger, Guid batchId, MoneyPair? total, IReadOnlyList<Charge> charges)
     {
         var rows = ledger.Rows.Where(row => row.Line.BatchId == batchId).ToList();
         var counts = BatchLedger.CountsOf(rows, ledger.Absorbed.GetValueOrDefault(batchId));
-        var batch = ledger.Batches[batchId];
 
-        // Seed sown without a count has no number of plants until someone counts it.
-        var notCounted = batch.SownAs is not (null or SownMeasure.Counted) && !rows.Exists(row => row.FirstCount);
-
-        if (notCounted || total is null)
+        // Seed sown without a count has no number of plants until someone counts it, or it's all lost.
+        if (!BatchLedger.Settled(ledger, batchId))
         {
-            return new PerPlant(counts.Alive, counts.Lost, counts.Adjusted, notCounted, null, null);
+            return new PerPlant(counts.Alive, counts.Lost, counts.Adjusted, true, false, null, null);
+        }
+
+        // Every plant lost, and none gone at a count instead, including a tray lost before anyone counted it.
+        var allLost = counts.Alive <= 0 && counts.Adjusted >= 0 && (counts.Lost > 0 || BatchLedger.LostAll(ledger, batchId));
+
+        if (total is null)
+        {
+            return new PerPlant(counts.Alive, counts.Lost, counts.Adjusted, false, allLost, null, null);
         }
 
         var each = counts.Alive > 0 ? new MoneyPair(total.WithVat / counts.Alive, total.BeforeVat / counts.Alive) : null;
-        var lostValue = counts.Lost == 0 ? null : counts.Alive <= 0 ? total : LostValue(rows, charges);
-        return new PerPlant(counts.Alive, counts.Lost, counts.Adjusted, false, each, lostValue);
+        var lostValue = allLost ? total
+            : counts.Lost == 0 ? null
+            : LostValue(rows, ledger.AbsorbedAt.Where(item => item.BatchId == batchId), charges);
+        return new PerPlant(counts.Alive, counts.Lost, counts.Adjusted, false, allLost, each, lostValue);
     }
 
+    private sealed record Step(DateTimeOffset At, Guid Work, EventType Type, int Change);
+
     /// <summary>
-    /// Walking the batch's work in order: at each loss, the plants lost times what had been spent so far, shared
-    /// between the plants growing or sold just before it.
+    /// Walking the batch's work in the order it happened (a correction at the time of the work it replaces, and
+    /// what a count absorbed at the count): at each loss, the plants lost take their share of what had been spent
+    /// and not already lost, shared between the plants growing or sold just before it.
     /// </summary>
-    private static MoneyPair LostValue(List<BatchLedger.Row> rows, IReadOnlyList<PotAllowances.Charge> charges)
+    private static MoneyPair LostValue(List<BatchLedger.Row> rows, IEnumerable<BatchLedger.Absorbed> absorbed, IReadOnlyList<Charge> charges)
     {
+        // Sales leave the tray but still carry their share of the cost, so they don't change the plants counted.
+        var steps = rows
+            .Where(row => row.Type != EventType.Sold)
+            .Select(row => new Step(row.Line.EffectiveAt ?? row.Event.OccurredAt, row.Event.Id, row.Type, row.Line.QuantityChange))
+            .Concat(absorbed.Select(item => new Step(item.At, item.CountEventId, EventType.StockCounted, item.Change)))
+            .GroupBy(step => (step.At, step.Work))
+            .Select(group => new Step(group.Key.At, group.Key.Work, group.First().Type, group.Sum(step => step.Change)))
+            .OrderBy(step => step.At)
+            .ThenBy(step => step.Work);
+
         var alive = 0;
         decimal spentWith = 0, spentBefore = 0, lostWith = 0, lostBefore = 0;
-        var pending = new Queue<PotAllowances.Charge>(charges.OrderBy(charge => charge.At));
+        var pending = new Queue<Charge>(charges.OrderBy(charge => charge.At));
 
-        foreach (var work in rows.GroupBy(row => row.Event.Id).OrderBy(group => group.First().Event.OccurredAt))
+        foreach (var step in steps)
         {
             // Everything spent up to this moment counts against plants lost now.
-            while (pending.TryPeek(out var charge) && charge.At <= work.First().Event.OccurredAt)
+            while (pending.TryPeek(out var charge) && charge.At <= step.At)
             {
                 pending.Dequeue();
                 spentWith += charge.Cost.WithVat;
                 spentBefore += charge.Cost.BeforeVat;
             }
 
-            var type = work.First().Type;
-            var change = work.Sum(row => row.FirstCount ? row.StartCount : row.Line.QuantityChange);
-
-            if (type == EventType.Lost && change < 0 && alive > 0)
+            if (step.Type == EventType.Lost && step.Change < 0 && alive > 0)
             {
-                var lost = Math.Min(-change, alive);
-                lostWith += spentWith * lost / alive;
-                lostBefore += spentBefore * lost / alive;
-                spentWith -= spentWith * lost / alive;
-                spentBefore -= spentBefore * lost / alive;
+                var share = (decimal)Math.Min(-step.Change, alive) / alive;
+                lostWith += spentWith * share;
+                lostBefore += spentBefore * share;
+                spentWith -= spentWith * share;
+                spentBefore -= spentBefore * share;
             }
 
-            // Sales still count: a plant sold carried its share of the cost.
-            alive += type == EventType.Sold ? 0 : change;
-            alive = Math.Max(alive, 0);
+            alive = Math.Max(alive + step.Change, 0);
         }
 
         return new MoneyPair(lostWith, lostBefore);
     }
+
+    /// <summary>Something charged to a batch at a moment, for working out what lost plants had cost by then.</summary>
+    internal sealed record Charge(DateTimeOffset At, MoneyPair Cost);
 
     /// <param name="Alive">Still growing or sold.</param>
     /// <param name="Adjusted">More (or, below nought, fewer) found at stock counts than the work said. Not losses.</param>
     /// <param name="NotCounted">Sown without a count and not counted since, so there's no number to share the cost between.</param>
     /// <param name="Each">The cost for each plant still growing or sold, unrounded.</param>
     /// <param name="LostValue">What the lost plants had cost between them, when any were lost.</param>
-    internal sealed record PerPlant(int Alive, int Lost, int Adjusted, bool NotCounted, MoneyPair? Each, MoneyPair? LostValue);
+    /// <param name="AllLost">Every plant was lost, so the whole cost went with them.</param>
+    internal sealed record PerPlant(int Alive, int Lost, int Adjusted, bool NotCounted, bool AllLost, MoneyPair? Each, MoneyPair? LostValue);
 }

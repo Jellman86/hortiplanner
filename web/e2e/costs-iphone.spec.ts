@@ -77,6 +77,7 @@ const costing = (material: Record<string, unknown>, history: unknown[]) => ({
     lost: 2,
     adjusted: 0,
     notCounted: false,
+    allLost: false,
     each: { withVat: 0.8, beforeVat: 0.6667 },
     lostValue: { withVat: 1.14, beforeVat: 0.95 },
   },
@@ -284,12 +285,12 @@ test("the owner sees both figures, changes the VAT and keeps the earlier answer"
   ).toBeVisible();
   await expect(
     page.getByText(
-      "18 plants are still growing or have been sold, so each one has cost £0.80 with VAT, or about £0.67 before VAT.",
+      "18 plants are still growing or have been sold, so each one has cost about £0.80 with VAT, or about £0.67 before VAT.",
     ),
   ).toBeVisible();
   await expect(
     page.getByText(
-      "2 were lost. They had cost £1.14 between them with VAT, or £0.95 before VAT.",
+      "2 were lost. Between them they had cost about £1.14 with VAT, or about £0.95 before VAT. That's already counted in what each plant has cost.",
     ),
   ).toBeVisible();
 

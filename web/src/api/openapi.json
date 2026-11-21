@@ -11915,6 +11915,7 @@
           "lost",
           "adjusted",
           "notCounted",
+          "allLost",
           "each",
           "lostValue"
         ],
@@ -11945,6 +11946,9 @@
             "format": "int32"
           },
           "notCounted": {
+            "type": "boolean"
+          },
+          "allLost": {
             "type": "boolean"
           },
           "each": {

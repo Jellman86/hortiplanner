@@ -32,30 +32,45 @@ internal static class BatchLedger
         return Build(events, batches, lines, adjustments);
     }
 
-    /// <summary>One batch's work, read without the rest of the nursery's.</summary>
+    /// <summary>
+    /// One batch's work, read without the rest of the nursery's: its lines, the counts and late work its adjustments
+    /// name, any count of its trays (a count that found what was expected has no line), whatever corrects any of
+    /// those, and whatever a correction corrected.
+    /// </summary>
     internal static async Task<Ledger> LoadAsync(HortiplannerDbContext db, Guid batchId, CancellationToken cancellationToken)
     {
         var lines = await db.EventLines.AsNoTracking().Where(line => line.BatchId == batchId).ToListAsync(cancellationToken);
-        var touched = lines.Select(line => line.EventId).Distinct().ToList();
+        var adjustments = await db.CountAdjustments.AsNoTracking().Where(adjustment => adjustment.BatchId == batchId).ToListAsync(cancellationToken);
+        var containers = lines.Select(line => line.ContainerId).Distinct().ToList();
+        var named = lines.Select(line => line.EventId)
+            .Concat(adjustments.Select(adjustment => adjustment.EventId))
+            .Concat(adjustments.Select(adjustment => adjustment.CountEventId))
+            .Distinct()
+            .ToList();
 
-        // The batch's events, anything correcting them, and whatever a correction corrected, to know what it stands for.
         var events = await db.Events.AsNoTracking()
-            .Where(e => touched.Contains(e.Id) || (e.CorrectsEventId != null && touched.Contains(e.CorrectsEventId.Value)))
+            .Where(e => named.Contains(e.Id) || (e.Type == EventType.StockCounted && e.ContainerId != null && containers.Contains(e.ContainerId.Value)))
             .Select(e => new EventFacts(e.Id, e.Type, e.CorrectsEventId, e.ContainerId, e.Payload, e.OccurredAt))
             .ToDictionaryAsync(e => e.Id, cancellationToken);
-        var originals = events.Values.Where(e => e.CorrectsEventId is { } of && !events.ContainsKey(of)).Select(e => e.CorrectsEventId!.Value).ToList();
 
-        foreach (var original in await db.Events.AsNoTracking()
-            .Where(e => originals.Contains(e.Id))
+        // What corrects any of them, then whatever a correction corrected, to know what it stands for.
+        var known = events.Keys.ToList();
+        await AddAsync(events, db.Events.Where(e => e.CorrectsEventId != null && known.Contains(e.CorrectsEventId.Value)), cancellationToken);
+        var originals = events.Values.Where(e => e.CorrectsEventId is { } of && !events.ContainsKey(of)).Select(e => e.CorrectsEventId!.Value).ToList();
+        await AddAsync(events, db.Events.Where(e => originals.Contains(e.Id)), cancellationToken);
+
+        var batches = await BatchesAsync(db.Batches.AsNoTracking().Where(batch => batch.Id == batchId), db, cancellationToken);
+        return Build(events, batches, lines, adjustments);
+    }
+
+    private static async Task AddAsync(Dictionary<Guid, EventFacts> events, IQueryable<Event> query, CancellationToken cancellationToken)
+    {
+        foreach (var e in await query.AsNoTracking()
             .Select(e => new EventFacts(e.Id, e.Type, e.CorrectsEventId, e.ContainerId, e.Payload, e.OccurredAt))
             .ToListAsync(cancellationToken))
         {
-            events[original.Id] = original;
+            events.TryAdd(e.Id, e);
         }
-
-        var batches = await BatchesAsync(db.Batches.AsNoTracking().Where(batch => batch.Id == batchId), db, cancellationToken);
-        var adjustments = await db.CountAdjustments.AsNoTracking().Where(adjustment => adjustment.BatchId == batchId).ToListAsync(cancellationToken);
-        return Build(events, batches, lines, adjustments);
     }
 
     private static async Task<Dictionary<Guid, BatchFacts>> BatchesAsync(IQueryable<Batch> query, HortiplannerDbContext db, CancellationToken cancellationToken) =>
@@ -81,12 +96,18 @@ internal static class BatchLedger
             batches);
 
         // Changes stock counts absorbed when earlier work arrived late or was undone: part of each count's adjustment.
-        var absorbed = adjustments
+        var standing = adjustments
             .Where(adjustment => !reversed.Contains(adjustment.EventId) && !reversed.Contains(adjustment.CountEventId) && batches.ContainsKey(adjustment.BatchId))
+            .ToList();
+        var absorbed = standing
             .GroupBy(adjustment => adjustment.BatchId)
             .ToDictionary(group => group.Key, group => group.Sum(adjustment => adjustment.QuantityChange));
+        var absorbedAt = standing
+            .Where(adjustment => events.ContainsKey(adjustment.CountEventId))
+            .Select(adjustment => new Absorbed(adjustment.BatchId, adjustment.CountEventId, events[adjustment.CountEventId].OccurredAt, adjustment.QuantityChange))
+            .ToList();
 
-        return new Ledger(events, reversed, batches, rows, absorbed);
+        return new Ledger(events, reversed, batches, rows, absorbed, absorbedAt);
     }
 
     /// <summary>
@@ -121,6 +142,27 @@ internal static class BatchLedger
         return work.Type;
     }
 
+    /// <summary>
+    /// Whether seed sown without a count has had one since, or was all lost, as the event store decides it: until
+    /// then there's no number of plants. Batches started with a count are always settled.
+    /// </summary>
+    internal static bool Settled(Ledger ledger, Guid batchId)
+    {
+        if (ledger.Batches[batchId].SownAs is null or SownMeasure.Counted)
+        {
+            return true;
+        }
+
+        var counted = ledger.Events.Values.Any(e => !ledger.Reversed.Contains(e.Id)
+            && WorkDoneBy(e, ledger.Events) == EventType.StockCounted
+            && EventStore.CountOf(e.Payload)?.BatchId == batchId);
+        return counted || LostAll(ledger, batchId);
+    }
+
+    /// <summary>Whether a standing loss took every plant of the batch, said as "all of them".</summary>
+    internal static bool LostAll(Ledger ledger, Guid batchId) =>
+        ledger.Rows.Exists(row => row.Line.BatchId == batchId && row.Type == EventType.Lost && EventStore.LostAll(row.Event.Payload));
+
     /// <summary>How many plants started, were lost, and were found more or fewer at a count, from some rows.</summary>
     internal static Counts CountsOf(IReadOnlyCollection<Row> rows, int absorbed)
     {
@@ -133,12 +175,16 @@ internal static class BatchLedger
     }
 
     /// <param name="Absorbed">For each batch, stock changes counts absorbed: part of each count's adjustment.</param>
+    /// <param name="AbsorbedAt">The same, one by one, with the time of the count that absorbed each.</param>
     internal sealed record Ledger(
         Dictionary<Guid, EventFacts> Events,
         HashSet<Guid> Reversed,
         Dictionary<Guid, BatchFacts> Batches,
         List<Row> Rows,
-        Dictionary<Guid, int> Absorbed);
+        Dictionary<Guid, int> Absorbed,
+        List<Absorbed> AbsorbedAt);
+
+    internal sealed record Absorbed(Guid BatchId, Guid CountEventId, DateTimeOffset At, int Change);
 
     /// <param name="Alive">Still growing or sold: started, less lost, give or take what counts found.</param>
     internal sealed record Counts(int Started, int Lost, int Adjusted)

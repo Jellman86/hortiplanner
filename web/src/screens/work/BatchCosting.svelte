@@ -483,17 +483,6 @@
       {/if}
     </section>
 
-    {#if perPlantSentences(costing).length > 0}
-      <section class="stack tight" aria-labelledby="per-plant-heading">
-        <h2 id="per-plant-heading" class="form-heading">
-          What each plant has cost
-        </h2>
-        {#each perPlantSentences(costing) as sentence, index (index)}
-          <p>{sentence}</p>
-        {/each}
-      </section>
-    {/if}
-
     {#if form?.kind === "vat"}
       {@const entry = form.entry}
       <form class="form-card stack" onsubmit={saveVat}>
@@ -608,6 +597,18 @@
           >
         </div>
       </form>
+    {/if}
+
+    {@const perPlant = perPlantSentences(costing)}
+    {#if perPlant.length > 0}
+      <section class="stack tight" aria-labelledby="per-plant-heading">
+        <h2 id="per-plant-heading" class="form-heading">
+          What each plant has cost
+        </h2>
+        {#each perPlant as sentence, index (index)}
+          <p>{sentence}</p>
+        {/each}
+      </section>
     {/if}
 
     {#if replaced.length > 0}

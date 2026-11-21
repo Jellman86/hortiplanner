@@ -2,13 +2,14 @@
   import { onMount } from "svelte";
   import { api } from "../../api/client";
   import {
-    bothFigures,
     materialWord,
     perPlantSentences,
+    wholeCost,
     type Costing,
   } from "../../lib/costs";
 
-  // "What it cost", on a batch's trace report: the whole cost and what each plant has cost, for the owner.
+  // "What it cost", on a batch's trace report: the whole cost and what each plant has cost, for the owner. Left off
+  // the printed report, which goes to an inspector and needn't carry what the nursery paid.
   let { batchId }: { batchId: string } = $props();
 
   let costing = $state<Costing | null>(null);
@@ -27,16 +28,27 @@
       problem = "What this batch cost will show when there's a signal.";
     }
   });
+
+  const nothingSpent = $derived(
+    !!costing?.total &&
+      Number(costing.total.withVat) === 0 &&
+      Number(costing.total.beforeVat) === 0,
+  );
 </script>
 
-<section class="stack" aria-labelledby="trace-cost">
+<section class="stack no-print" aria-labelledby="trace-cost">
   <h2 id="trace-cost">What it cost</h2>
   {#if problem}<p class="muted">{problem}</p>{/if}
   {#if costing}
-    {#if costing.total}
+    {#if nothingSpent}
+      <p>Nothing has been spent on this batch so far.</p>
+    {:else if costing.total}
       <p>
-        Altogether it has cost {bothFigures(costing.total, costing.counts)}.
+        Altogether it has cost {wholeCost(costing.total, costing.counts)}.
       </p>
+      {#each perPlantSentences(costing) as sentence, index (index)}
+        <p>{sentence}</p>
+      {/each}
     {:else if costing.material.state === "NotKnown"}
       <p class="muted">
         You said nobody knows what the {materialWord(costing.source)} cost, so this
@@ -45,11 +57,8 @@
     {:else}
       <p class="muted">
         Nobody has said what the {materialWord(costing.source)} cost yet, so there's
-        no total. You can add it from the batch's tray.
+        no total. You can add it in Costs to fill in, under Manage.
       </p>
     {/if}
-    {#each perPlantSentences(costing) as sentence, index (index)}
-      <p>{sentence}</p>
-    {/each}
   {/if}
 </section>

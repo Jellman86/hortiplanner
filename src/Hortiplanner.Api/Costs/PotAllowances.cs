@@ -108,7 +108,7 @@ internal static class PotAllowances
     /// corrected. Sizes with no allowance, and potting with no size, are named rather than charged.
     /// </summary>
     /// <remarks>Also gives each potting's charge with its time, so what lost plants had cost can be worked out.</remarks>
-    internal static async Task<(PotsCost? Pots, List<Charge> Charges)> ForBatchAsync(Guid batchId, HortiplannerDbContext db, TimeProvider clock, CancellationToken cancellationToken)
+    internal static async Task<(PotsCost? Pots, List<PlantCosts.Charge> Charges)> ForBatchAsync(Guid batchId, HortiplannerDbContext db, TimeProvider clock, CancellationToken cancellationToken)
     {
         var potting = await PottingAsync(batchId, db, cancellationToken);
 
@@ -142,7 +142,7 @@ internal static class PotAllowances
             .Select(row =>
             {
                 var each = Each(row.Allowance!);
-                return new Charge(row.Pot.OccurredAt, new MoneyPair(each.WithVat * row.Pot.Plants, each.BeforeVat * row.Pot.Plants));
+                return new PlantCosts.Charge(row.Pot.OccurredAt, new MoneyPair(each.WithVat * row.Pot.Plants, each.BeforeVat * row.Pot.Plants));
             })
             .ToList();
 
@@ -153,8 +153,6 @@ internal static class PotAllowances
             potting.Where(pot => pot.PotSizeId is null).Sum(pot => pot.Plants)), charges);
     }
 
-    /// <summary>Something charged to a batch at a moment, for working out what lost plants had cost by then.</summary>
-    internal sealed record Charge(DateTimeOffset At, MoneyPair Cost);
 
     private sealed record Potting(DateTimeOffset OccurredAt, Guid? PotSizeId, int Plants);
 

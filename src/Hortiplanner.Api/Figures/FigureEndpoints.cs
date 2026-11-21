@@ -139,8 +139,8 @@ internal static class FigureEndpoints
 
     private static Measured Measure(List<Row> rows, HashSet<Guid> germinatedBatches)
     {
-        var started = rows.Where(row => StartingTypes.Contains(row.Type)).Sum(row => row.Line.QuantityChange) + rows.Where(row => row.FirstCount).Sum(row => row.StartCount);
-        var lost = -rows.Where(row => row.Type == EventType.Lost).Sum(row => row.Line.QuantityChange);
+        // The same counts every batch's costing reads, so the two can't disagree.
+        var (started, lost, _) = BatchLedger.CountsOf(rows, 0);
         var watched = rows.Where(row => germinatedBatches.Contains(row.Line.BatchId)).ToList();
 
         // Counted sowings: seeds sown, less those that failed to germinate.

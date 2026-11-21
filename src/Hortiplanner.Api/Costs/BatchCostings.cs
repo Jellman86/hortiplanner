@@ -201,10 +201,10 @@ internal static class BatchCostings
     /// What was spent on the batch and when: the seed or plants from the start, anything else on the day it was for,
     /// and each potting as it happened.
     /// </summary>
-    private static List<PotAllowances.Charge> Spent(MaterialCost material, List<CostEntry> others, List<PotAllowances.Charge> potting) =>
+    private static List<PlantCosts.Charge> Spent(MaterialCost material, List<CostEntry> others, List<PlantCosts.Charge> potting) =>
         [
-            .. material.Cost is { } cost ? [new PotAllowances.Charge(DateTimeOffset.MinValue, cost)] : Array.Empty<PotAllowances.Charge>(),
-            .. others.Select(entry => new PotAllowances.Charge(entry.OccurredAt, entry.Cost!)),
+            .. material.Cost is { } cost ? [new PlantCosts.Charge(DateTimeOffset.MinValue, cost)] : Array.Empty<PlantCosts.Charge>(),
+            .. others.Select(entry => new PlantCosts.Charge(entry.OccurredAt, entry.Cost!)),
             .. potting,
         ];
 
