@@ -6,15 +6,12 @@
   import Moon from "@lucide/svelte/icons/moon";
   import PanelLeftClose from "@lucide/svelte/icons/panel-left-close";
   import PanelLeftOpen from "@lucide/svelte/icons/panel-left-open";
-  import Bell from "@lucide/svelte/icons/bell";
   import Plus from "@lucide/svelte/icons/plus";
   import ScanLine from "@lucide/svelte/icons/scan-line";
   import Settings from "@lucide/svelte/icons/settings";
-  import Sparkles from "@lucide/svelte/icons/sparkles";
   import Sprout from "@lucide/svelte/icons/sprout";
   import Sun from "@lucide/svelte/icons/sun";
   import type { Me } from "../lib/boot";
-  import { badgeText, bellName } from "../lib/needs";
   import { visibleManageGroups, type ManageSection } from "../lib/sections";
   import { themes, type Theme } from "../lib/theme";
 
@@ -27,15 +24,12 @@
     onHome,
     onNewBatch,
     onProduction,
-    onAsk,
     onPlants,
     onSection,
     onToggleCollapsed,
     onCycleTheme,
     onSettings,
     onFinished,
-    needsCount,
-    onNeeds,
   }: {
     me: Me;
     current:
@@ -53,17 +47,12 @@
     onHome: () => void;
     onNewBatch: () => void;
     onProduction: () => void;
-    /** Opens Ask Hortiplanner, when this person can ask. */
-    onAsk?: () => void;
     onPlants: () => void;
     onSection: (section: ManageSection) => void;
     onToggleCollapsed: () => void;
     onCycleTheme: () => void;
     onSettings: () => void;
     onFinished: () => void;
-    /** How many things need a look; the entry is always there, with a number only when there's something. */
-    needsCount: number;
-    onNeeds: () => void;
   } = $props();
 
   const here = (item: typeof current) =>
@@ -117,36 +106,6 @@
       <Sprout size={20} />
       <span class="nav-text">Production</span>
     </button>
-
-    <button
-      class="needs-entry"
-      aria-current={here("needs")}
-      aria-label={bellName(needsCount)}
-      title={bellName(needsCount)}
-      onclick={onNeeds}
-    >
-      <span class="needs-icon">
-        <Bell size={20} />
-        {#if needsCount > 0}<span
-            class="bell-badge"
-            aria-hidden="true"
-            data-count={badgeText(needsCount)}
-          ></span>{/if}
-      </span>
-      <span class="nav-text">Needs a look</span>
-    </button>
-
-    {#if onAsk}
-      <button
-        aria-current={here("ask")}
-        aria-label="Ask Hortiplanner"
-        title="Ask Hortiplanner"
-        onclick={onAsk}
-      >
-        <Sparkles size={20} />
-        <span class="nav-text">Ask Hortiplanner</span>
-      </button>
-    {/if}
 
     {#if !me.isOwner}
       <button

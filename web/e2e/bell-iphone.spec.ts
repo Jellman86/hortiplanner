@@ -146,7 +146,7 @@ test("the bell shows what needs a look from any screen on a phone", async ({
   ).toBe(true);
 });
 
-test("the bell is in the sidebar on a desk", async ({ page }) => {
+test("the bell is at the top right on a desk", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   const state = {
     alerts: Array.from({ length: 12 }, (_, i) => ({
@@ -158,8 +158,8 @@ test("the bell is in the sidebar on a desk", async ({ page }) => {
   await pretend(page, state);
   await page.goto("/");
 
-  const sidebar = page.locator(".sidebar");
-  const entry = sidebar.getByRole("button", {
+  const bar = page.locator(".topbar");
+  const entry = bar.getByRole("button", {
     name: "Needs a look, 12 things",
   });
   await expect(entry).toBeVisible();
@@ -167,17 +167,91 @@ test("the bell is in the sidebar on a desk", async ({ page }) => {
     "data-count",
     "9+",
   );
+  // At the right of the bar, and no longer in the sidebar.
+  const box = (await entry.boundingBox())!;
+  expect(box.x + box.width).toBeGreaterThan(1280 - 80);
+  await expect(
+    page.locator(".sidebar").getByRole("button", { name: /Needs a look/ }),
+  ).toHaveCount(0);
   await entry.click();
   await expect(
     page.getByRole("heading", { name: "Needs a look" }),
   ).toBeVisible();
   await expect(entry).toHaveAttribute("aria-current", "page");
-
-  // Collapsed, the number stays on the bell.
-  await sidebar.getByRole("button", { name: "Collapse sidebar" }).click();
-  await expect(entry.locator(".bell-badge")).toBeVisible();
   await expectAccessible(page, "Needs a look on a desk");
 });
+
+/** Production with enough trays to scroll, each with buttons at the right. */
+async function longProduction(page: Page) {
+  const rows = Array.from({ length: 30 }, (_, i) => ({
+    containerId: `0193a6f0-0000-7000-8000-${String(i).padStart(12, "0")}`,
+    labelCode: `C0001${String(i).padStart(2, "0")}`,
+    kind: "Tray",
+    batchId: `0193a6f0-0000-7000-8001-${String(i).padStart(12, "0")}`,
+    traceabilityCode: `B0001${String(i).padStart(2, "0")}`,
+    plantId: "0193a6f0-0000-7000-8000-0000000000a1",
+    commonName: "Lavender",
+    variety: null,
+    botanicalName: null,
+    supplierName: null,
+    hasPhoto: false,
+    quantity: 24,
+    stage: "Sown",
+    stageSince: "2026-11-10T09:00:00Z",
+    startedAt: "2026-11-01T09:00:00Z",
+    locationId: null,
+    locationName: "Greenhouse 1",
+    potSizeName: null,
+    notCounted: false,
+    rough: false,
+  }));
+  await page.route("**/api/production", (route) =>
+    route.fulfill({ json: rows }),
+  );
+}
+
+for (const width of [390, 1280]) {
+  test(`at ${width} px, nothing scrolled under the bar along the top is covered by its buttons`, async ({
+    page,
+  }) => {
+    const touch = await page.evaluate(
+      () => matchMedia("(pointer: coarse)").matches,
+    );
+    test.skip(touch && width > 700, "A phone is checked at its own width.");
+    if (!touch) await page.setViewportSize({ width, height: 800 });
+    await pretend(page, { alerts: [seedlings], offline: false });
+    await longProduction(page);
+    await page.goto("/");
+    await page
+      .getByRole("button", { name: "Production", exact: true })
+      .first()
+      .click();
+    await expect(
+      page.getByRole("heading", { name: "Production" }),
+    ).toBeVisible();
+
+    // Scrolled so that a tray sits half under the bar, where the bell is.
+    const bar = (await page.locator(".topbar").boundingBox())!;
+    // A card for each tray on a phone, a table row on a desk.
+    const tray = page
+      .locator(".production-row:visible, .data-table tbody tr:visible")
+      .nth(6);
+    const top = (await tray.boundingBox())!.y;
+    await page.evaluate((by) => window.scrollBy(0, by), top - bar.height + 10);
+    await expectAccessible(
+      page,
+      `Production scrolled under the bar, ${width} px`,
+    );
+
+    // Something given focus beneath the bar is brought out from under it.
+    const control = (await tray.evaluate((row) => row.tagName === "BUTTON"))
+      ? tray
+      : tray.locator("button").first();
+    await control.focus();
+    const after = (await control.boundingBox())!;
+    expect(after.y).toBeGreaterThanOrEqual(bar.y + bar.height - 1);
+  });
+}
 
 test("ticking a job lowers the bell, and work that wasn't saved is on it", async ({
   page,
