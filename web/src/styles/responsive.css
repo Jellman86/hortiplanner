@@ -1,0 +1,1735 @@
+/* One look everywhere.
+
+   Page widths: a page is either one task at a comfortable width (.page-form), a form or summary beside a list
+   (.split inside a plain page), or a table or dashboard using the whole width. Notices at the top of a page sit at
+   the form width, lined up with the page's left edge.
+
+   Buttons: on a phone a page's buttons run the width of the screen, easy to hit with a thumb. On a desk a button is
+   as wide as its words, except in a narrow column of controls, where they line up. Links that act as buttons never
+   grow. */
+.menu-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* A tablet has room for the menus' buttons two to a row. */
+@media (min-width: 640px) and (max-width: 899.98px) {
+  .with-sidebar .menu-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.menu-group .settings-heading {
+  margin-top: 0.25rem;
+}
+
+.row .link-button {
+  flex: 0 0 auto;
+}
+
+/* Breadcrumbs that run off the start of a phone's screen fade there, showing there's more. */
+.breadcrumbs ol.cut {
+  mask-image: linear-gradient(to right, transparent, #000 1.5rem);
+}
+
+/* Settings pages sit as close under their breadcrumbs as every other page. */
+.breadcrumbs + .settings-layout {
+  padding-top: 0;
+}
+
+.breadcrumbs + .settings-layout > main {
+  padding-top: 0.5rem;
+}
+
+@media (min-width: 900px) {
+  .with-sidebar main.page-form {
+    max-width: var(--measure);
+  }
+
+  .with-sidebar
+    main
+    > :is(
+      .notice,
+      .card.done,
+      .card.problem,
+      .alert-card,
+      .caution,
+      [role="alert"],
+      [role="status"],
+      .ask-card
+    ) {
+    max-width: var(--measure);
+  }
+
+  /* A page's introduction reads at the same measure as its notices, however wide the page. */
+  .with-sidebar main > p {
+    max-width: var(--measure);
+  }
+
+  /* Nothing here yet: a quiet dashed note the size of its sentence, not a box across the page. */
+  .with-sidebar .note-empty {
+    width: fit-content;
+    max-width: min(100%, var(--measure));
+    text-align: start;
+  }
+
+  .with-sidebar
+    :is(main, .stack, .card, .form-card, form, section, fieldset, .line)
+    > :is(button, a.button):not(
+      .plant-card,
+      .place-row,
+      .climate-card,
+      .ask-card,
+      .menu-item,
+      .photo-strip-item,
+      .sort-button,
+      .pill-button,
+      .link-button,
+      .back,
+      .icon-button
+    ) {
+    align-self: flex-start;
+    min-width: 8rem;
+  }
+
+  .with-sidebar .card > .photo-choice {
+    align-self: flex-start;
+    padding-right: 1.25rem;
+  }
+
+  /* A list to pick one from, such as why plants were lost or where they're going: one width for every choice. */
+  .with-sidebar .choices {
+    width: fit-content;
+    min-width: 16rem;
+    max-width: 100%;
+  }
+
+  .with-sidebar .choices > :is(button, a.button):not(.link-button, .back) {
+    align-self: stretch;
+  }
+
+  .with-sidebar .row > :is(button, a.button) {
+    flex: 0 1 auto;
+    min-width: 8rem;
+  }
+
+  .with-sidebar .row > .link-button {
+    min-width: 0;
+  }
+
+  .with-sidebar .form-actions > button,
+  .with-sidebar .form-actions > button[type="submit"],
+  .with-sidebar .form-actions > button.secondary {
+    flex: 0 1 auto;
+    min-width: 9rem;
+  }
+
+  /* On a desk the sidebar and the breadcrumbs lead back from every screen, so none needs a Back button too. A place's
+     first page has a trail of one, which isn't shown, and still has the sidebar. */
+  .with-sidebar button.back {
+    display: none;
+  }
+
+  .with-sidebar .breadcrumbs + .settings-layout > main {
+    padding-top: 0.75rem;
+  }
+
+  .with-sidebar .breadcrumbs + .settings-layout > .settings-nav {
+    padding-top: 0.75rem;
+  }
+
+  /* More, if a desk ever lands on it, as a grid of cards rather than a long column repeating the sidebar. */
+  .with-sidebar .menu-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+    max-width: 64rem;
+  }
+
+  /* The sidebar's foot stays in view; only the list of places to go scrolls. */
+  .sidebar {
+    overflow: hidden;
+  }
+
+  .sidebar nav {
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+}
+
+.table-heading {
+  margin: 1.5rem 0 0.6rem;
+}
+
+/* Small notes and lists inside a table cell. */
+.cell-note {
+  display: block;
+  font-size: 0.9em;
+}
+
+.cell-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cell-lines li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+}
+
+.cell-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 1rem;
+}
+
+.purchases-table td {
+  vertical-align: top;
+}
+
+.data-table .link-button {
+  min-height: 2rem;
+}
+
+/* A file chooser drawn as a small button, such as adding a receipt to a purchase: the look is the small button's. */
+.file-link {
+  position: relative;
+  flex-direction: row;
+  cursor: pointer;
+}
+
+/* A file chooser that can't be used just now, such as while a picture uploads, looks it. */
+label.file-link:has(input:disabled),
+label.file-link:has(input:disabled):hover {
+  border-color: var(--line);
+  background: color-mix(in srgb, var(--line) 60%, var(--surface));
+  color: var(--muted);
+  box-shadow: none;
+  cursor: default;
+}
+
+.file-link:has(input:focus-visible) {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.file-link input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+}
+
+/* Something that can't be undone, such as voiding: quiet, but in the problem colour. */
+button.link-button.danger-link:not(:disabled),
+button.secondary.destructive:not(:disabled) {
+  color: var(--problem);
+}
+
+button.secondary.destructive:hover:not(:disabled) {
+  border-color: var(--problem);
+  background: color-mix(in srgb, var(--problem) 8%, var(--surface));
+}
+
+/* The plant page's labels and cards to print, side by side when there's room. */
+.print-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
+  gap: 0.75rem;
+}
+
+/* A label's name stays on one line beside its copies. */
+.print-list .print-button :is(button, a.button) {
+  white-space: nowrap;
+}
+
+.print-list .print-button select {
+  min-width: 6.5rem;
+}
+
+/* An invoice line: a card of fields on a phone, one row of them on a desk. */
+.line-total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 1rem;
+}
+
+/* The chosen-trays bar on a phone: one line until its actions are asked for. */
+.row > .many-trays-toggle {
+  flex: 0 0 auto;
+}
+
+.many-trays-toggle {
+  min-height: 2.75rem;
+  margin-left: auto;
+  padding: 0.25rem 1rem;
+}
+
+.many-trays-toggle + .link-button {
+  margin-left: 0;
+}
+
+.many-trays.collapsed .many-trays-actions {
+  display: none;
+}
+
+.many-trays.collapsed {
+  gap: 0;
+  padding-block: 0.5rem;
+}
+
+@media (min-width: 900px) {
+  .with-sidebar .many-trays.collapsed .many-trays-actions {
+    display: grid;
+  }
+
+  .with-sidebar .many-trays.collapsed {
+    gap: 0.75rem;
+    padding-block: 1rem;
+  }
+}
+
+/* From a wide desk, a new invoice's lines are one row each; narrower desks keep each line as a card. */
+@media (min-width: 1280px) {
+  .with-sidebar main.invoice-page {
+    max-width: 84rem;
+  }
+
+  /* Everything but the lines keeps to the form's width. */
+  .with-sidebar main.invoice-page > :not(form),
+  .with-sidebar main.invoice-page > form > :not(.invoice-line) {
+    max-width: var(--measure);
+  }
+
+  .with-sidebar .invoice-line > .line-fields {
+    display: grid;
+    grid-template-columns:
+      [plant] minmax(9rem, 2fr) [tray] minmax(9rem, 2fr)
+      [description] minmax(11rem, 3fr) [quantity] 6rem [price] 7rem [vat] auto
+      [total] minmax(8rem, auto);
+    gap: 0.75rem;
+    align-items: end;
+  }
+
+  .with-sidebar .line-fields .field-grid {
+    display: contents;
+  }
+
+  .with-sidebar .line-fields .line-plant {
+    grid-area: 1 / plant;
+  }
+
+  .with-sidebar .line-fields .line-tray {
+    grid-area: 1 / tray;
+  }
+
+  .with-sidebar .line-fields .line-description {
+    grid-area: 1 / description;
+  }
+
+  .with-sidebar .line-fields .line-quantity {
+    grid-area: 1 / quantity;
+  }
+
+  .with-sidebar .line-fields .line-price {
+    grid-area: 1 / price;
+  }
+
+  .with-sidebar .line-fields .line-vat {
+    grid-area: 1 / vat;
+  }
+
+  .with-sidebar .line-fields .line-total {
+    grid-area: 1 / total;
+    flex-direction: column;
+    align-items: flex-start;
+    align-self: center;
+    gap: 0;
+    font-weight: 600;
+  }
+}
+
+/* A bench station on a tablet uses its width: the tray beside what to do next, and Record work in two columns. */
+@media (min-width: 700px) {
+  .bench-layout main,
+  .bench-layout .breadcrumbs {
+    max-width: 64rem;
+  }
+
+  .bench-layout main.action-frame {
+    max-width: 40rem;
+  }
+
+  .bench-layout main.action-frame:has(.action-columns) {
+    max-width: 56rem;
+  }
+
+  .bench-layout .tray-layout {
+    grid-template-areas:
+      "details actions"
+      "history actions";
+    grid-template-columns: minmax(0, 1.2fr) minmax(16rem, 1fr);
+    align-items: start;
+    gap: 1.5rem 2rem;
+  }
+
+  .bench-layout .tray-actions {
+    position: sticky;
+    top: 1rem;
+  }
+
+  .bench-layout .split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 2rem;
+    align-items: start;
+  }
+}
+
+.data-table td.nowrap {
+  white-space: nowrap;
+}
+
+/* Links side by side, such as a tray's About this plant and Edit batch, keep clear of each other. */
+.row > .link-button + .link-button {
+  margin-left: 0.75rem;
+}
+
+/* Disabled links and Back stay links: no box, just the quieter colour. Last, so they win over every link style. */
+button:disabled:is(.link-button, .back, .danger-link),
+button:disabled:is(.link-button, .back, .danger-link):hover {
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+/* Each purchase's actions as one line of small buttons, wrapping when the column is narrow. */
+.purchases-table .cell-actions {
+  flex-flow: row wrap;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+/* A purchase on a phone: its smaller actions on one wrapping line. */
+.purchase-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.purchases-table td:nth-child(3) {
+  min-width: 11rem;
+}
+
+.purchases-table :is(th, td) {
+  padding-inline: 0.6rem;
+}
+
+/* Selects are drawn the same as other fields everywhere, rather than as iPhone's own grey box, with a small
+   chevron in each theme's quieter text colour. */
+select:not([multiple]) {
+  appearance: none;
+  padding-right: 2.25rem;
+  background-image: var(--chevron);
+  background-position: right 0.85rem center;
+  background-size: 0.75rem 0.5rem;
+  background-repeat: no-repeat;
+}
+
+/* Page layout by the room the page has, not the window: the sidebar, Settings' own menu and a tablet's width all
+   change how much there is. The page is its own size container, so its own widths stay on the media queries. Nothing
+   inside main may be position: fixed, as a size container would become its containing block. */
+.with-sidebar main {
+  container: page / inline-size;
+}
+
+/* A tablet gets a wider column than a phone; from 900px the desk rules above take over unchanged. */
+@media (min-width: 640px) and (max-width: 899.98px) {
+  .with-sidebar main,
+  .with-sidebar .breadcrumbs {
+    max-width: 46rem;
+  }
+
+  .with-sidebar main:is(.action-frame, .page-form),
+  .with-sidebar .breadcrumbs:has(+ main:is(.action-frame, .page-form)) {
+    max-width: 36rem;
+  }
+
+  .with-sidebar main.action-frame:has(.action-columns),
+  .with-sidebar .breadcrumbs:has(+ main.action-frame .action-columns) {
+    max-width: 46rem;
+  }
+}
+
+@media (min-width: 900px) {
+  .with-sidebar .settings-layout {
+    max-width: var(--page-max);
+  }
+}
+
+/* A form or summary beside a list: one column, the form at a comfortable width, until the page has room for both. */
+.with-sidebar .split > :first-child {
+  max-width: 30rem;
+}
+
+.with-sidebar .split.even > * {
+  max-width: 34rem;
+}
+
+@container page (min-width: 56rem) {
+  .with-sidebar .split {
+    display: grid;
+    grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr);
+    gap: 2.5rem;
+    align-items: start;
+  }
+
+  .with-sidebar .split > :first-child {
+    max-width: none;
+  }
+
+  /* Two cards of equal standing, such as the nursery's details beside its logo. */
+  .with-sidebar .split.even {
+    grid-template-columns: repeat(2, minmax(0, 34rem));
+  }
+}
+
+/* A list that is a wide table: the form sits above it until the page has room for both side by side. */
+@container page (max-width: 79.99rem) {
+  .with-sidebar .split.wide-list {
+    display: flex;
+    align-items: stretch;
+  }
+
+  .with-sidebar .split.wide-list > :first-child {
+    max-width: 30rem;
+  }
+}
+
+/* A table or its cards, by the room the page has rather than the window. */
+.wide-only {
+  display: none;
+}
+
+@container page (min-width: 56rem) {
+  .wide-only {
+    display: block;
+  }
+
+  .narrow-only {
+    display: none;
+  }
+}
+
+/* What Ask Hortiplanner's questions have cost: a quiet line on a phone, and each person's spend in Settings. */
+.ask-spend {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: -0.25rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.ask-spend strong {
+  color: var(--text);
+}
+
+.ask-spend svg {
+  flex: none;
+}
+
+.spend-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.spend-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0 1rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.spend-list li:first-child {
+  border-top: 0;
+}
+
+.spend-list li strong {
+  grid-row: span 2;
+  align-self: center;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.spend-list li span {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* People's pictures, round, with initials in a colour of their own when there's no picture. */
+.avatar {
+  flex: none;
+  width: var(--avatar-size, 40px);
+  height: var(--avatar-size, 40px);
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--surface);
+}
+
+.avatar.initials {
+  display: inline-grid;
+  place-items: center;
+  background: hsl(var(--avatar-hue, 120) 32% 86%);
+  color: hsl(var(--avatar-hue, 120) 45% 22%);
+  font-size: calc(var(--avatar-size, 40px) * 0.38);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.avatar.initials::after {
+  content: attr(data-initials);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .avatar.initials {
+    background: hsl(var(--avatar-hue, 120) 25% 28%);
+    color: hsl(var(--avatar-hue, 120) 40% 88%);
+  }
+}
+
+:root[data-theme="dark"] .avatar.initials {
+  background: hsl(var(--avatar-hue, 120) 25% 28%);
+  color: hsl(var(--avatar-hue, 120) 40% 88%);
+}
+
+/* A name button with the person's picture beside it, on the sign-in screen and at a bench. */
+button.person-button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.65rem;
+  text-align: left;
+}
+
+.person-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.signed-in {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* A place's newest photos, fanned like a little stack of prints at the end of its row. */
+.photo-stack {
+  position: relative;
+  flex: none;
+  width: calc(2.75rem + (var(--cards) - 1) * 0.7rem);
+  height: 2.75rem;
+}
+
+.photo-stack img {
+  position: absolute;
+  top: 0;
+  left: calc(var(--card) * 0.7rem);
+  z-index: calc(3 - var(--card));
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 2px solid var(--surface);
+  border-radius: 0.45rem;
+  object-fit: cover;
+  background: var(--line);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+  transform: rotate(calc(var(--card) * 5deg));
+}
+
+/* A place's newest photos, larger, beside its stack while a mouse points at the place or the keyboard is on it.
+   Only where there's a mouse: on a phone a tap opens the place, with all its photos. */
+.photo-peek {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .place-row:is(:hover, :focus-visible) .photo-peek {
+    display: grid;
+    animation: photo-peek-in 0.14s ease-out;
+  }
+}
+
+.photo-peek {
+  /* Just below the row, lined up with the stack's right edge, so the place's own name stays in view. */
+  position: absolute;
+  top: calc(100% + 0.6rem);
+  right: -0.4rem;
+  z-index: 20;
+  gap: 0.5rem;
+  width: min(22rem, 70vw);
+  padding: 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: var(--surface);
+  box-shadow:
+    0 12px 32px rgb(0 0 0 / 0.22),
+    0 2px 6px rgb(0 0 0 / 0.12);
+  pointer-events: none;
+}
+
+.photo-peek-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.photo-peek.one .photo-peek-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* Not the stack's tilted cards: plain photos, a little rounded. */
+.photo-stack .photo-peek img {
+  position: static;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  border: 0;
+  border-radius: 0.5rem;
+  box-shadow: none;
+  transform: none;
+}
+
+.photo-peek-caption {
+  padding: 0 0.2rem 0.1rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.35;
+  white-space: normal;
+}
+
+@keyframes photo-peek-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.25rem) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .place-row:is(:hover, :focus-visible) .photo-peek {
+    animation: none;
+  }
+}
+
+.photo-stack-more {
+  position: absolute;
+  right: -0.35rem;
+  bottom: -0.35rem;
+  z-index: 4;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.2rem;
+}
+
+/* Last, so it wins over every button style above: anything that can't be pressed sits flat on the page. */
+button:disabled,
+button.link-button:disabled {
+  box-shadow: none;
+}
+
+/* The drawing tool's corner handles: the dot stays small, but the part a finger can catch is bigger. */
+.place-map-canvas .marker-icon {
+  width: 28px !important;
+  height: 28px !important;
+  margin: -14px 0 0 -14px !important;
+  border: 0;
+  background: radial-gradient(
+    circle,
+    #ffffff 0 6px,
+    #3388ff 6px 7.5px,
+    transparent 8px
+  );
+}
+
+.place-map-canvas .marker-icon-middle {
+  width: 24px !important;
+  height: 24px !important;
+  margin: -12px 0 0 -12px !important;
+  background: radial-gradient(
+    circle,
+    #ffffff 0 4px,
+    #3388ff 4px 5.5px,
+    transparent 6px
+  );
+}
+
+/* A person's kept conversations with Ask Hortiplanner: one large button each. */
+.ask-conversation-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ask-conversation-row {
+  display: grid;
+  gap: 0.3rem;
+  justify-items: start;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 400;
+  text-align: left;
+  box-shadow: var(--shadow);
+}
+
+.ask-conversation-row:hover:not(:disabled),
+.ask-conversation-row[aria-current="true"] {
+  border-color: var(--primary);
+}
+
+.ask-conversations-card .ask-conversation-list {
+  max-height: 22rem;
+  overflow-y: auto;
+}
+
+.ask-title,
+.ask-rename {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.ask-title h2 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* A plant's family tree: one rail of dots from the wider groups down to this plant, marked in the accent colour. */
+.family-card {
+  container: family-tree / inline-size;
+  gap: 0.85rem;
+}
+
+.family-ladder {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.family-ladder li {
+  position: relative;
+  display: grid;
+  gap: 0.1rem;
+  padding: 0 0 0.9rem 1.6rem;
+}
+
+.family-ladder li:last-child {
+  padding-bottom: 0;
+}
+
+.family-ladder li::before {
+  content: "";
+  position: absolute;
+  top: 0.3rem;
+  left: 0;
+  width: 0.7rem;
+  height: 0.7rem;
+  box-sizing: border-box;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+}
+
+.family-ladder li::after {
+  content: "";
+  position: absolute;
+  top: 1rem;
+  bottom: -0.3rem;
+  left: 0.3rem;
+  width: 2px;
+  background: var(--line);
+}
+
+.family-ladder li:last-child::after {
+  display: none;
+}
+
+.rung-rank {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rung-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.rung-latin {
+  color: var(--muted);
+  font-size: 0.9em;
+  overflow-wrap: anywhere;
+}
+
+.family-credits {
+  gap: 0.5rem;
+  border-top: 1px solid var(--line);
+  padding-top: 0.75rem;
+}
+
+.family-credits p {
+  margin: 0;
+}
+
+.family-credits .row {
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+/* The tree itself: nested lists, each group a node and each plant a leaf, with elbow lines drawn by each item.
+   On a phone it runs down the page, each level stepped in; on a wide screen it branches left to right. */
+.plant-wide {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.ftree {
+  --gap: 0.9rem;
+  --row: 0.4rem;
+  --stub-node: 0.6rem;
+}
+
+.ftree,
+.ftree-children {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ftree-item {
+  --stub: var(--stub-node);
+}
+
+.ftree-item:has(> .ftree-leaf, > button) {
+  --stub: 1.375rem;
+}
+
+.ftree-children {
+  display: grid;
+  gap: var(--row);
+  margin-left: 0.3rem;
+  padding-top: var(--row);
+}
+
+.ftree-children > .ftree-item {
+  position: relative;
+  padding-left: var(--gap);
+}
+
+/* The upright line: from the item above (or the group's node) down past this item. */
+.ftree-children > .ftree-item::before {
+  content: "";
+  position: absolute;
+  top: calc(var(--row) * -1);
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  background: var(--border);
+}
+
+.ftree-children > .ftree-item:last-child::before {
+  bottom: auto;
+  height: calc(var(--stub) + var(--row));
+}
+
+/* The short line across to this item. */
+.ftree-children > .ftree-item::after {
+  content: "";
+  position: absolute;
+  top: var(--stub);
+  left: 0;
+  width: calc(var(--gap) - 0.2rem);
+  height: 2px;
+  background: var(--border);
+}
+
+/* The way down to this plant, in the accent colour. */
+.ftree-children > .ftree-item.on-path::before {
+  background: linear-gradient(
+    var(--accent) calc(var(--stub) + var(--row) + 1px),
+    var(--border) 0
+  );
+}
+
+.ftree-children > .ftree-item.on-path::after {
+  background: var(--accent);
+}
+
+.ftree-node {
+  display: grid;
+  gap: 0.05rem;
+}
+
+.ftree-names {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 0.4rem;
+}
+
+.ftree-item.on-path > .ftree-node .rung-name {
+  color: var(--text);
+}
+
+.ftree-leaf {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0.3rem 0.5rem;
+  text-align: left;
+}
+
+button.link-button.ftree-leaf {
+  justify-content: flex-start;
+  width: 100%;
+  min-width: 0;
+}
+
+.ftree-leaf .plant-thumb {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.4rem;
+  object-fit: cover;
+}
+
+.ftree-leaf .plant-thumb svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.ftree-leaf-name {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ftree-leaf > svg {
+  flex: none;
+}
+
+.ftree-leaf.this-plant {
+  border: 2px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--accent-surface);
+}
+
+/* Wide enough for every level side by side: the tree branches left to right. */
+@container family-tree (min-width: 60rem) {
+  .ftree {
+    --gap: 1.1rem;
+  }
+
+  .ftree .ftree-item:has(> .ftree-node) {
+    display: flex;
+    align-items: flex-start;
+  }
+
+  .ftree .ftree-node {
+    flex: none;
+    width: clamp(8.75rem, 15cqi, 15rem);
+  }
+
+  .ftree .ftree-children {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    margin-left: 0;
+    padding-top: 0;
+    padding-left: var(--gap);
+  }
+
+  /* Across from the group's node to its children's upright line. */
+  .ftree .ftree-children::before {
+    content: "";
+    position: absolute;
+    top: var(--stub-node);
+    left: 0;
+    width: var(--gap);
+    height: 2px;
+    background: var(--border);
+  }
+
+  .ftree .ftree-children.on-path::before {
+    background: var(--accent);
+  }
+
+  .ftree-children > .ftree-item:first-child::before {
+    top: var(--stub-node);
+  }
+
+  .ftree-children > .ftree-item:first-child:last-child::before {
+    height: calc(var(--stub) - var(--stub-node) + 2px);
+  }
+
+  /* The way down runs straight across here, so the upright line below it is an ordinary one. */
+  .ftree-children > .ftree-item.on-path::before {
+    background: var(--border);
+  }
+
+  .ftree-children > .ftree-item.on-path:first-child::before {
+    background: linear-gradient(
+      var(--accent) calc(var(--stub) - var(--stub-node) + 2px),
+      var(--border) 0
+    );
+  }
+
+  .ftree-leaf {
+    max-width: 30rem;
+  }
+}
+
+/* Reading a seed packet photo: the photo beside what was read, for the person to check. */
+.read-label-card {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.read-label-photo {
+  width: 100%;
+  max-height: 18rem;
+  border-radius: 0.5rem;
+  background: var(--line);
+  object-fit: contain;
+}
+
+.read-label-facts {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  padding-inline: 0;
+}
+
+.read-label-facts dd {
+  display: grid;
+  gap: 0.2rem;
+  overflow-wrap: anywhere;
+}
+
+.read-label-unsure {
+  color: var(--warning);
+  font-size: 0.9em;
+  font-weight: 600;
+}
+
+.read-tag {
+  align-self: flex-start;
+  width: fit-content;
+  white-space: nowrap;
+}
+
+.batch-check .read-tag {
+  margin-left: 0.35rem;
+}
+
+@media (min-width: 700px) {
+  .read-label-card {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    align-items: start;
+  }
+
+  .read-label-photo {
+    position: sticky;
+    top: calc(var(--topbar-height, 0px) + 1rem);
+  }
+}
+
+/* A plant's page. From top to bottom on a phone: the picture, the facts and what can be done with it, the photos,
+   the notes and articles, then the family tree. With a little more room the facts and actions sit beside the picture;
+   with room for two columns the picture, facts, actions and photos sit beside the notes; with room for three the
+   facts and actions take a column of their own. The tree runs across the page beneath. */
+.plant-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "hero" "aside" "photos" "read" "wide";
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.plant-page-hero {
+  grid-area: hero;
+}
+
+.plant-page-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  grid-area: aside;
+  min-width: 0;
+}
+
+.plant-page-photos {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  grid-area: photos;
+  min-width: 0;
+}
+
+.plant-page-read {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  grid-area: read;
+  min-width: 0;
+  max-width: var(--measure);
+}
+
+.plant-page > .plant-wide {
+  grid-area: wide;
+}
+
+.plant-find {
+  max-width: var(--measure);
+}
+
+/* A tablet or a small window: the facts and actions beside the picture rather than a picture the page's width. */
+@container page (min-width: 36rem) and (max-width: 55.99rem) {
+  .plant-page {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas: "hero aside" "photos photos" "read read" "wide wide";
+    column-gap: 1.5rem;
+  }
+}
+
+@container page (min-width: 56rem) {
+  .plant-page {
+    grid-template-columns: minmax(17rem, 22rem) minmax(0, 1fr);
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas:
+      "hero read"
+      "aside read"
+      "photos read"
+      "wide wide";
+    column-gap: 2.5rem;
+  }
+
+  /* The notes' heading lines up with the top of the picture. */
+  .plant-page-read > :first-child > h2 {
+    margin-top: 0;
+  }
+
+  /* A mouse doesn't scroll sideways easily, so every photo shows, a few to a row. */
+  .plant-page .photo-strip {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+}
+
+@container page (min-width: 80rem) {
+  .plant-page {
+    /* The notes keep a reading width; spare room goes beyond the facts, so they sit beside the notes. */
+    grid-template-columns:
+      minmax(17rem, 22rem) minmax(0, var(--measure))
+      minmax(17rem, 1fr);
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      "hero read aside"
+      "photos read aside"
+      "wide wide wide";
+  }
+
+  .plant-page-aside {
+    max-width: 22rem;
+  }
+}
+
+/* Adding a photo of a plant: small buttons, two or three to a row, one tap each. */
+.photo-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 8.5rem), 1fr));
+  gap: 0.5rem;
+}
+
+.photo-choices .photo-choice {
+  gap: 0.5rem;
+  min-height: max(2.75rem, 44px);
+  padding: 0.4rem 0.75rem;
+}
+
+.photo-choices .photo-choice > svg {
+  flex: none;
+  color: var(--muted);
+}
+
+/* Record work on a desk: scanning and actions beside Recent, with the owner's view of the nursery beneath as a row of
+   cards, or in a third column when there's room. */
+@container page (min-width: 56rem) {
+  .with-sidebar .split.home > .home-glance {
+    grid-column: 1 / -1;
+  }
+
+  .home-glance .overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
+    align-items: start;
+  }
+
+  .home-glance .overview > .stat-tiles {
+    grid-column: 1 / -1;
+  }
+}
+
+@container page (min-width: 80rem) {
+  /* Only with the owner's view in it: anyone else keeps two columns, with Recent across the rest. */
+  .with-sidebar .split.home:has(> .home-glance) {
+    grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr) minmax(
+        18rem,
+        22rem
+      );
+  }
+
+  .with-sidebar .split.home > .home-glance {
+    grid-column: auto;
+  }
+
+  .home-glance .overview {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* A place's page. On a phone: what you do here, the facts, what's inside and growing here, the map and photos, then
+   changing the place. With room for two columns the actions, facts, map, photos and changes sit beside what's here;
+   with room for three the map and photos take a column of their own. */
+.place-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "actions" "facts" "main" "media" "manage";
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.place-page-actions {
+  grid-area: actions;
+}
+
+.place-page-facts {
+  grid-area: facts;
+}
+
+.place-page-main,
+.place-page-media {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.place-page-main {
+  grid-area: main;
+}
+
+.place-page-media {
+  grid-area: media;
+}
+
+.place-page-manage {
+  grid-area: manage;
+  min-width: 0;
+}
+
+.place-page-manage:not(:has(*)) {
+  display: none;
+}
+
+/* What's here: trays side by side, two across on a desk and three on a wide one. */
+.place-trays {
+  --card-min: 16rem;
+}
+
+@container page (min-width: 56rem) {
+  .place-page {
+    grid-template-columns: minmax(18rem, 24rem) minmax(0, 1fr);
+    grid-template-rows: auto auto auto 1fr;
+    grid-template-areas:
+      "actions main"
+      "facts main"
+      "media main"
+      "manage main";
+    column-gap: 2.5rem;
+  }
+}
+
+@container page (min-width: 80rem) {
+  .place-page {
+    /* The map and photos take the third column to themselves, so nothing in one side column pushes the other. */
+    grid-template-columns: minmax(16rem, 20rem) minmax(0, 1fr) minmax(
+        16rem,
+        20rem
+      );
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas:
+      "actions main media"
+      "facts main media"
+      "manage main media";
+  }
+}
+
+/* A column of a page's everyday actions, such as on Record work or a place's page: on a desk they line up at the
+   column's width, like a menu. It ties with the desk's word-width button rule and wins by coming after it, so it must
+   stay later in this file. */
+.with-sidebar .fill > :is(button, a.button):not(.link-button, .back) {
+  align-self: stretch;
+}
+
+/* Recent's small buttons are as wide as their words on a desk. */
+.with-sidebar .card.recent .row > button {
+  min-width: 0;
+}
+
+/* Below two columns, a place's actions, facts and forms keep a comfortable width rather than the page's. */
+.place-page-actions,
+.place-page-facts,
+.place-page-manage > :is(form, .card) {
+  max-width: 30rem;
+}
+
+@container page (min-width: 56rem) {
+  .place-page-actions,
+  .place-page-facts,
+  .place-page-manage > :is(form, .card) {
+    max-width: none;
+  }
+}
+
+/* A tray on a wide desk: what's in it, what's happened to it and what to do next, side by side. */
+@container page (min-width: 80rem) {
+  .with-sidebar .tray-layout {
+    grid-template-areas: "details history actions";
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(18rem, 24rem);
+  }
+}
+
+/* A form beside a list: records that are cards sit side by side; Places' tree keeps to a readable width. */
+.record-grid {
+  --card-min: 18rem;
+}
+
+.place-list {
+  max-width: 48rem;
+}
+
+/* A record's small buttons, such as a supplier's Change and Stop using, are as wide as their words on a desk. */
+.with-sidebar .row.card-actions > button.link-button {
+  min-width: 0;
+}
+
+.row.card-actions > .link-button + .link-button {
+  margin-left: 0;
+}
+
+/* The kinds of label, never one left alone: two to a row on a phone, where a fifth runs the width; then four on one
+   row, or five as three and two; then all five on one row. */
+.segmented.label-kinds {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.segmented.label-kinds > :last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+@container page (min-width: 30rem) {
+  .segmented.label-kinds {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .segmented.label-kinds > :last-child:nth-child(odd) {
+    grid-column: auto;
+  }
+
+  .segmented.label-kinds:has(> :nth-child(5)) {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .segmented.label-kinds:has(> :nth-child(5)) > * {
+    grid-column: span 2;
+  }
+
+  .segmented.label-kinds:has(> :nth-child(5)) > :nth-child(n + 4) {
+    grid-column: span 3;
+  }
+}
+
+@container page (min-width: 43rem) {
+  .segmented.label-kinds:has(> :nth-child(5)) {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .segmented.label-kinds:has(> :nth-child(5)) > :nth-child(n) {
+    grid-column: auto;
+  }
+}
+
+/* Features: a card for each part of Hortiplanner, side by side where there's room. */
+.feature-list {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 26rem), 1fr));
+}
+
+/* The bell for what needs a look, and Ask Hortiplanner, at the right of the bar along the top, with a number on
+   the bell's corner when there's something. The number is never the only sign: the button's name says it too. */
+.topbar-tools > button,
+.topbar-tools > button:hover:not(:disabled) {
+  position: relative;
+  gap: 0.4rem;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+}
+
+.topbar-tools > button:focus-visible {
+  outline-color: currentcolor;
+}
+
+.topbar-tools > button:hover:not(:disabled),
+.topbar-tools > button[aria-current="page"] {
+  border-color: color-mix(in srgb, currentcolor 30%, transparent);
+  background: color-mix(in srgb, currentcolor 10%, transparent);
+}
+
+.topbar-tools > button svg {
+  flex: none;
+}
+
+/* On a desk, a bar button that shows words beside its icon widens to fit them on one line, rather than staying a
+   square icon button. */
+@media (min-width: 900px) {
+  .topbar-tools > button:has(.topbar-words) {
+    width: auto;
+    padding: 0 0.7rem;
+    white-space: nowrap;
+  }
+}
+
+.needs-icon {
+  position: relative;
+  display: inline-flex;
+}
+
+.bell-badge {
+  position: absolute;
+  top: -0.45rem;
+  right: -0.55rem;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: var(--accent);
+  /* A ring in the sidebar's colour keeps the number apart from whatever it sits on, light or dark. */
+  box-shadow: 0 0 0 2px var(--sidebar);
+  color: var(--on-accent);
+  font-family: system-ui, sans-serif;
+  font-size: max(0.7rem, 11px);
+  font-weight: 700;
+  line-height: 1.15rem;
+  text-align: center;
+}
+
+/* The number is drawn from an attribute, not written as text, so the button's name, which says it, is all a
+   screen reader hears and matches what's on screen. */
+.bell-badge::after {
+  content: attr(data-count);
+}
+
+.topbar-bell .bell-badge {
+  top: 0.2rem;
+  right: 0.15rem;
+  box-shadow: 0 0 0 2px var(--topbar-ring, var(--sidebar));
+}
+
+/* The list itself: one card for each kind of thing, side by side on a desk. */
+.needs-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+  gap: 0.75rem;
+  align-items: start;
+}
+
+/* A batch's costs: a name and two amounts a row, which fits a phone, with what's said about each row beneath it. */
+.costing {
+  max-inline-size: var(--measure);
+}
+
+.cost-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.cost-table th,
+.cost-table td {
+  padding: 0.5rem 0.4rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.cost-table thead th {
+  color: var(--muted);
+  font-size: 0.85rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.cost-table thead th.counts {
+  color: var(--text);
+}
+
+.cost-table th:not(:first-child),
+.cost-table .cost-amount {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.cost-table tbody th {
+  font-weight: 600;
+  /* A long name with no spaces mustn't push the table wider than a phone. */
+  overflow-wrap: anywhere;
+}
+
+.cost-table .cost-said td {
+  padding-block: 0 0.85rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.cost-table .cost-said p {
+  margin-block: 0 0.5rem;
+}
+
+.cost-table .cost-total th,
+.cost-table .cost-total td {
+  border-top: 2px solid var(--border);
+}
+
+/* The row of buttons under a page's heading for the other pages in its place: flat view-switching tabs, distinct
+   from page action buttons. The open one wears the accent's surface and a bar beneath, so it isn't told by colour
+   alone. */
+.hub-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.15rem 0 0.5rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.hub-nav button {
+  gap: 0.4rem;
+  min-height: 2.5rem;
+  padding: 0.35rem 0.85rem;
+  border: 1px solid transparent;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.hub-nav button:hover:not(:disabled) {
+  border-color: var(--line);
+  background: color-mix(in srgb, var(--line) 45%, var(--surface));
+  color: var(--text);
+}
+
+.hub-nav button[aria-current="page"],
+.hub-nav button[aria-current="page"]:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+  background: var(--accent-surface);
+  box-shadow: inset 0 -3px 0 var(--accent);
+  color: var(--accent-text);
+}
+
+/* The person's picture and quick New batch button at the right of the bar along the top, on a desk only: a phone has
+   New batch and Settings in its bottom bar. */
+.topbar-person,
+.topbar-new-batch {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .topbar-tools .topbar-new-batch {
+    display: inline-flex;
+  }
+
+  .topbar-tools .topbar-person {
+    display: inline-flex;
+    padding: 0.2rem;
+  }
+}
+
+/* What the picture opens: the browser's own popover, so Escape and a click outside close it. Just under the bar's
+   right end. */
+.account-panel {
+  position: fixed;
+  inset: auto 1rem auto auto;
+  top: calc(var(--topbar-height, 3.25rem) + 0.35rem);
+  width: min(20rem, calc(100vw - 2rem));
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: var(--surface);
+  box-shadow:
+    0 12px 32px rgb(0 0 0 / 0.2),
+    0 2px 6px rgb(0 0 0 / 0.1);
+  color: var(--text);
+}
+
+.account-panel:popover-open {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.account-panel > button {
+  justify-content: flex-start;
+}
+
+.account-panel-heading {
+  font-weight: 700;
+}
+
+.account-panel .segmented {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
