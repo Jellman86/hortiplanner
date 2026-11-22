@@ -5289,6 +5289,20 @@ button.link-button.ftree-leaf {
   background: color-mix(in srgb, currentcolor 10%, transparent);
 }
 
+.topbar-tools > button svg {
+  flex: none;
+}
+
+/* On a desk, a bar button that shows words beside its icon widens to fit them on one line, rather than staying a
+   square icon button. */
+@media (min-width: 900px) {
+  .topbar-tools > button:has(.topbar-words) {
+    width: auto;
+    padding: 0 0.7rem;
+    white-space: nowrap;
+  }
+}
+
 .needs-icon {
   position: relative;
   display: inline-flex;

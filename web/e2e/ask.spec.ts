@@ -93,6 +93,21 @@ test("Ask Hortiplanner answers on a phone, and lays out on a desk", async ({
     page.getByRole("heading", { name: "What your questions cost" }),
   ).toBeVisible();
   await expect(page.locator(".ask-spend-card")).toContainText("$1.50");
+  // On a desk, Ask Hortiplanner in the bar along the top widens to fit its words on one line without overlapping the bell.
+  const askButton = page
+    .locator(".topbar")
+    .getByRole("button", { name: "Ask Hortiplanner" });
+  const bellButton = page
+    .locator(".topbar")
+    .getByRole("button", { name: /^Needs a look/ });
+  const askBox = (await askButton.boundingBox())!;
+  const bellBox = (await bellButton.boundingBox())!;
+  expect(askBox.width).toBeGreaterThan(askBox.height);
+  expect(askBox.x + askBox.width).toBeLessThanOrEqual(bellBox.x);
+  expect(
+    await askButton.evaluate((el) => el.scrollWidth <= el.clientWidth),
+  ).toBe(true);
+  await expectAccessible(page, "Ask Hortiplanner on a desk");
   await page.screenshot({ path: "build/peek/ask-desk.png" });
   expect(
     await page.evaluate(
