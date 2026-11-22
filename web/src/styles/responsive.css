@@ -404,11 +404,6 @@ button.secondary.destructive:hover:not(:disabled) {
   white-space: nowrap;
 }
 
-/* Links side by side, such as a tray's About this plant and Edit batch, keep clear of each other. */
-.row > .link-button + .link-button {
-  margin-left: 0.75rem;
-}
-
 /* Disabled links and Back stay links: no box, just the quieter colour. Last, so they win over every link style. */
 button:disabled:is(.link-button, .back, .danger-link),
 button:disabled:is(.link-button, .back, .danger-link):hover {
@@ -1457,10 +1452,6 @@ button.link-button.ftree-leaf {
 /* A record's small buttons, such as a supplier's Change and Stop using, are as wide as their words on a desk. */
 .with-sidebar .row.card-actions > button.link-button {
   min-width: 0;
-}
-
-.row.card-actions > .link-button + .link-button {
-  margin-left: 0;
 }
 
 /* The kinds of label, never one left alone: two to a row on a phone, where a fifth runs the width; then four on one
