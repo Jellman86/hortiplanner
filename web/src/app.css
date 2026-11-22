@@ -266,7 +266,7 @@ a.button:hover {
 button.secondary,
 a.button.secondary,
 button[aria-pressed="false"] {
-  border-color: var(--border);
+  border-color: color-mix(in srgb, var(--border) 68%, var(--line));
   background: var(--surface);
   color: var(--text);
 }
@@ -759,7 +759,8 @@ textarea:focus-visible {
   white-space: pre-wrap;
 }
 
-/* A smaller action, such as Undo, Change or Remove: a quiet button, never bare underlined text. */
+/* A smaller action, such as Undo, Change or Remove: a quiet tonal button, never bare underlined text, calmer than
+   page-level primary and secondary buttons so cards stay easy to scan. */
 button.link-button,
 a.small-button,
 label.file-link {
@@ -770,20 +771,20 @@ label.file-link {
   align-self: flex-start;
   min-height: 2.75rem;
   padding: 0.4rem 0.9rem;
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, var(--border) 48%, var(--line));
   border-radius: var(--radius);
-  background: var(--surface);
+  background: color-mix(in srgb, var(--line) 42%, var(--surface));
   color: var(--text);
   font-weight: 600;
   text-decoration: none;
-  box-shadow: var(--shadow);
+  box-shadow: 0 1px 1px rgb(31 42 27 / 4%);
 }
 
 button.link-button:hover:not(:disabled),
 a.small-button:hover,
 label.file-link:hover {
   border-color: var(--primary);
-  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
   color: var(--primary);
 }
 
@@ -792,10 +793,16 @@ button.link-button.danger-link:hover:not(:disabled) {
   background: color-mix(in srgb, var(--problem) 8%, var(--surface));
 }
 
+.card-actions {
+  margin-top: 0.25rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--line);
+}
+
 .entry-photos {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.5rem;
 }
 
@@ -813,6 +820,9 @@ button.photo-remove {
   gap: 0.4rem;
   min-height: 2.2rem;
   padding: 0.25rem 0.5rem;
+  border-color: color-mix(in srgb, var(--problem) 35%, var(--line));
+  background: color-mix(in srgb, var(--problem) 6%, var(--surface));
+  box-shadow: none;
   color: var(--problem);
 }
 
@@ -3468,6 +3478,15 @@ button.production-row.chosen:hover:not(:disabled) {
 .ask-suggestions {
   display: grid;
   gap: 0.5rem;
+}
+
+.ask-suggestions button {
+  justify-content: flex-start;
+  border-color: color-mix(in srgb, var(--border) 48%, var(--line));
+  background: color-mix(in srgb, var(--line) 42%, var(--surface));
+  box-shadow: 0 1px 1px rgb(31 42 27 / 4%);
+  font-weight: 500;
+  text-align: left;
 }
 
 .ask-lines {
