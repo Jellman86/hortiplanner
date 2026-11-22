@@ -1,5 +1,6 @@
 <script lang="ts">
   import { isOn } from "../lib/features.svelte";
+  import ArrowRight from "@lucide/svelte/icons/arrow-right";
   import Clock from "@lucide/svelte/icons/clock";
   import PackageCheck from "@lucide/svelte/icons/package-check";
   import PoundSterling from "@lucide/svelte/icons/pound-sterling";
@@ -10,6 +11,7 @@
     stages,
     totalPlants,
     type ProductionRow,
+    type Stage,
   } from "../lib/production";
   import { byContainer } from "../lib/places";
   import type { Schemas } from "../lib/types";
@@ -17,7 +19,15 @@
   import BarList from "./BarList.svelte";
 
   // The owner's view of the whole nursery, for a wide screen.
-  let { onOpen }: { onOpen: (label: string) => void } = $props();
+  let {
+    onOpen,
+    onProduction,
+    onMoney,
+  }: {
+    onOpen: (label: string) => void;
+    onProduction?: (stage?: Stage | null) => void;
+    onMoney?: () => void;
+  } = $props();
 
   /** Seed usually shows within four weeks; longer is worth a look. */
   const slowToGerminateDays = 28;
@@ -57,50 +67,82 @@
 
   onMount(async () => {
     try {
-      rows = (await api.GET("/api/production")).data ?? [];
-      owed = isOn("Purchases")
-        ? Number((await api.GET("/api/money/summary")).data?.owed ?? 0)
-        : 0;
       const startOfDay = new Date(
         now.getFullYear(),
         now.getMonth(),
         now.getDate(),
       );
-      today = (
-        (
-          await api.GET("/api/events/recent", {
-            params: { query: { limit: 50, everyone: true } },
-          })
-        ).data ?? []
-      ).filter((action) => new Date(action.occurredAt) >= startOfDay);
+      const [productionRes, moneyRes, recentRes] = await Promise.all([
+        api.GET("/api/production"),
+        isOn("Purchases") ? api.GET("/api/money/summary") : null,
+        api.GET("/api/events/recent", {
+          params: { query: { limit: 50, everyone: true } },
+        }),
+      ]);
+      rows = productionRes.data ?? [];
+      owed = Number(moneyRes?.data?.owed ?? 0);
+      today = (recentRes.data ?? []).filter(
+        (action) => new Date(action.occurredAt) >= startOfDay,
+      );
     } finally {
       loaded = true;
     }
   });
 </script>
 
-{#if loaded}
+{#if !loaded}
+  <section
+    class="stack overview"
+    aria-label="The nursery at a glance"
+    aria-busy="true"
+  >
+    <div class="stat-tiles">
+      {#each [0, 1, 2, 3] as tile (tile)}
+        <div class="stat-tile skeleton" aria-hidden="true">
+          <span class="skeleton-bar wide"></span>
+          <span class="skeleton-bar"></span>
+        </div>
+      {/each}
+    </div>
+  </section>
+{:else}
   <section class="stack overview" aria-label="The nursery at a glance">
     <div class="stat-tiles">
-      <div class="stat-tile">
+      <button
+        type="button"
+        class="stat-tile stat-tile-button"
+        onclick={() => onProduction?.(null)}
+      >
         <strong>{totalPlants(rows)}</strong><span
           >{totalPlants(rows) === 1 ? "plant growing" : "plants growing"}</span
         >
-      </div>
-      <div class="stat-tile">
+      </button>
+      <button
+        type="button"
+        class="stat-tile stat-tile-button"
+        onclick={() => onProduction?.(null)}
+      >
         <strong>{trays.length}</strong><span
           >{trays.length === 1
             ? "tray or pot group"
             : "trays and pot groups"}</span
         >
-      </div>
-      <div class="stat-tile">
+      </button>
+      <button
+        type="button"
+        class="stat-tile stat-tile-button"
+        onclick={() => onProduction?.("Ready")}
+      >
         <strong>{ready.length}</strong><span>ready</span>
-      </div>
+      </button>
       {#if isOn("Purchases")}
-        <div class="stat-tile">
+        <button
+          type="button"
+          class="stat-tile stat-tile-button"
+          onclick={() => onMoney?.()}
+        >
           <strong>{money(owed)}</strong><span>owed to suppliers</span>
-        </div>
+        </button>
       {/if}
     </div>
 
@@ -143,16 +185,38 @@
           {#if ready.length > 0}
             <li>
               <PackageCheck size={18} aria-hidden="true" />
-              <span
-                >{ready.length}
-                {ready.length === 1 ? "tray is" : "trays are"} ready to sell</span
-              >
+              <div class="stack tight">
+                <p>
+                  {ready.length}
+                  {ready.length === 1 ? "tray is" : "trays are"} ready to sell.
+                </p>
+                {#if onProduction}
+                  <button
+                    class="link-button"
+                    onclick={() => onProduction("Ready")}
+                    >See ready trays <ArrowRight
+                      size={16}
+                      aria-hidden="true"
+                    /></button
+                  >
+                {/if}
+              </div>
             </li>
           {/if}
           {#if owed > 0}
             <li>
               <PoundSterling size={18} aria-hidden="true" />
-              <span>{money(owed)} is still owed to suppliers</span>
+              <div class="stack tight">
+                <p>{money(owed)} is still owed to suppliers.</p>
+                {#if onMoney}
+                  <button class="link-button" onclick={onMoney}
+                    >Go to Money <ArrowRight
+                      size={16}
+                      aria-hidden="true"
+                    /></button
+                  >
+                {/if}
+              </div>
             </li>
           {/if}
         </ul>

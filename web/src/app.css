@@ -969,6 +969,52 @@ button.place-row:hover:not(:disabled) {
   box-shadow: var(--shadow);
 }
 
+button.stat-tile-button {
+  align-items: flex-start;
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 0;
+  color: var(--text);
+  font-weight: 400;
+  text-align: left;
+}
+
+button.stat-tile-button:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 6%, var(--surface));
+  color: var(--text);
+}
+
+.stat-tile.skeleton {
+  gap: 0.5rem;
+  min-height: 4.75rem;
+}
+
+.skeleton-bar {
+  display: block;
+  width: 60%;
+  height: 0.85rem;
+  border-radius: 0.35rem;
+  background: color-mix(in srgb, var(--line) 75%, var(--surface));
+}
+
+.skeleton-bar.wide {
+  width: 40%;
+  height: 1.5rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .stat-tile.skeleton {
+    animation: gentle-pulse 1.4s ease-in-out infinite;
+  }
+
+  @keyframes gentle-pulse {
+    50% {
+      opacity: 0.55;
+    }
+  }
+}
+
 .stat-tile strong {
   font-family: var(--heading);
   font-size: 1.8rem;
@@ -1285,9 +1331,31 @@ button.sort-button:hover:not(:disabled) {
   font-size: 0.7em;
 }
 
-/* Choosing several rows: the whole row chooses, and a chosen row stands out. */
-.data-table tr.choosing {
+.sort-mark.idle {
+  opacity: 0.35;
+}
+
+.sort-button:hover .sort-mark.idle,
+.sort-button:focus-visible .sort-mark.idle {
+  opacity: 0.85;
+}
+
+/* Choosing several rows, or opening one by clicking anywhere on it. */
+.data-table tr.choosing,
+.data-table tr.selectable {
   cursor: pointer;
+}
+
+.table-plant {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.table-plant .plant-thumb {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.35rem;
 }
 
 .data-table tr.chosen td {

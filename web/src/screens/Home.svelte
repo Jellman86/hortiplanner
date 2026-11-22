@@ -65,6 +65,7 @@
   import BottomNav from "./BottomNav.svelte";
   import Manage from "./Manage.svelte";
   import Production from "./Production.svelte";
+  import type { Stage } from "../lib/production";
   import Plants from "./manage/Plants.svelte";
   import Overview from "./Overview.svelte";
   import PrintButton from "./PrintButton.svelte";
@@ -144,7 +145,7 @@
     | { name: "start"; prefill?: BatchPrefill }
     | { name: "camera" }
     | { name: "settings"; page: SettingsPage | null }
-    | { name: "production" }
+    | { name: "production"; stage?: Stage | null }
     | { name: "needs" }
     | { name: "place"; id: string }
     | { name: "moveMany"; destination?: string | null }
@@ -869,6 +870,7 @@
     />
   {:else if view.name === "production"}
     <Production
+      initialStage={view.stage ?? null}
       onOpen={(code) => open(code, true)}
       onBack={goHome}
       onLabels={(trays) => (view = { name: "labelSheets", trays })}
@@ -1096,7 +1098,12 @@
         <!-- The owner's view of the whole nursery: beneath on a smaller desk, a column of its own on a wide one. -->
         {#if me.isOwner && !atBench}
           <div class="desktop-only home-glance">
-            <Overview onOpen={(code) => open(code)} />
+            <Overview
+              onOpen={(code) => open(code)}
+              onProduction={(stage) =>
+                (view = { name: "production", stage: stage ?? null })}
+              onMoney={() => (view = { name: "manage", section: "money" })}
+            />
           </div>
         {/if}
       </div>
