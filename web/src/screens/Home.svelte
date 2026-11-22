@@ -993,66 +993,67 @@
           {/each}
           {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
 
-          {#if assistant.canAsk && !atBench}
-            <button class="ask-card" onclick={() => (view = { name: "ask" })}>
-              <Sparkles size={22} aria-hidden="true" />
-              <span class="stack tight">
-                <strong>Ask Hortiplanner</strong>
-                <span class="muted"
-                  >Ask about plants, the trays, losses and photos of plants.</span
-                >
-              </span>
-            </button>
-          {/if}
+          <div class="card home-lookup">
+            <form class="stack tight" onsubmit={scan}>
+              <label for="scan-label-input">Scan a label</label>
+              <div class="scan-row">
+                <input
+                  id="scan-label-input"
+                  bind:this={scanBox}
+                  bind:value={label}
+                  autocomplete="off"
+                  autocapitalize="characters"
+                  placeholder="Tray or place code"
+                />
+                {#if cameraAvailable}
+                  <button
+                    type="button"
+                    class="secondary scan-camera"
+                    aria-label="Use camera"
+                    title="Use camera"
+                    onclick={() => (view = { name: "camera" })}
+                    ><CameraIcon size={20} aria-hidden="true" /></button
+                  >
+                {/if}
+              </div>
+              <button type="submit">Open this label</button>
+            </form>
 
-          <form class="stack fill" onsubmit={scan}>
-            <label>
-              Scan a label
-              <input
-                bind:this={scanBox}
-                bind:value={label}
-                autocomplete="off"
-                autocapitalize="characters"
-              />
-            </label>
-            <button type="submit">Open this label</button>
-          </form>
+            <hr class="home-lookup-rule" />
+            <FindTray onOpen={(code) => open(code)} />
+          </div>
 
-          <FindTray onOpen={(code) => open(code)} />
-
-          {#if cameraAvailable}
+          <div class="home-actions">
             <button
-              class="secondary"
-              onclick={() => (view = { name: "camera" })}
-              ><CameraIcon size={18} aria-hidden="true" /> Use camera</button
-            >
-          {/if}
-          <button class="secondary" onclick={() => (view = { name: "start" })}
-            ><Plus size={18} aria-hidden="true" /> Start a new batch</button
-          >
-          <button
-            class="secondary"
-            onclick={() => (view = { name: "moveMany" })}
-            ><Move size={18} aria-hidden="true" /> Move several trays</button
-          >
-          {#if !atBench}
-            <button
-              class="secondary"
-              onclick={() => (view = { name: "labelSheets" })}
-              ><Printer size={18} aria-hidden="true" /> Print labels on A4</button
-            >
-          {/if}
-
-          {#if atBench}
-            <button
-              class="secondary"
-              onclick={() => (view = { name: "production" })}>Production</button
+              class="secondary home-action-lead"
+              onclick={() => (view = { name: "start" })}
+              ><Plus size={18} aria-hidden="true" /> Start a new batch</button
             >
             <button
               class="secondary"
-              onclick={() => (view = { name: "plants" })}>Plants</button
+              onclick={() => (view = { name: "moveMany" })}
+              ><Move size={18} aria-hidden="true" /> Move several trays</button
             >
-          {/if}
+            {#if !atBench}
+              <button
+                class="secondary"
+                onclick={() => (view = { name: "labelSheets" })}
+                ><Printer size={18} aria-hidden="true" /> Print labels on A4</button
+              >
+            {/if}
+
+            {#if atBench}
+              <button
+                class="secondary"
+                onclick={() => (view = { name: "production" })}
+                >Production</button
+              >
+              <button
+                class="secondary"
+                onclick={() => (view = { name: "plants" })}>Plants</button
+              >
+            {/if}
+          </div>
         </section>
 
         <section>

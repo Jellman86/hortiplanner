@@ -55,8 +55,11 @@ test("Ask Hortiplanner answers on a phone, and lays out on a desk", async ({
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
 
-  // The card on Record work; the bar along the top has its own button too.
-  await page.locator("button.ask-card").click();
+  // Reached from the bar along the top on every screen.
+  await page
+    .locator(".topbar")
+    .getByRole("button", { name: "Ask Hortiplanner" })
+    .click();
   await expect(
     page.getByRole("heading", { name: "Ask Hortiplanner" }),
   ).toBeVisible();

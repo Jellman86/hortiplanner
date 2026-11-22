@@ -3694,6 +3694,51 @@ button.production-row.chosen:hover:not(:disabled) {
   margin-top: 0.2rem;
 }
 
+/* Record work: scan and find live together in one card, with quick actions in a compact grid beneath. */
+.home-lookup {
+  gap: 0.75rem;
+}
+
+.scan-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.scan-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+button.scan-camera {
+  flex: none;
+  width: var(--target);
+  min-width: var(--target);
+  padding: 0;
+}
+
+.home-lookup-rule {
+  width: 100%;
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.home-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.home-actions > button {
+  min-width: 0;
+  padding-inline: 0.65rem;
+}
+
+.home-actions > .home-action-lead {
+  grid-column: 1 / -1;
+}
+
 /* Record work: Ask Hortiplanner, offered as a card when this person can ask. */
 .ask-card {
   display: flex;
