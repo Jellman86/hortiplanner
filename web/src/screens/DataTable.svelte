@@ -1,6 +1,7 @@
 <script lang="ts" generics="T">
   import type { Snippet } from "svelte";
   import { cellText, sortRows, type Column } from "../lib/table";
+  import PlantThumb from "./work/PlantThumb.svelte";
 
   // A table for wide screens, sorted by tapping a column's heading.
   let {
@@ -39,6 +40,23 @@
 
   const sortState = (index: number) =>
     sortBy !== index ? "none" : ascending ? "ascending" : "descending";
+
+  function rowClick(event: MouseEvent, row: T) {
+    if (!onSelect) {
+      return;
+    }
+
+    if (
+      !chosen &&
+      (event.target as HTMLElement | null)?.closest(
+        "button, a, input, select, label",
+      )
+    ) {
+      return;
+    }
+
+    onSelect(row);
+  }
 </script>
 
 <div class="table-wrap" class:fit>
@@ -57,8 +75,11 @@
               {column.label}{#if column.hint}<span class="visually-hidden"
                   >, {column.hint}</span
                 >{/if}
-              <span class="sort-mark" aria-hidden="true"
-                >{sortBy === index ? (ascending ? "▲" : "▼") : ""}</span
+              <span
+                class="sort-mark"
+                class:idle={sortBy !== index}
+                aria-hidden="true"
+                >{sortBy === index ? (ascending ? "▲" : "▼") : "⇅"}</span
               >
             </button>
           </th>
@@ -73,7 +94,8 @@
         <tr
           class:chosen={!!chosen?.(row)}
           class:choosing={!!chosen}
-          onclick={chosen && onSelect ? () => onSelect(row) : undefined}
+          class:selectable={!!onSelect && !chosen}
+          onclick={onSelect ? (event) => rowClick(event, row) : undefined}
         >
           {#if chosen}
             <td class="choose-cell">
@@ -92,6 +114,13 @@
                 <button class="link-button" onclick={() => onSelect(row)}
                   >{cellText(column, row)}</button
                 >
+              {:else if column.thumb}
+                <span class="table-plant">
+                  <PlantThumb url={column.thumb(row)} />
+                  <span>{cellText(column, row)}</span>
+                </span>
+              {:else if column.pill}
+                <span class="pill">{cellText(column, row)}</span>
               {:else if column.strong}
                 <strong>{cellText(column, row)}</strong>
               {:else}

@@ -1,0 +1,142 @@
+/* Colours are taken from the Hortiplanner artwork, a lacecap hydrangea. Its leaf green
+   leads: green is for things to press. The florets are highlights with one job
+   each: periwinkle blue (--accent) for where you are, what's chosen and what's
+   just been saved; lilac (--badge) for stage badges; and blue, lilac and pink
+   together for chart series. Red is kept for problems. The two dark blocks must
+   say the same thing.
+
+   Sign-in screens and bench stations keep the large sizes below, for gloved
+   hands; signed-in phones and desks get tighter ones further down. */
+:root {
+  color-scheme: light;
+  --background: #f5f4ea;
+  --surface: #fdfcf6;
+  --text: #1f2a1b;
+  --muted: #566040;
+  --primary: #3d5a2c;
+  --primary-hover: #2c4420;
+  --on-primary: #ffffff;
+  --line: #e0e1cc;
+  --border: #7c8562;
+  --problem: #a8231a;
+  --problem-hover: #85190f;
+  --on-problem: #ffffff;
+  --success: #2a6b3c;
+  --warning: #8a5a00;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23566040' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --accent: #4a5cc0;
+  --on-accent: #ffffff;
+  --accent-surface: #e7eafb;
+  --accent-text: #34409b;
+  --chart-warm: #b4532a;
+  --chart-cool: #4a5cc0;
+  --badge-surface: #f1e4f3;
+  --badge-text: #6c3b79;
+  --chart-1: #6b8cee;
+  --chart-2: #9846ab;
+  --chart-3: #e86494;
+  --sidebar: #26391f;
+  --sidebar-text: #edf0dc;
+  --sidebar-hover: rgb(255 255 255 / 10%);
+  --sidebar-line: rgb(255 255 255 / 18%);
+  --sidebar-active: #dfe4fb;
+  --sidebar-active-text: #1f2553;
+  --paper: #ffffff;
+  --paper-edge: 0 0 0 1px rgb(31 42 27 / 18%), 0 4px 14px rgb(31 42 27 / 16%);
+  --shadow: 0 1px 2px rgb(31 42 27 / 8%), 0 2px 8px rgb(31 42 27 / 5%);
+  --target: 4rem;
+  --radius: 0.6rem;
+  /* Forms, prose, notices and page introductions keep a readable measure; grids, tables and dashboards grow to the
+     page's width; a card in a grid gets no narrower than --card-min. */
+  --measure: 44rem;
+  --page-max: 120rem;
+  --card-min: 16rem;
+  --heading: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  font-size: 20px;
+  line-height: 1.4;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --background: #111a12;
+    --surface: #1f2d20;
+    --text: #e8eddc;
+    --muted: #a8b497;
+    --primary: #a6c888;
+    --primary-hover: #badaa0;
+    --on-primary: #14210f;
+    --line: #3a4d3a;
+    --border: #74856c;
+    --problem: #ff9e8f;
+    --problem-hover: #ffb5a8;
+    --on-problem: #3d0c07;
+    --success: #8dd7a0;
+    --warning: #f0c060;
+    --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23a8b497' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    --accent: #a9b7f8;
+    --on-accent: #141a42;
+    --accent-surface: #232c4d;
+    --accent-text: #c2ccfb;
+    --chart-warm: #d9744a;
+    --chart-cool: #7083e6;
+    --badge-surface: #33243a;
+    --badge-text: #e2bfe8;
+    --chart-1: #6889ea;
+    --chart-2: #a24fb4;
+    --chart-3: #e15a7b;
+    --sidebar: #1b2e1c;
+    --sidebar-text: #e6ecd6;
+    --sidebar-hover: rgb(255 255 255 / 9%);
+    --sidebar-line: rgb(255 255 255 / 14%);
+    --sidebar-active: #b3bff9;
+    --sidebar-active-text: #141a42;
+    --paper: #ffffff;
+    --paper-edge: 0 0 0 1px rgb(0 0 0 / 40%), 0 4px 14px rgb(0 0 0 / 35%);
+    --shadow: 0 1px 2px rgb(0 0 0 / 40%);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #111a12;
+  --surface: #1f2d20;
+  --text: #e8eddc;
+  --muted: #a8b497;
+  --primary: #a6c888;
+  --primary-hover: #badaa0;
+  --on-primary: #14210f;
+  --line: #3a4d3a;
+  --border: #74856c;
+  --problem: #ff9e8f;
+  --problem-hover: #ffb5a8;
+  --on-problem: #3d0c07;
+  --success: #8dd7a0;
+  --warning: #f0c060;
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23a8b497' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --accent: #a9b7f8;
+  --on-accent: #141a42;
+  --accent-surface: #232c4d;
+  --accent-text: #c2ccfb;
+  --chart-warm: #d9744a;
+  --chart-cool: #7083e6;
+  --badge-surface: #33243a;
+  --badge-text: #e2bfe8;
+  --chart-1: #6889ea;
+  --chart-2: #a24fb4;
+  --chart-3: #e15a7b;
+  --sidebar: #1b2e1c;
+  --sidebar-text: #e6ecd6;
+  --sidebar-hover: rgb(255 255 255 / 9%);
+  --sidebar-line: rgb(255 255 255 / 14%);
+  --sidebar-active: #b3bff9;
+  --sidebar-active-text: #141a42;
+  --paper: #ffffff;
+  --paper-edge: 0 0 0 1px rgb(0 0 0 / 40%), 0 4px 14px rgb(0 0 0 / 35%);
+  --shadow: 0 1px 2px rgb(0 0 0 / 40%);
+}

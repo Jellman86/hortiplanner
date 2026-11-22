@@ -25,11 +25,14 @@
   import ManyTrays from "./work/ManyTrays.svelte";
 
   let {
+    initialStage = null,
     onOpen,
     onBack,
     onLabels,
     onNewBatch,
   }: {
+    /** Optional stage to filter by when opened from an overview tile. */
+    initialStage?: Stage | null;
     onOpen: (label: string) => void;
     onBack: () => void;
     onLabels: (labelCodes: string[]) => void;
@@ -80,7 +83,7 @@
   let rows = $state<ProductionRow[]>([]);
   let loaded = $state(false);
   let problem = $state("");
-  let stage = $state<Stage | null>(null);
+  let stage = $derived<Stage | null>(initialStage);
   let text = $state("");
   let place = $state("");
   let supplier = $state("");
@@ -93,7 +96,12 @@
 
   const columns: Column<ProductionRow>[] = $derived([
     { label: "Label", value: (row) => row.labelCode },
-    { label: "Plant", value: (row) => plantName(row.commonName, row.variety) },
+    {
+      label: "Plant",
+      value: (row) => plantName(row.commonName, row.variety),
+      thumb: (row) =>
+        row.hasPhoto ? `/api/plants/${row.plantId}/photo` : null,
+    },
     {
       label: "Plants",
       value: (row) => Number(row.quantity),
@@ -101,7 +109,7 @@
         row.notCounted ? seedOnly(row.sown) : String(row.quantity),
       numeric: true,
     },
-    { label: "Stage", value: (row) => stageLabel(row.stage) },
+    { label: "Stage", value: (row) => stageLabel(row.stage), pill: true },
     {
       label: "Days",
       value: (row) => daysAt(row.stageSince),

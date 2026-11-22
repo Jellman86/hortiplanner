@@ -1,0 +1,685 @@
+/* Signed in on a personal device: tighter, with navigation always in reach. */
+:root:has(.with-sidebar) {
+  font-size: 17px;
+  --target: 3rem;
+  /* The bar along the top, which everything scrolled to or focused stops below. */
+  --topbar-height: 3.5rem;
+  --sidebar-width: 0px;
+  scroll-padding-top: calc(var(--topbar-height) + 1rem);
+}
+
+/* The bar along the top of every screen: fixed, so it stays put while the page scrolls beneath it, like the bar
+   along the bottom of a phone. The page is padded by its height, so nothing starts underneath it. */
+.with-sidebar .topbar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: var(--sidebar-width);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-sizing: border-box;
+  height: calc(var(--topbar-height) + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 1rem 0;
+  background: var(--sidebar);
+  color: var(--sidebar-text);
+  font-family: var(--heading);
+  font-size: 1.15rem;
+  font-weight: 700;
+  --topbar-ring: var(--sidebar);
+}
+
+.with-sidebar .content {
+  padding-top: calc(var(--topbar-height) + env(safe-area-inset-top));
+}
+
+.topbar-tools {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
+/* Words beside an icon in the bar, shown on a desk only; the button's name says them on a phone. */
+.topbar-words {
+  display: none;
+}
+
+@media (max-width: 339px) {
+  .topbar-name {
+    display: none;
+  }
+}
+
+.with-sidebar .bottom-nav {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 5;
+  display: flex;
+  padding-bottom: env(safe-area-inset-bottom);
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.bottom-nav button {
+  flex: 1;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-height: 3.5rem;
+  /* Little to the sides, so the five labels fit on one line on a 360px phone whatever its font. */
+  padding: 0.35rem 0.1rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.bottom-nav button:hover:not(:disabled) {
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+}
+
+/* A bar above it as well as the colour, so the current place isn't told by colour alone. */
+.bottom-nav button[aria-current="page"],
+.bottom-nav button[aria-current="page"]:hover:not(:disabled) {
+  box-shadow: inset 0 3px 0 var(--accent);
+  color: var(--accent-text);
+}
+
+.with-sidebar main {
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+}
+
+.with-sidebar .stepper-value {
+  font-size: 2.5rem;
+}
+
+@media (min-width: 900px) {
+  :root:has(.with-sidebar) {
+    font-size: 15.5px;
+    --target: 2.6rem;
+  }
+
+  :root:has(.with-sidebar) {
+    --topbar-height: 3.25rem;
+    --sidebar-width: 15rem;
+  }
+
+  :root:has(.with-sidebar.collapsed) {
+    --sidebar-width: 4.25rem;
+  }
+
+  .with-sidebar {
+    display: grid;
+    grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+    min-height: 100vh;
+    transition: grid-template-columns 0.15s ease;
+  }
+
+  /* On a desk the bar is quiet: the page's own colour with a hairline beneath, so it isn't a second sidebar. The
+     logo and name are in the sidebar already. */
+  .with-sidebar .topbar {
+    border-bottom: 1px solid var(--line);
+    background: var(--background);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 1rem;
+    transition: left 0.15s ease;
+    --topbar-ring: var(--background);
+  }
+
+  .with-sidebar .topbar-brand-text {
+    display: none;
+  }
+
+  .topbar-words {
+    display: inline;
+  }
+
+  .with-sidebar .bottom-nav,
+  .with-sidebar .mobile-only,
+  .with-sidebar .panel-toggle {
+    display: none;
+  }
+
+  .with-sidebar .desktop-only {
+    display: block;
+  }
+
+  .with-sidebar .panel-body.closed {
+    display: block;
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    height: 100vh;
+    padding: 1rem 0.65rem;
+    overflow-y: auto;
+    background: var(--sidebar);
+    box-shadow: inset -1px 0 0 var(--sidebar-line);
+    color: var(--sidebar-text);
+  }
+
+  /* The logo and name, which take you back to Record work. */
+  .sidebar .brand {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0 0.25rem;
+    font-family: var(--heading);
+    font-size: 1.4rem;
+    font-weight: 700;
+  }
+
+  .sidebar nav,
+  .sidebar-foot {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+
+  .sidebar nav {
+    flex: 1;
+  }
+
+  .sidebar button {
+    justify-content: flex-start;
+    gap: 0.75rem;
+    min-height: 2.4rem;
+    padding: 0.35rem 0.7rem;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font-weight: 500;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  .sidebar button:hover:not(:disabled) {
+    border: 0;
+    background: var(--sidebar-hover);
+    color: inherit;
+  }
+
+  .sidebar button[aria-current="page"],
+  .sidebar button[aria-current="page"]:hover:not(:disabled) {
+    background: var(--sidebar-active);
+    color: var(--sidebar-active-text);
+    font-weight: 700;
+  }
+
+  .sidebar button:focus-visible {
+    outline-color: var(--sidebar-text);
+    outline-offset: -2px;
+  }
+
+  .sidebar svg {
+    flex: none;
+  }
+
+  .nav-heading {
+    margin: 0.85rem 0 0.2rem;
+    padding: 0 0.7rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 75%;
+  }
+
+  .nav-rule {
+    display: none;
+    width: 100%;
+    margin: 0.5rem 0;
+    border: 0;
+    border-top: 1px solid var(--sidebar-line);
+  }
+
+  .sidebar-foot {
+    padding-top: 0.6rem;
+    border-top: 1px solid var(--sidebar-line);
+  }
+
+  .collapsed .nav-text {
+    display: none;
+  }
+
+  .collapsed .nav-rule {
+    display: block;
+  }
+
+  .collapsed .sidebar .brand {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .collapsed .sidebar button {
+    justify-content: center;
+    padding: 0.35rem;
+  }
+
+  .with-sidebar main {
+    width: 100%;
+    max-width: var(--page-max);
+    margin: 0;
+    padding: 2rem 2.5rem 3rem;
+  }
+
+  /* One task at a time reads better at a comfortable width than stretched across a big screen. */
+  .with-sidebar main.action-frame {
+    max-width: 40rem;
+  }
+
+  .with-sidebar main.action-frame:has(.action-columns) {
+    max-width: 56rem;
+  }
+
+  .with-sidebar .tray-layout {
+    grid-template-areas:
+      "details actions"
+      "history actions";
+    grid-template-columns: minmax(0, 1fr) clamp(18rem, 42%, 26rem);
+    align-items: start;
+    gap: 1.5rem 2.5rem;
+  }
+
+  .with-sidebar .tray-actions {
+    position: sticky;
+    top: calc(var(--topbar-height) + 1.5rem);
+  }
+
+  .with-sidebar .plant-layout {
+    display: grid;
+    grid-template-columns: minmax(18rem, 25rem) minmax(0, 1fr);
+    gap: 2.5rem;
+    align-items: start;
+  }
+
+  .with-sidebar .plant-layout.single {
+    grid-template-columns: minmax(0, 46rem);
+  }
+
+  .with-sidebar .plant-side {
+    position: sticky;
+    top: calc(var(--topbar-height) + 1.5rem);
+  }
+
+  .with-sidebar .note-form button {
+    align-self: flex-end;
+    min-width: 9rem;
+  }
+
+  .with-sidebar .filters {
+    grid-template-columns: minmax(16rem, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .with-sidebar .filters label:first-child {
+    grid-column: auto;
+  }
+
+  .with-sidebar .actions {
+    grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  }
+}
+
+/* A touch screen keeps large targets even when wide enough for the desktop layout. */
+@media (min-width: 900px) and (pointer: coarse) {
+  :root:has(.with-sidebar) {
+    --target: 3rem;
+  }
+}
+
+button.danger {
+  border-color: var(--problem);
+  background: var(--problem);
+  color: var(--on-problem);
+}
+
+button.danger:hover:not(:disabled) {
+  border-color: var(--problem-hover);
+  background: var(--problem-hover);
+  /* Also a secondary button's: its hover colour would otherwise be green on red. */
+  color: var(--on-problem);
+}
+
+.start-afresh {
+  margin-top: 1.5rem;
+}
+
+.start-afresh summary {
+  cursor: pointer;
+}
+
+.start-afresh summary h2 {
+  display: inline;
+}
+
+/* Settings: grouped, one page at a time on a phone, the list beside the page on a desk. */
+.settings-heading {
+  margin: 0.75rem 0 0;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.settings-sign-out {
+  margin-top: 1rem;
+}
+
+.settings-nav {
+  display: none;
+}
+
+.signed-in {
+  margin: 0 0 0.35rem;
+  padding: 0 0.7rem;
+  overflow: hidden;
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Only the words are softened: a faded picture would make its initials hard to read. */
+.signed-in > span:not(.avatar) {
+  opacity: 80%;
+}
+
+.about-intro {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.about-intro img {
+  flex: none;
+}
+
+.about-intro p {
+  margin: 0;
+}
+
+.credits {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.credits li {
+  display: flex;
+  flex-direction: column;
+}
+
+.backup-ok {
+  margin: 0;
+  color: var(--success);
+  font-weight: 700;
+}
+
+@media (min-width: 900px) {
+  .with-sidebar .settings-layout {
+    display: grid;
+    grid-template-columns: 14rem minmax(0, 1fr);
+    align-items: start;
+    min-height: 100vh;
+  }
+
+  .with-sidebar .settings-nav {
+    position: sticky;
+    top: var(--topbar-height);
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    max-height: calc(100vh - var(--topbar-height));
+    padding: 2rem 0.75rem 2rem 1.25rem;
+    overflow-y: auto;
+    border-right: 1px solid var(--line);
+  }
+
+  .settings-title {
+    margin: 0 0 0.25rem;
+    padding: 0 0.7rem;
+    font-family: var(--heading);
+    font-size: 1.35rem;
+    font-weight: 700;
+  }
+
+  .settings-nav-heading {
+    margin: 0.9rem 0 0.15rem;
+    padding: 0 0.7rem;
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .settings-nav button {
+    justify-content: flex-start;
+    gap: 0.65rem;
+    min-height: 2.3rem;
+    padding: 0.35rem 0.7rem;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    font-weight: 500;
+    text-align: left;
+  }
+
+  .settings-nav button:hover:not(:disabled) {
+    border: 0;
+    background: var(--line);
+    color: var(--text);
+  }
+
+  .settings-nav button[aria-current="page"],
+  .settings-nav button[aria-current="page"]:hover:not(:disabled) {
+    border-radius: var(--radius);
+    background: var(--accent-surface);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+    color: var(--accent-text);
+    font-weight: 700;
+  }
+
+  .settings-nav svg {
+    flex: none;
+  }
+}
+
+/* Places map: the picture fills the space, with the list of places beside it on a desk. */
+.title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.segmented.two {
+  grid-template-columns: repeat(2, minmax(5rem, 1fr));
+}
+
+.place-map {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.place-map-canvas {
+  height: 62vh;
+  min-height: 20rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--line);
+}
+
+.place-map-canvas:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.place-map .grow {
+  flex: 1 1 10rem;
+}
+
+.place-map form.row {
+  align-items: flex-end;
+}
+
+.place-map form.row button {
+  flex: 0 0 auto;
+}
+
+/* Over a picture of roofs and fields: white text with a dark halo reads on anything. */
+.leaflet-tooltip.place-map-label {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #ffffff;
+  font-weight: 700;
+  text-shadow:
+    0 0 3px #000000,
+    0 0 6px #000000;
+}
+
+.leaflet-tooltip.place-map-label::before {
+  display: none;
+}
+
+.leaflet-container {
+  font: inherit;
+}
+
+.leaflet-container .leaflet-control-attribution {
+  font-size: 0.7rem;
+}
+
+@media (min-width: 900px) {
+  .with-sidebar main.wide-map {
+    max-width: none;
+  }
+
+  .place-map {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 22rem;
+    align-items: start;
+  }
+
+  .place-map-canvas {
+    position: sticky;
+    top: calc(var(--topbar-height, 0px) + 1.5rem);
+    height: calc(100vh - 9rem - var(--topbar-height, 0px));
+  }
+
+  .place-map-panel {
+    max-height: calc(100vh - 9rem - var(--topbar-height, 0px));
+    overflow-y: auto;
+  }
+}
+
+/* Choosing a day: Today and Yesterday in one tap, a calendar for anything earlier. */
+.day-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.day-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.day-choices button {
+  flex: 1 1 auto;
+  white-space: nowrap;
+}
+
+.calendar {
+  max-width: 24rem;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.calendar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.calendar-head button {
+  min-height: 2.75rem;
+  width: 2.75rem;
+  padding: 0;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.25rem;
+  text-align: center;
+}
+
+.calendar-weekday {
+  padding: 0.25rem 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.calendar-grid button {
+  min-height: 2.75rem;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.calendar-grid button:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  color: var(--primary);
+}
+
+.calendar-grid button[aria-current="date"] {
+  border-color: var(--border);
+  font-weight: 700;
+}
+
+.calendar-grid button[aria-pressed="true"],
+.calendar-grid button[aria-pressed="true"]:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.calendar-grid button:disabled {
+  opacity: 0.35;
+}

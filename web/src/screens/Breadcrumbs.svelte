@@ -16,8 +16,14 @@
       return;
     }
 
-    list.scrollLeft = list.scrollWidth;
-    cut = list.scrollWidth > list.clientWidth + 1;
+    const el = list;
+    const sync = () => {
+      el.scrollLeft = el.scrollWidth;
+      cut = el.scrollWidth > el.clientWidth + 1;
+    };
+    sync();
+    const frame = requestAnimationFrame(sync);
+    return () => cancelAnimationFrame(frame);
   });
 </script>
 

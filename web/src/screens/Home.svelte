@@ -65,6 +65,7 @@
   import BottomNav from "./BottomNav.svelte";
   import Manage from "./Manage.svelte";
   import Production from "./Production.svelte";
+  import type { Stage } from "../lib/production";
   import Plants from "./manage/Plants.svelte";
   import Overview from "./Overview.svelte";
   import PrintButton from "./PrintButton.svelte";
@@ -144,7 +145,7 @@
     | { name: "start"; prefill?: BatchPrefill }
     | { name: "camera" }
     | { name: "settings"; page: SettingsPage | null }
-    | { name: "production" }
+    | { name: "production"; stage?: Stage | null }
     | { name: "needs" }
     | { name: "place"; id: string }
     | { name: "moveMany"; destination?: string | null }
@@ -242,7 +243,7 @@
       : [placeCrumb, ...between, own];
   }
 
-  /** The place the sidebar marks: where the trail starts, so New batch, Scan and Jobs all mark Record work. */
+  /** The place the sidebar marks: where the trail starts, without double-marking screens that live in the top bar. */
   const currentHub = $derived.by((): HubName | "settings" | null => {
     switch (view.name) {
       case "manage":
@@ -253,8 +254,13 @@
         return "production";
       case "plants":
         return "plants";
+      case "place":
+        return "places";
       case "settings":
         return "settings";
+      case "ask":
+      case "needs":
+        return null;
       default:
         return "home";
     }
@@ -662,8 +668,17 @@
   onMount(watchFeatures);
 
   // On a phone the bar at the top stays put while the page scrolls under it. Safari can scroll a field given focus
-  // right under the bar, so the page is moved just enough to show it.
+  // right under the bar, so the page is moved just enough to show it. On a desk the breadcrumbs move up into the bar.
   let topbar = $state<HTMLElement>();
+  const wideQuery = "(min-width: 900px)";
+  let wide = $state(matchMedia(wideQuery).matches);
+
+  onMount(() => {
+    const query = matchMedia(wideQuery);
+    const changed = () => (wide = query.matches);
+    query.addEventListener("change", changed);
+    return () => query.removeEventListener("change", changed);
+  });
 
   onMount(() => {
     const reveal = (field: Element) => {
@@ -855,6 +870,7 @@
     />
   {:else if view.name === "production"}
     <Production
+      initialStage={view.stage ?? null}
       onOpen={(code) => open(code, true)}
       onBack={goHome}
       onLabels={(trays) => (view = { name: "labelSheets", trays })}
@@ -979,66 +995,67 @@
           {/each}
           {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
 
-          {#if assistant.canAsk && !atBench}
-            <button class="ask-card" onclick={() => (view = { name: "ask" })}>
-              <Sparkles size={22} aria-hidden="true" />
-              <span class="stack tight">
-                <strong>Ask Hortiplanner</strong>
-                <span class="muted"
-                  >Ask about plants, the trays, losses and photos of plants.</span
-                >
-              </span>
-            </button>
-          {/if}
+          <div class="card home-lookup">
+            <form class="stack tight" onsubmit={scan}>
+              <label for="scan-label-input">Scan a label</label>
+              <div class="scan-row">
+                <input
+                  id="scan-label-input"
+                  bind:this={scanBox}
+                  bind:value={label}
+                  autocomplete="off"
+                  autocapitalize="characters"
+                  placeholder="Tray or place code"
+                />
+                {#if cameraAvailable}
+                  <button
+                    type="button"
+                    class="secondary scan-camera"
+                    aria-label="Use camera"
+                    title="Use camera"
+                    onclick={() => (view = { name: "camera" })}
+                    ><CameraIcon size={20} aria-hidden="true" /></button
+                  >
+                {/if}
+              </div>
+              <button type="submit">Open this label</button>
+            </form>
 
-          <form class="stack fill" onsubmit={scan}>
-            <label>
-              Scan a label
-              <input
-                bind:this={scanBox}
-                bind:value={label}
-                autocomplete="off"
-                autocapitalize="characters"
-              />
-            </label>
-            <button type="submit">Open this label</button>
-          </form>
+            <hr class="home-lookup-rule" />
+            <FindTray onOpen={(code) => open(code)} />
+          </div>
 
-          <FindTray onOpen={(code) => open(code)} />
-
-          {#if cameraAvailable}
+          <div class="home-actions">
             <button
-              class="secondary"
-              onclick={() => (view = { name: "camera" })}
-              ><CameraIcon size={18} aria-hidden="true" /> Use camera</button
-            >
-          {/if}
-          <button class="secondary" onclick={() => (view = { name: "start" })}
-            ><Plus size={18} aria-hidden="true" /> Start a new batch</button
-          >
-          <button
-            class="secondary"
-            onclick={() => (view = { name: "moveMany" })}
-            ><Move size={18} aria-hidden="true" /> Move several trays</button
-          >
-          {#if !atBench}
-            <button
-              class="secondary"
-              onclick={() => (view = { name: "labelSheets" })}
-              ><Printer size={18} aria-hidden="true" /> Print labels on A4</button
-            >
-          {/if}
-
-          {#if atBench}
-            <button
-              class="secondary"
-              onclick={() => (view = { name: "production" })}>Production</button
+              class="secondary home-action-lead"
+              onclick={() => (view = { name: "start" })}
+              ><Plus size={18} aria-hidden="true" /> Start a new batch</button
             >
             <button
               class="secondary"
-              onclick={() => (view = { name: "plants" })}>Plants</button
+              onclick={() => (view = { name: "moveMany" })}
+              ><Move size={18} aria-hidden="true" /> Move several trays</button
             >
-          {/if}
+            {#if !atBench}
+              <button
+                class="secondary"
+                onclick={() => (view = { name: "labelSheets" })}
+                ><Printer size={18} aria-hidden="true" /> Print labels on A4</button
+              >
+            {/if}
+
+            {#if atBench}
+              <button
+                class="secondary"
+                onclick={() => (view = { name: "production" })}
+                >Production</button
+              >
+              <button
+                class="secondary"
+                onclick={() => (view = { name: "plants" })}>Plants</button
+              >
+            {/if}
+          </div>
         </section>
 
         <section>
@@ -1081,7 +1098,12 @@
         <!-- The owner's view of the whole nursery: beneath on a smaller desk, a column of its own on a wide one. -->
         {#if me.isOwner && !atBench}
           <div class="desktop-only home-glance">
-            <Overview onOpen={(code) => open(code)} />
+            <Overview
+              onOpen={(code) => open(code)}
+              onProduction={(stage) =>
+                (view = { name: "production", stage: stage ?? null })}
+              onMoney={() => (view = { name: "manage", section: "money" })}
+            />
           </div>
         {/if}
       </div>
@@ -1117,7 +1139,21 @@
           <img src="/logo-96.png" alt="" width="32" height="32" />
           <span class="topbar-name">Hortiplanner</span>
         </span>
+        {#if wide}
+          <Breadcrumbs />
+        {/if}
         <div class="topbar-tools">
+          <button
+            class="icon-button topbar-new-batch"
+            aria-label="New batch"
+            title="Start a new batch"
+            aria-current={view.name === "start" ? "page" : undefined}
+            onclick={() => (view = { name: "start" })}
+          >
+            <Plus size={18} aria-hidden="true" /><span class="topbar-words"
+              >New batch</span
+            >
+          </button>
           {#if assistant.canAsk}
             <button
               class="icon-button"
@@ -1162,7 +1198,9 @@
       >
         {needsSaid}
       </p>
-      <Breadcrumbs />
+      {#if !wide}
+        <Breadcrumbs />
+      {/if}
       {#key fresh}{@render screen()}{/key}
     </div>
     <BottomNav

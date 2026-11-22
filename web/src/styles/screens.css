@@ -1,0 +1,1247 @@
+/* A printed report is the page alone: no navigation and no buttons. */
+@media print {
+  .sidebar,
+  .bottom-nav,
+  .topbar,
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: #ffffff;
+    color: #000000;
+  }
+
+  .trace .card {
+    break-inside: avoid;
+  }
+}
+
+.trace-search {
+  align-items: flex-end;
+  max-width: 36rem;
+}
+
+.trace-search .grow {
+  flex: 1 1 14rem;
+}
+
+.row.trace-search button {
+  flex: 0 0 auto;
+}
+
+.trace-print {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  align-self: flex-start;
+}
+
+@media print {
+  .with-sidebar .split.trace {
+    display: block;
+  }
+
+  .split.trace > section + section {
+    margin-top: 1.5rem;
+  }
+}
+
+/* Checking a new batch: each answer with a way back to change it. */
+.batch-check dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+}
+
+.batch-check dd .link-button {
+  font-weight: 400;
+}
+
+.batch-photo-add {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* A plant passport looks like the label it is: black on white, in its own firm border, whatever the theme. */
+.passport {
+  --passport-ink: #141414;
+  width: 100%;
+  max-width: 24rem;
+  margin: 0;
+  padding: 0.7rem 0.9rem 0.75rem;
+  border: 2px solid var(--passport-ink);
+  border-radius: 0.25rem;
+  background: #ffffff;
+  box-shadow: var(--paper-edge);
+  color: var(--passport-ink);
+}
+
+.passport-title {
+  margin: 0 0 0.35rem;
+  font-family: var(--heading);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.passport dl {
+  display: grid;
+  grid-template-columns: 1.5rem 1fr;
+  gap: 0.1rem 0.4rem;
+  margin: 0;
+}
+
+.passport dt {
+  font-family: ui-monospace, "DejaVu Sans Mono", monospace;
+  font-weight: 800;
+}
+
+.passport dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, "DejaVu Sans Mono", monospace;
+}
+
+.passport dd.botanical {
+  font-family: var(--heading);
+  font-style: italic;
+}
+
+.passport dd.missing {
+  color: #a8231a;
+  font-family: inherit;
+  font-style: normal;
+}
+
+.passport-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.6rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed #8a8a8a;
+  font-size: 0.9rem;
+}
+
+.passport-foot .muted {
+  color: #555555;
+}
+
+.passport-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: 0.9rem;
+}
+
+.sow-by-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 0.75rem;
+}
+
+.supplier-registrations .link-button {
+  align-self: flex-start;
+}
+
+/* Five ways to say how much seed went in: two to a row on a phone, the last full width. */
+.segmented.sowing-choices {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.segmented.sowing-choices button:last-child {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 640px) {
+  .segmented.sowing-choices {
+    grid-template-columns: repeat(5, 1fr);
+  }
+
+  .segmented.sowing-choices button:last-child {
+    grid-column: auto;
+  }
+}
+
+/* Printing labels on A4 stickers. */
+.sheet-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 22rem;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.sheet-choices .tick {
+  align-items: flex-start;
+  min-height: 2.75rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+/* A small picture of the sheet: tap the first free sticker. */
+.sheet-picture {
+  display: grid;
+  grid-template-columns: repeat(var(--columns), minmax(0, 1fr));
+  gap: 3px;
+  /* Wide enough on a phone that a 65-sticker sheet still gives each sticker room for a finger. */
+  width: min(100%, 22rem);
+  padding: 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 0.25rem;
+  background: #ffffff;
+  aspect-ratio: 210 / 297;
+}
+
+.sheet-picture button {
+  min-height: 0;
+  padding: 0;
+  border: 1px solid #b9bdb0;
+  border-radius: 2px;
+  background: #ffffff;
+}
+
+.sheet-picture button.used {
+  border-style: dashed;
+  background: #e6e6e1;
+}
+
+.sheet-picture button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.sheet-preview {
+  width: min(100%, 24rem);
+  border: 1px solid var(--line);
+  background: #ffffff;
+  box-shadow: var(--paper-edge);
+}
+
+/* The day work on a tray is recorded for; picked out when it isn't today. */
+.work-day {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.work-day.earlier {
+  border-color: var(--accent);
+  background: var(--accent-surface);
+  color: var(--accent-text);
+}
+
+/* Money's totals keep to the width of its form and its narrow tables. */
+.money-totals {
+  max-width: 30rem;
+}
+
+/* Money's months and takings on a phone: one card each, a row for each month or day, with its figures or its small
+   Void button on the right. */
+.takings-list {
+  margin: 0;
+  padding: 0.25rem 1rem;
+  list-style: none;
+}
+
+.takings-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0;
+}
+
+.takings-list li + li {
+  border-top: 1px solid var(--line);
+}
+
+/* A tray on Production, in two lines: what and how many, with its stage on the right; then where it is. */
+.production-row .plant-names {
+  flex: 1;
+  min-width: 0;
+}
+
+.production-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.15rem 0.6rem;
+}
+
+.production-stage {
+  white-space: nowrap;
+}
+
+/* The code, the place and the pot on one line: if it's too long, the place is shortened, never the code or pot. */
+.production-where {
+  display: flex;
+  gap: 0.35rem;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.production-where > * {
+  flex: none;
+}
+
+.production-where > * + *::before {
+  content: "· ";
+}
+
+.production-where > .production-place {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.month-figures {
+  text-align: end;
+}
+
+/* Several trays chosen in Production: the work for them all waits at the foot of the screen. A chosen row keeps
+   its own text colour whatever the pointer does, so it reads the same tapped, hovered or pressed. */
+button.production-row[aria-pressed],
+button.production-row[aria-pressed]:hover:not(:disabled) {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+}
+
+button.production-row.chosen,
+button.production-row.chosen:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-surface);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  color: var(--text);
+}
+
+@media (hover: hover) {
+  button.production-row[aria-pressed]:not(.chosen):hover:not(:disabled) {
+    border-color: var(--primary);
+  }
+}
+
+.many-trays {
+  position: sticky;
+  /* Above the phone's bottom bar; at the foot of the page on a desk. */
+  bottom: calc(4.25rem + env(safe-area-inset-bottom));
+  z-index: 5;
+  box-shadow: var(--paper-edge);
+}
+
+.many-trays-head {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.many-trays-head .link-button {
+  margin-left: auto;
+}
+
+.many-trays-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+
+@media (min-width: 640px) {
+  .many-trays-actions {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (min-width: 900px) {
+  .many-trays {
+    bottom: 1rem;
+  }
+}
+
+.alert-card .link-button {
+  align-self: flex-start;
+}
+
+.consignment-line {
+  display: grid;
+  grid-template-columns: 1fr 6rem;
+  gap: 0.5rem;
+  align-items: end;
+}
+
+.consignment-line .link-button {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.plain-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.375rem;
+}
+
+/* A batch's photos in the order they were taken, scrolled sideways on a phone. */
+.photo-strip {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0 0 0.25rem;
+  overflow-x: auto;
+  list-style: none;
+  scroll-snap-type: x proximity;
+}
+
+.photo-strip li {
+  flex: none;
+  scroll-snap-align: start;
+}
+
+.photo-strip-item {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.25rem;
+  width: 6.5rem;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: left;
+  box-shadow: none;
+}
+
+.photo-strip-item:hover:not(:disabled) {
+  background: none;
+  color: var(--primary);
+}
+
+.photo-strip-item img {
+  width: 6.5rem;
+  height: 6.5rem;
+  border-radius: 0.5rem;
+  background: var(--line);
+  object-fit: cover;
+}
+
+.photo-viewer {
+  width: min(40rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.photo-viewer::backdrop {
+  background: rgb(0 0 0 / 60%);
+}
+
+.photo-viewer img {
+  display: block;
+  width: 100%;
+  max-height: 65dvh;
+  border-radius: 0.5rem;
+  object-fit: contain;
+}
+
+/* Climate: a card for each place, and its charts. */
+.climate-card {
+  display: grid;
+  gap: 0.35rem;
+  justify-items: start;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 400;
+  text-align: left;
+  box-shadow: var(--shadow);
+}
+
+.climate-card:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.climate-now {
+  display: flex;
+  gap: 1.25rem;
+  font-size: 1.6rem;
+}
+
+.climate-now > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.climate-now svg {
+  color: var(--muted);
+}
+
+.climate-chart {
+  position: relative;
+  margin: 0;
+  min-width: 0;
+}
+
+.climate-chart figcaption {
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.climate-chart svg {
+  display: block;
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.climate-chart .grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.climate-chart .tick {
+  fill: var(--muted);
+  font-size: 11px;
+  text-anchor: end;
+}
+
+.climate-chart .tick.day {
+  text-anchor: middle;
+}
+
+.climate-chart .series {
+  fill: none;
+  stroke: var(--series);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.climate-chart .band {
+  fill: var(--series);
+  opacity: 0.12;
+}
+
+.climate-chart .dot {
+  fill: var(--series);
+}
+
+.climate-chart .ringed {
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+
+.climate-chart .crosshair {
+  stroke: var(--muted);
+  stroke-width: 1;
+}
+
+.chart-tip {
+  position: absolute;
+  top: 1.5rem;
+  display: grid;
+  gap: 0.1rem;
+  margin: 0;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-size: 0.85rem;
+  transform: translateX(-50%);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.climate-table {
+  width: 100%;
+  margin-top: 0.5rem;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.climate-table th,
+.climate-table td {
+  padding: 0.35rem 0.25rem;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+}
+
+.climate-table th:first-child,
+.climate-table td:first-child {
+  text-align: left;
+}
+
+.sensor-key {
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  background: var(--line);
+  overflow-wrap: anywhere;
+}
+
+.sensor-config {
+  max-width: 100%;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: var(--line);
+  font-size: 0.8rem;
+  overflow-x: auto;
+}
+
+.package-passport table {
+  width: 100%;
+  margin-top: 0.35rem;
+  border-collapse: collapse;
+  font-family: ui-monospace, "DejaVu Sans Mono", monospace;
+}
+
+.package-passport th {
+  border-bottom: 2px solid var(--passport-ink);
+  font-weight: 800;
+  text-align: left;
+}
+
+.package-passport th abbr {
+  text-decoration: none;
+}
+
+.package-passport td {
+  padding: 0.15rem 0.4rem 0.15rem 0;
+  border-bottom: 1px solid #c8c8c8;
+  vertical-align: top;
+}
+
+.package-passport td.botanical {
+  font-family: var(--heading);
+  font-style: italic;
+  overflow-wrap: anywhere;
+}
+
+.job-notes {
+  margin-top: 0.15rem;
+  font-size: 0.9rem;
+  white-space: pre-line;
+}
+
+.calendar-month {
+  display: flex;
+  flex: 1;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.calendar-month select {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  min-height: 2.75rem;
+  padding-inline: 0.5rem 1.75rem;
+  background-position: right 0.5rem center;
+}
+
+.calendar-month select.calendar-year {
+  flex: 0 0 5.25rem;
+  width: 5.25rem;
+}
+
+.sheet-start input {
+  width: 6rem;
+}
+
+/* Settings, Features: a switch per optional part of Hortiplanner. */
+.feature-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.feature-switch label {
+  display: flex;
+  flex-direction: row;
+  gap: 0.9rem;
+  align-items: flex-start;
+  cursor: pointer;
+}
+
+.feature-switch .muted {
+  font-weight: 400;
+}
+
+.feature-switch input[role="switch"] {
+  appearance: none;
+  flex: none;
+  position: relative;
+  width: 2.75rem;
+  height: 1.6rem;
+  min-height: 0;
+  margin: 0.1rem 0 0;
+  padding: 0;
+  border: 2px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+/* Off: an outline with a dark knob on the left. On: filled, with a light knob on the right. */
+.feature-switch input[role="switch"]::after {
+  content: "";
+  position: absolute;
+  top: 0.175rem;
+  left: 0.175rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: var(--border);
+  transition:
+    transform 0.15s,
+    background 0.15s;
+}
+
+.feature-switch input[role="switch"]:checked {
+  border-color: var(--primary);
+  background: var(--primary);
+}
+
+.feature-switch input[role="switch"]:checked::after {
+  background: var(--surface);
+  transform: translateX(1.15rem);
+}
+
+.feature-switch input[role="switch"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.feature-switch input[role="switch"]:disabled {
+  opacity: 0.6;
+}
+
+/* Settings, Map: the nursery's own picture, small enough to check at a glance. */
+.map-picture-preview {
+  width: 100%;
+  max-height: 16rem;
+  object-fit: contain;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+/* Breadcrumbs: where the person is, above every screen. One quiet line, scrolling sideways on a phone if long. */
+.breadcrumbs {
+  max-width: 32rem;
+  margin: 0 auto;
+  padding: 0.5rem 1rem 0;
+  font-size: 0.9rem;
+}
+
+.breadcrumbs ol {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin: 0;
+  padding: 0 0.75rem 0 0;
+  overflow-x: auto;
+  list-style: none;
+  white-space: nowrap;
+  scrollbar-width: none;
+}
+
+.breadcrumbs li {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  color: var(--muted);
+}
+
+.breadcrumbs .crumb {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0 0.35rem;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: inherit;
+  font: inherit;
+}
+
+.breadcrumbs a.crumb {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
+  cursor: pointer;
+}
+
+.breadcrumbs a.crumb:hover {
+  background: var(--accent-surface);
+}
+
+.breadcrumbs [aria-current="page"] {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* The page below sits close under its breadcrumbs. */
+.breadcrumbs + main,
+.breadcrumbs + .settings-layout {
+  padding-top: 0.35rem;
+}
+
+@media (min-width: 900px) {
+  .with-sidebar .topbar .breadcrumbs {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none;
+    margin: 0;
+    padding: 0 0 0 1.5rem;
+    font-weight: 400;
+  }
+
+  .with-sidebar .breadcrumbs {
+    max-width: var(--page-max);
+    margin: 0;
+    padding: 1.25rem 2.5rem 0;
+  }
+
+  .with-sidebar .breadcrumbs + main,
+  .with-sidebar .breadcrumbs + .settings-layout {
+    padding-top: 0.75rem;
+  }
+}
+
+/* A small square button for an icon, such as removing a photo. */
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--target);
+  min-width: var(--target);
+  height: var(--target);
+  min-height: var(--target);
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+/* A pill that can be pressed, such as a record an answer looked at. It keeps its own colours when hovered. */
+.pill-button,
+.pill-button:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-surface);
+  color: var(--accent-text);
+}
+
+.pill-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+}
+
+.pill-button {
+  min-height: 2.75rem;
+  padding: 0.15rem 0.7rem;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--accent-surface);
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+/* Ask Hortiplanner: a conversation, with the question box kept in reach at the foot of a phone's screen. */
+.ask h1 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ask-layout,
+.ask-conversation {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ask-suggestions {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.ask-suggestions button {
+  justify-content: flex-start;
+  border-color: color-mix(in srgb, var(--border) 48%, var(--line));
+  background: color-mix(in srgb, var(--line) 42%, var(--surface));
+  box-shadow: 0 1px 1px rgb(31 42 27 / 4%);
+  font-weight: 500;
+  text-align: left;
+}
+
+.ask-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Scrolled to, a line stops clear of the question box and the bar below it. */
+.ask-line,
+.ask-conversation > .problem {
+  scroll-margin-bottom: 15rem;
+}
+
+.ask-line.user {
+  align-self: flex-end;
+  max-width: 85%;
+}
+
+.ask-question {
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--radius) var(--radius) 0.2rem var(--radius);
+  background: var(--accent-surface);
+  color: var(--accent-text);
+  white-space: pre-wrap;
+}
+
+.ask-answer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.ask-answer p,
+.ask-answer ul {
+  margin: 0;
+}
+
+.ask-answer ul {
+  padding-left: 1.25rem;
+  white-space: normal;
+}
+
+.ask-looked {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.ask-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ask-cost {
+  font-size: 0.85rem;
+}
+
+.ask-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.ask-photos img {
+  width: 5rem;
+  height: 5rem;
+  border-radius: var(--radius);
+  object-fit: cover;
+}
+
+.ask-photo {
+  position: relative;
+}
+
+.ask-photo .icon-button {
+  position: absolute;
+  top: 0.2rem;
+  right: 0.2rem;
+  width: 1.75rem;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  min-height: 1.75rem;
+}
+
+.ask-composer {
+  position: sticky;
+  bottom: calc(4.75rem + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--paper-edge);
+}
+
+.ask-context {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+}
+
+/* The photo being asked about, small beside what the question is about. */
+.ask-context-photo {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.4rem;
+  object-fit: cover;
+  flex: none;
+}
+
+.ask-context .icon-button {
+  width: 1.75rem;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  min-height: 1.75rem;
+}
+
+.ask-input {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.ask-input .grow {
+  flex: 1;
+}
+
+.ask-input textarea {
+  width: 100%;
+  min-height: var(--target);
+  max-height: 12rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  font-weight: 400;
+  resize: vertical;
+}
+
+.ask-camera input {
+  display: none;
+}
+
+.ask-send {
+  width: var(--target);
+  min-width: var(--target);
+  padding: 0;
+}
+
+.ask-suggestion {
+  text-align: left;
+}
+
+@media (min-width: 900px) {
+  /* The conversation at its reading width with the panel beside it, rather than the panel floating off to the side. */
+  .ask-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 52rem) 20rem;
+    align-items: start;
+    gap: 2rem;
+  }
+
+  .ask-conversation {
+    max-width: 52rem;
+  }
+
+  .ask-composer {
+    bottom: 1rem;
+  }
+
+  .with-sidebar .ask-side {
+    position: sticky;
+    top: calc(var(--topbar-height) + 1.5rem);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+}
+
+/* Settings, AI assistant: the models to choose from, with their prices. */
+.model-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 28rem;
+  overflow-y: auto;
+}
+
+.model-choice {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.model-choice.chosen {
+  border-color: var(--accent);
+  background: var(--accent-surface);
+}
+
+.model-choice input {
+  width: auto;
+  min-height: 0;
+  margin-top: 0.2rem;
+}
+
+/* Record work: scan and find live together in one card, with quick actions in a compact grid beneath. */
+.home-lookup {
+  gap: 0.75rem;
+}
+
+.scan-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.scan-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+button.scan-camera {
+  flex: none;
+  width: var(--target);
+  min-width: var(--target);
+  padding: 0;
+}
+
+.home-lookup-rule {
+  width: 100%;
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.home-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.home-actions > button {
+  min-width: 0;
+  padding-inline: 0.65rem;
+}
+
+.home-actions > .home-action-lead {
+  grid-column: 1 / -1;
+}
+
+/* Record work: Ask Hortiplanner, offered as a card when this person can ask. */
+.ask-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--accent-surface);
+  color: var(--accent-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Like the other card buttons, hovering only strengthens the edge: the card keeps its own colours, so its words stay
+   readable. */
+button.ask-card:hover:not(:disabled) {
+  border-color: var(--accent-text);
+  background: color-mix(in srgb, var(--accent-surface) 85%, var(--accent));
+  color: var(--accent-text);
+}
+
+/* A place's page: its outline on the map, and its photos large enough to see. */
+.place-mini-map {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 0;
+}
+
+.place-mini-map-canvas {
+  height: 14rem;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--line);
+}
+
+.entry-photos.gallery {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+.entry-photos.gallery .entry-photo a {
+  display: block;
+}
+
+.entry-photos.gallery .entry-photo {
+  display: flex;
+}
+
+.entry-photos.gallery .plant-thumb {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+/* Adding a photo to a gallery: a small button under the photos, not a tile among them. */
+.entry-photos.gallery .photo-add {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+@media (min-width: 900px) {
+  .place-mini-map-canvas {
+    height: 18rem;
+  }
+}

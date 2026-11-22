@@ -55,8 +55,11 @@ test("Ask Hortiplanner answers on a phone, and lays out on a desk", async ({
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
 
-  // The card on Record work; the bar along the top has its own button too.
-  await page.locator("button.ask-card").click();
+  // Reached from the bar along the top on every screen.
+  await page
+    .locator(".topbar")
+    .getByRole("button", { name: "Ask Hortiplanner" })
+    .click();
   await expect(
     page.getByRole("heading", { name: "Ask Hortiplanner" }),
   ).toBeVisible();
@@ -93,7 +96,16 @@ test("Ask Hortiplanner answers on a phone, and lays out on a desk", async ({
     page.getByRole("heading", { name: "What your questions cost" }),
   ).toBeVisible();
   await expect(page.locator(".ask-spend-card")).toContainText("$1.50");
-  // On a desk, Ask Hortiplanner in the bar along the top widens to fit its words on one line without overlapping the bell.
+  // On a desk, the breadcrumbs move into the bar along the top, Ask Hortiplanner widens to fit its words without
+  // overlapping the bell, and Record work in the sidebar is not double-marked as the current page.
+  await expect(
+    page.locator(".topbar").getByRole("navigation", { name: "Breadcrumb" }),
+  ).toBeVisible();
+  await expect(
+    page
+      .locator(".sidebar")
+      .getByRole("button", { name: "Record work", exact: true }),
+  ).not.toHaveAttribute("aria-current", "page");
   const askButton = page
     .locator(".topbar")
     .getByRole("button", { name: "Ask Hortiplanner" });

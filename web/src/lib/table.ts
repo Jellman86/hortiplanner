@@ -8,6 +8,10 @@ export interface Column<T> {
   strong?: boolean;
   /** Read out after the heading, such as "the figures that count", for what the bold says by sight. */
   hint?: string;
+  /** Shown as a pill badge, such as a tray's growing stage. */
+  pill?: boolean;
+  /** An optional thumbnail URL shown beside the cell's text. */
+  thumb?: (row: T) => string | null;
 }
 
 export function cellText<T>(column: Column<T>, row: T): string {
