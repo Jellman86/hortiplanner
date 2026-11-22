@@ -242,7 +242,7 @@
       : [placeCrumb, ...between, own];
   }
 
-  /** The place the sidebar marks: where the trail starts, so New batch, Scan and Jobs all mark Record work. */
+  /** The place the sidebar marks: where the trail starts, without double-marking screens that live in the top bar. */
   const currentHub = $derived.by((): HubName | "settings" | null => {
     switch (view.name) {
       case "manage":
@@ -253,8 +253,13 @@
         return "production";
       case "plants":
         return "plants";
+      case "place":
+        return "places";
       case "settings":
         return "settings";
+      case "ask":
+      case "needs":
+        return null;
       default:
         return "home";
     }
@@ -662,8 +667,17 @@
   onMount(watchFeatures);
 
   // On a phone the bar at the top stays put while the page scrolls under it. Safari can scroll a field given focus
-  // right under the bar, so the page is moved just enough to show it.
+  // right under the bar, so the page is moved just enough to show it. On a desk the breadcrumbs move up into the bar.
   let topbar = $state<HTMLElement>();
+  const wideQuery = "(min-width: 900px)";
+  let wide = $state(matchMedia(wideQuery).matches);
+
+  onMount(() => {
+    const query = matchMedia(wideQuery);
+    const changed = () => (wide = query.matches);
+    query.addEventListener("change", changed);
+    return () => query.removeEventListener("change", changed);
+  });
 
   onMount(() => {
     const reveal = (field: Element) => {
@@ -1117,7 +1131,21 @@
           <img src="/logo-96.png" alt="" width="32" height="32" />
           <span class="topbar-name">Hortiplanner</span>
         </span>
+        {#if wide}
+          <Breadcrumbs />
+        {/if}
         <div class="topbar-tools">
+          <button
+            class="icon-button topbar-new-batch"
+            aria-label="New batch"
+            title="Start a new batch"
+            aria-current={view.name === "start" ? "page" : undefined}
+            onclick={() => (view = { name: "start" })}
+          >
+            <Plus size={18} aria-hidden="true" /><span class="topbar-words"
+              >New batch</span
+            >
+          </button>
           {#if assistant.canAsk}
             <button
               class="icon-button"
@@ -1162,7 +1190,9 @@
       >
         {needsSaid}
       </p>
-      <Breadcrumbs />
+      {#if !wide}
+        <Breadcrumbs />
+      {/if}
       {#key fresh}{@render screen()}{/key}
     </div>
     <BottomNav

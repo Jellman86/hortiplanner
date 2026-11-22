@@ -249,7 +249,8 @@ a.button {
 }
 
 /* Navigation and pressed-flat buttons stay flat: only buttons that stand on the page lift off it. */
-:is(.sidebar, .bottom-nav, .breadcrumbs, .settings-nav) :is(button, a),
+:is(.sidebar, .bottom-nav, .breadcrumbs, .settings-nav, .hub-nav)
+  :is(button, a),
 button:is(.icon-button, .back, .crumb),
 button:disabled {
   box-shadow: none;
@@ -1923,6 +1924,7 @@ label.tick {
 
 .topbar-tools {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 0.25rem;
   margin-left: auto;
@@ -3328,7 +3330,7 @@ button.production-row.chosen:hover:not(:disabled) {
 .breadcrumbs {
   max-width: 32rem;
   margin: 0 auto;
-  padding: 0.85rem 1rem 0;
+  padding: 0.5rem 1rem 0;
   font-size: 0.9rem;
 }
 
@@ -3337,7 +3339,7 @@ button.production-row.chosen:hover:not(:disabled) {
   align-items: center;
   gap: 0.15rem;
   margin: 0;
-  padding: 0;
+  padding: 0 0.75rem 0 0;
   overflow-x: auto;
   list-style: none;
   white-space: nowrap;
@@ -3383,10 +3385,19 @@ button.production-row.chosen:hover:not(:disabled) {
 /* The page below sits close under its breadcrumbs. */
 .breadcrumbs + main,
 .breadcrumbs + .settings-layout {
-  padding-top: 0.5rem;
+  padding-top: 0.35rem;
 }
 
 @media (min-width: 900px) {
+  .with-sidebar .topbar .breadcrumbs {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none;
+    margin: 0;
+    padding: 0 0 0 1.5rem;
+    font-weight: 400;
+  }
+
   .with-sidebar .breadcrumbs {
     max-width: var(--page-max);
     margin: 0;
@@ -5401,54 +5412,55 @@ button.link-button.ftree-leaf {
   border-top: 2px solid var(--border);
 }
 
-/* The row of buttons under a page's heading for the other pages in its place. Ordinary buttons; the open one has
-   the accent's surface and a bar beneath, so it isn't told by colour alone. They wrap to a second row on a phone
-   before their words shrink. */
+/* The row of buttons under a page's heading for the other pages in its place: flat view-switching tabs, distinct
+   from page action buttons. The open one wears the accent's surface and a bar beneath, so it isn't told by colour
+   alone. */
 .hub-nav {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-  gap: 0.5rem;
-  margin: 0.25rem 0 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.15rem 0 0.5rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid var(--line);
 }
 
 .hub-nav button {
   gap: 0.4rem;
-  min-height: 2.75rem;
-  padding: 0.4rem 0.9rem;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  color: var(--text);
+  min-height: 2.5rem;
+  padding: 0.35rem 0.85rem;
+  border: 1px solid transparent;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
   font-weight: 600;
 }
 
 .hub-nav button:hover:not(:disabled) {
-  border-color: var(--primary);
-  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
-  color: var(--primary);
+  border-color: var(--line);
+  background: color-mix(in srgb, var(--line) 45%, var(--surface));
+  color: var(--text);
 }
 
 .hub-nav button[aria-current="page"],
 .hub-nav button[aria-current="page"]:hover:not(:disabled) {
-  border-color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
   background: var(--accent-surface);
   box-shadow: inset 0 -3px 0 var(--accent);
   color: var(--accent-text);
 }
 
-@media (min-width: 900px) {
-  .hub-nav {
-    display: flex;
-    flex-wrap: wrap;
-  }
-}
-
-/* The person's picture at the right of the bar along the top, on a desk only: a phone has Settings in its bottom bar. */
-.topbar-person {
+/* The person's picture and quick New batch button at the right of the bar along the top, on a desk only: a phone has
+   New batch and Settings in its bottom bar. */
+.topbar-person,
+.topbar-new-batch {
   display: none;
 }
 
 @media (min-width: 900px) {
+  .topbar-tools .topbar-new-batch {
+    display: inline-flex;
+  }
+
   .topbar-tools .topbar-person {
     display: inline-flex;
     padding: 0.2rem;

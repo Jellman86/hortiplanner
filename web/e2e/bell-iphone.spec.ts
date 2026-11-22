@@ -178,6 +178,11 @@ test("the bell is at the top right on a desk", async ({ page }) => {
     page.getByRole("heading", { name: "Needs a look" }),
   ).toBeVisible();
   await expect(entry).toHaveAttribute("aria-current", "page");
+  await expect(
+    page
+      .locator(".sidebar")
+      .getByRole("button", { name: "Record work", exact: true }),
+  ).not.toHaveAttribute("aria-current", "page");
   await expectAccessible(page, "Needs a look on a desk");
 });
 
