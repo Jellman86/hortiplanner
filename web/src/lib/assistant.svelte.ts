@@ -93,6 +93,26 @@ export function dollars(amount: number): string {
   return amount < 0.01 ? "under 1 cent" : `$${amount.toFixed(2)}`;
 }
 
+/** Clears temporary Ask Hortiplanner state kept in sessionStorage, such as on sign-out. */
+export function clearTemporaryAskState(
+  store: Pick<Storage, "length" | "key" | "removeItem"> = sessionStorage,
+) {
+  try {
+    const keys: string[] = [];
+    for (let index = 0; index < store.length; index += 1) {
+      const key = store.key(index);
+      if (key?.startsWith("hortiplanner.ask.")) {
+        keys.push(key);
+      }
+    }
+    for (const key of keys) {
+      store.removeItem(key);
+    }
+  } catch {
+    // Storage may be unavailable.
+  }
+}
+
 export async function loadAssistant() {
   if (!isOn("Assistant")) {
     assistant.canAsk = false;

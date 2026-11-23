@@ -7,7 +7,8 @@ import {
   waitingByOthers,
   WorkQueue,
 } from "./queue";
-import type { Outcome, WorkRequest } from "./work";
+import { sessionEnded } from "../api/client";
+import { submit, type Outcome, type WorkRequest } from "./work";
 
 function memoryStore() {
   const values = new Map<string, string>();
@@ -129,7 +130,7 @@ describe("WorkQueue", () => {
           eventId: "a",
           description: "Lost 99 Lavender",
           reason: "It went wrong",
-          request: request("a"),
+          request: { ...request("a"), actor: "Alex" },
         },
       ]);
     });
@@ -150,7 +151,7 @@ describe("WorkQueue", () => {
       queue.retry("a");
 
       expect(queue.failed).toEqual([]);
-      expect(queue.next?.request).toEqual(request("a"));
+      expect(queue.next?.request).toEqual({ ...request("a"), actor: "Alex" });
     });
   });
 
@@ -303,5 +304,75 @@ describe("originating queue", () => {
     vi.stubGlobal("fetch", () => Promise.reject(new Error("offline")));
     useQueue("Alex");
     expect(await recordWork(request("a"))).toEqual({ kind: "storageFailed" });
+  });
+
+  it("sends X-Expected-Actor and keeps queued work pending on actor_mismatch", async () => {
+    const store = memoryStore();
+    // Simulate a legacy entry with no explicit actor stored in localStorage.
+    store.setItem(
+      "hortiplanner.queue.alex-id",
+      JSON.stringify({
+        waiting: [{ request: request("legacy-1"), description: "Legacy work" }],
+        failed: [],
+      }),
+    );
+    vi.stubGlobal("localStorage", store);
+
+    const events: string[] = [];
+    vi.stubGlobal("window", {
+      dispatchEvent: (event: Event) => {
+        events.push(event.type);
+        return true;
+      },
+    });
+
+    const headersSeen: string[] = [];
+    vi.stubGlobal("fetch", async (_url: string, init?: RequestInit) => {
+      const headers = init?.headers as Record<string, string>;
+      headersSeen.push(headers["X-Expected-Actor"] ?? "");
+      return {
+        status: 409,
+        ok: false,
+        json: async () => ({ problem: "actor_mismatch" }),
+      };
+    });
+
+    const queue = useQueue("alex-id");
+    await flush(queue, submit, explain);
+
+    expect(headersSeen).toEqual(["alex-id"]);
+    expect(events).toEqual([sessionEnded]);
+    expect(queue.waiting).toBe(1);
+    expect(queue.failed).toEqual([]);
+    expect(queue.next?.request.actor).toBe("alex-id");
+  });
+
+  it("treats an interrupted response body after 200 or 409 headers as unreachable so the same eventId retries", async () => {
+    vi.stubGlobal("localStorage", memoryStore());
+    vi.stubGlobal("fetch", async () => ({
+      status: 200,
+      ok: true,
+      json: async () => {
+        throw new Error("connection reset mid-body");
+      },
+    }));
+
+    const alex = useQueue("alex-id");
+    const first = request("evt-body-drop");
+    expect(await recordWork(first)).toEqual({
+      kind: "queued",
+      eventId: "evt-body-drop",
+    });
+    expect(alex.next?.request.body.eventId).toBe("evt-body-drop");
+    expect(alex.next?.request.actor).toBe("alex-id");
+
+    vi.stubGlobal("fetch", async () => ({
+      status: 409,
+      ok: false,
+      json: async () => {
+        throw new Error("truncated conflict body");
+      },
+    }));
+    expect(await submit(first, "alex-id")).toEqual({ kind: "unreachable" });
   });
 });

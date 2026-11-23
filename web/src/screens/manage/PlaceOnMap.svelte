@@ -57,6 +57,8 @@
   let others: Leaflet.FeatureGroup | null = null;
   // Plain, not reactive: Leaflet owns it.
   let shape: Leaflet.Polygon | null = null;
+  let lookupController: AbortController | null = null;
+  const postcodeTimeoutMs = 10_000;
 
   const setProblem = (message: string) => (problem = message);
 
@@ -149,17 +151,42 @@
 
       if (!found && code) {
         // postcodes.io is free and open (Open Government Licence), and only told the postcode.
-        const response = await fetch(
-          `https://api.postcodes.io/postcodes/${encodeURIComponent(code)}`,
-        );
-        const result = response.ok
-          ? (
-              (await response.json()) as {
-                result?: { latitude: number; longitude: number };
-              }
-            ).result
-          : undefined;
-        found = result ? [result.latitude, result.longitude] : null;
+        lookupController?.abort();
+        const controller = new AbortController();
+        lookupController = controller;
+        let timedOut = false;
+        const timer = setTimeout(() => {
+          timedOut = true;
+          controller.abort();
+        }, postcodeTimeoutMs);
+
+        try {
+          const response = await fetch(
+            `https://api.postcodes.io/postcodes/${encodeURIComponent(code)}`,
+            { signal: controller.signal },
+          );
+          const result = response.ok
+            ? (
+                (await response.json()) as {
+                  result?: { latitude: number; longitude: number };
+                }
+              ).result
+            : undefined;
+          found = result ? [result.latitude, result.longitude] : null;
+        } catch (err) {
+          if (err instanceof DOMException && err.name === "AbortError") {
+            if (!timedOut) {
+              return;
+            }
+          } else {
+            throw err;
+          }
+        } finally {
+          clearTimeout(timer);
+          if (lookupController === controller) {
+            lookupController = null;
+          }
+        }
       }
 
       if (found) {
@@ -313,6 +340,8 @@
 
     return () => {
       stopped = true;
+      lookupController?.abort();
+      lookupController = null;
       stopNaming?.();
       // Stopped first: removing a map mid-animation makes Leaflet throw.
       map?.stop();
