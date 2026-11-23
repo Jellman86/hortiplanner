@@ -27,10 +27,10 @@ internal static class PlaceEndpoints
     }
 
     /// <summary>Puts a place inside another, as long as that wouldn't put it inside itself.</summary>
-    private static async Task<IResult> MoveAsync(Guid id, MovePlaceRequest request, HortiplannerDbContext db, CancellationToken cancellationToken)
+    private static async Task<IResult> MoveAsync(Guid id, MovePlaceRequest request, HortiplannerDbContext db, TimeProvider clock, CancellationToken cancellationToken)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-        await db.Database.ExecuteSqlRawAsync("LOCK TABLE locations IN SHARE ROW EXCLUSIVE MODE", cancellationToken);
+        await LockHierarchyAsync(db, cancellationToken);
         if (await db.Locations.FindAsync([id], cancellationToken) is not { } place)
         {
             return TypedResults.NotFound();
@@ -47,6 +47,7 @@ internal static class PlaceEndpoints
         }
 
         place.ParentId = request.ParentId;
+        await RememberChangeAsync(place, db, clock, cancellationToken);
         var result = await SaveAsync(db, TypedResults.NoContent(), cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return result;
@@ -57,14 +58,10 @@ internal static class PlaceEndpoints
     /// its history stay as they are. Only a site stands on its own, so becoming a site lifts it out of its parent, and a
     /// site becoming anything else needs a place to sit in.
     /// </summary>
-    private static async Task<IResult> ChangeKindAsync(Guid id, ChangePlaceKindRequest request, HortiplannerDbContext db, EventStore store, CancellationToken cancellationToken)
+    private static async Task<IResult> ChangeKindAsync(Guid id, ChangePlaceKindRequest request, HortiplannerDbContext db, EventStore store, TimeProvider clock, CancellationToken cancellationToken)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-        await db.Database.ExecuteSqlRawAsync("LOCK TABLE locations IN SHARE ROW EXCLUSIVE MODE", cancellationToken);
-
-        // The place's own row too: work saved meanwhile shares this lock, so it either finishes first and is seen, or
-        // waits and sees the change.
-        await db.Database.ExecuteSqlRawAsync("SELECT 1 FROM locations WHERE id = {0} FOR UPDATE", [id], cancellationToken);
+        await LockHierarchyAsync(db, cancellationToken);
 
         if (await db.Locations.FindAsync([id], cancellationToken) is not { } place)
         {
@@ -95,6 +92,7 @@ internal static class PlaceEndpoints
         }
 
         place.Kind = request.Kind;
+        await RememberChangeAsync(place, db, clock, cancellationToken);
         var result = await SaveAsync(db, TypedResults.NoContent(), cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return result;
@@ -109,10 +107,9 @@ internal static class PlaceEndpoints
     {
         // The same lock as moving and changing kind, so nothing is put inside it while it goes.
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-        await db.Database.ExecuteSqlRawAsync("LOCK TABLE locations IN SHARE ROW EXCLUSIVE MODE", cancellationToken);
+        await LockHierarchyAsync(db, cancellationToken);
 
-        // The place's own row too: work saved meanwhile shares this lock, so it either finishes first and is seen, or
-        // waits and sees the change.
+        // Photo uploads lock this row, since their entry reference is shared by several kinds of catalogue entry.
         await db.Database.ExecuteSqlRawAsync("SELECT 1 FROM locations WHERE id = {0} FOR UPDATE", [id], cancellationToken);
 
         if (await db.Locations.FindAsync([id], cancellationToken) is not { } place)
@@ -120,7 +117,8 @@ internal static class PlaceEndpoints
             return TypedResults.NotFound();
         }
 
-        var reason = await db.Locations.AnyAsync(inside => inside.ParentId == id, cancellationToken) ? "HasPlaces"
+        var reason = await db.Locations.AnyAsync(inside => inside.ParentId == id, cancellationToken)
+            || await db.LocationChanges.AnyAsync(change => change.PreviousParentId == id, cancellationToken) ? "HasPlaces"
             : await db.Events.AnyAsync(e => e.LocationId == id, cancellationToken) ? "HasWork"
             : await db.Sensors.AnyAsync(sensor => sensor.LocationId == id, cancellationToken)
                 || await db.SensorReadings.AnyAsync(reading => reading.LocationId == id, cancellationToken) ? "HasSensors"
@@ -154,6 +152,8 @@ internal static class PlaceEndpoints
     private static async Task<IResult> AddSeveralAsync(AddPlacesRequest request, HortiplannerDbContext db, CancellationToken cancellationToken)
     {
         var prefix = request.Prefix.Trim();
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await LockHierarchyAsync(db, cancellationToken);
 
         if (prefix.Length == 0
             || request.Kind == LocationKind.Site
@@ -170,13 +170,46 @@ internal static class PlaceEndpoints
             .ToList();
 
         db.Locations.AddRange(added);
-        return await SaveAsync(
+        var result = await SaveAsync(
             db,
             TypedResults.Created("/api/locations", new PlacesCreated(added.ConvertAll(place => place.Id))),
             cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return result;
     }
 
-    private static Task<bool> IsUsableParentAsync(Guid parentId, HortiplannerDbContext db, CancellationToken cancellationToken) =>
+    // Shared with archiving and incompatible with the lock held while work changes where stock stands.
+    internal static Task LockHierarchyAsync(HortiplannerDbContext db, CancellationToken cancellationToken) =>
+        db.Database.ExecuteSqlRawAsync("LOCK TABLE locations IN SHARE ROW EXCLUSIVE MODE", cancellationToken);
+
+    private static async Task RememberChangeAsync(Location place, HortiplannerDbContext db, TimeProvider clock, CancellationToken cancellationToken)
+    {
+        var entry = db.Entry(place);
+        var previousKind = entry.Property(item => item.Kind).OriginalValue;
+        var previousParent = entry.Property(item => item.ParentId).OriginalValue;
+        if (place.Kind == previousKind && place.ParentId == previousParent)
+        {
+            return;
+        }
+
+        var at = clock.GetUtcNow();
+        var latest = await db.LocationChanges.Where(change => change.LocationId == place.Id)
+            .MaxAsync(change => (DateTimeOffset?)change.EffectiveAt, cancellationToken);
+        if (latest is { } previous && at < previous)
+        {
+            at = previous;
+        }
+
+        db.LocationChanges.Add(new LocationChange
+        {
+            LocationId = place.Id,
+            EffectiveAt = at,
+            PreviousKind = previousKind,
+            PreviousParentId = previousParent,
+        });
+    }
+
+    internal static Task<bool> IsUsableParentAsync(Guid parentId, HortiplannerDbContext db, CancellationToken cancellationToken) =>
         db.Locations.AnyAsync(parent => parent.Id == parentId && parent.ArchivedAt == null, cancellationToken);
 
     /// <summary>Whether a place is the other place or sits somewhere inside it.</summary>

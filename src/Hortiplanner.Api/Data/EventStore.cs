@@ -14,8 +14,8 @@ internal sealed class EventStore(HortiplannerDbContext db, TimeProvider clock, D
     /// <summary>How far ahead of the server a device's clock may run before its time is not believed.</summary>
     private static readonly TimeSpan ClockAllowance = TimeSpan.FromMinutes(5);
 
-    public Task<AppendResult> AppendAsync(Event newEvent, CancellationToken cancellationToken) =>
-        AppendCoreAsync(newEvent, cancellationToken);
+    public Task<AppendResult> AppendAsync(Event newEvent, CancellationToken cancellationToken, bool alreadyOnServerClock = false, bool keepHistoricalPlace = false) =>
+        AppendCoreAsync(newEvent, cancellationToken, alreadyOnServerClock, keepHistoricalPlace);
 
     /// <summary>Stores a stock count of one batch in one container, as it was when the count was made.</summary>
     public async Task<AppendResult> AppendStockCountAsync(Event stockCount, Guid batchId, int counted, CancellationToken cancellationToken, bool rough = false)
@@ -173,7 +173,7 @@ internal sealed class EventStore(HortiplannerDbContext db, TimeProvider clock, D
             : null;
     }
 
-    private async Task<AppendResult> AppendCoreAsync(Event newEvent, CancellationToken cancellationToken, bool alreadyOnServerClock = false)
+    private async Task<AppendResult> AppendCoreAsync(Event newEvent, CancellationToken cancellationToken, bool alreadyOnServerClock = false, bool keepHistoricalPlace = false)
     {
         newEvent.RequestFingerprint ??= device?.RequestFingerprint;
         if (!alreadyOnServerClock)
@@ -196,6 +196,16 @@ internal sealed class EventStore(HortiplannerDbContext db, TimeProvider clock, D
             return refused;
         }
 
+        if (newEvent.ContainerId is not null || newEvent.LocationId is not null || keys.Count > 0)
+        {
+            await LockPlacesAsync(cancellationToken);
+        }
+
+        if (!keepHistoricalPlace && await CheckDestinationAsync(newEvent, cancellationToken) is { } invalidPlace)
+        {
+            return invalidPlace;
+        }
+
         if (newEvent.Type == EventType.StockCounted && newEvent.ContainerId is { } countedContainer && CountOf(newEvent.Payload) is { } counted
             && !await db.EventLines.AnyAsync(line => line.ContainerId == countedContainer && line.BatchId == counted.BatchId, cancellationToken))
         {
@@ -211,6 +221,23 @@ internal sealed class EventStore(HortiplannerDbContext db, TimeProvider clock, D
         }
 
         return await SaveCheckedAsync(newEvent, keys, transaction, cancellationToken);
+    }
+
+    /// <summary>Work in different trays shares the hierarchy while places are moved, archived or changed.</summary>
+    internal Task LockPlacesAsync(CancellationToken cancellationToken) =>
+        db.Database.ExecuteSqlRawAsync("LOCK TABLE locations IN ROW EXCLUSIVE MODE", cancellationToken);
+
+    private async Task<AppendResult?> CheckDestinationAsync(Event work, CancellationToken cancellationToken)
+    {
+        if (work.LocationId is not { } destination
+            || (work.CorrectsEventId is { } original && await db.Events.AnyAsync(e => e.Id == original && e.LocationId == destination, cancellationToken)))
+        {
+            return null;
+        }
+
+        var place = await db.Locations.AsNoTracking().FirstOrDefaultAsync(place => place.Id == destination, cancellationToken);
+        return place is null || place.ArchivedAt is not null ? AppendResult.PlaceUnavailable
+            : place.Kind == LocationKind.Site ? AppendResult.OnSite : null;
     }
 
     /// <summary>Saves the event, unless it would leave plants on a site; inside another transaction only this event is undone.</summary>
@@ -234,7 +261,7 @@ internal sealed class EventStore(HortiplannerDbContext db, TimeProvider clock, D
         {
             await db.SaveChangesAsync(cancellationToken);
 
-            if (await LeavesPlantsOnASiteAsync(newEvent, keys, cancellationToken))
+            if (await LeavesPlantsInUnavailablePlaceAsync(newEvent, keys, cancellationToken) is { } refused)
             {
                 if (outer)
                 {
@@ -246,7 +273,7 @@ internal sealed class EventStore(HortiplannerDbContext db, TimeProvider clock, D
                     db.ChangeTracker.Clear();
                 }
 
-                return AppendResult.OnSite;
+                return refused;
             }
 
             if (transaction is not null)
@@ -583,13 +610,8 @@ internal sealed class EventStore(HortiplannerDbContext db, TimeProvider clock, D
             .Concat(lostAll)];
     }
 
-    /// <summary>
-    /// Whether work just saved, in this transaction, leaves a tray with plants in it standing on a site: by moving it
-    /// there, undoing a move away, or undoing a loss of a tray left on a place that has since become a site. Each place
-    /// the trays end up on is locked for sharing first, so a change of a place's sort either waits for this work and
-    /// then sees its trays, or finishes first and is seen here.
-    /// </summary>
-    private async Task<bool> LeavesPlantsOnASiteAsync(Event newEvent, List<StockKey> keys, CancellationToken cancellationToken)
+    /// <summary>Checks where stock would stand after this work, including stock brought back by undo or correction.</summary>
+    private async Task<AppendResult?> LeavesPlantsInUnavailablePlaceAsync(Event newEvent, List<StockKey> keys, CancellationToken cancellationToken)
     {
         var containers = keys.Select(key => key.ContainerId).ToHashSet();
 
@@ -606,7 +628,7 @@ internal sealed class EventStore(HortiplannerDbContext db, TimeProvider clock, D
 
         if (containers.Count == 0)
         {
-            return false;
+            return null;
         }
 
         var placements = await GetPlacementsAsync([.. containers], cancellationToken);
@@ -614,26 +636,22 @@ internal sealed class EventStore(HortiplannerDbContext db, TimeProvider clock, D
 
         if (placeIds.Length == 0)
         {
-            return false;
+            return null;
         }
 
-        var sites = (await db.Locations
-                .FromSqlInterpolated($"SELECT * FROM locations WHERE id = ANY({placeIds}) ORDER BY id FOR SHARE")
-                .AsNoTracking()
-                .ToListAsync(cancellationToken))
-            .Where(place => place.Kind == LocationKind.Site)
-            .Select(place => place.Id)
-            .ToHashSet();
+        var unavailable = await db.Locations.AsNoTracking()
+            .Where(place => placeIds.Contains(place.Id) && (place.Kind == LocationKind.Site || place.ArchivedAt != null))
+            .ToDictionaryAsync(place => place.Id, place => place.Kind == LocationKind.Site ? AppendResult.OnSite : AppendResult.PlaceUnavailable, cancellationToken);
 
         foreach (var (container, placement) in placements)
         {
-            if (placement.LocationId is { } at && sites.Contains(at) && (await SumStockAsync(container, cancellationToken)).Count > 0)
+            if (placement.LocationId is { } at && unavailable.TryGetValue(at, out var refused) && (await SumStockAsync(container, cancellationToken)).Count > 0)
             {
-                return true;
+                return refused;
             }
         }
 
-        return false;
+        return null;
     }
 
     private async Task<List<ContainerStock>> SumStockAsync(Guid? containerId, CancellationToken cancellationToken)

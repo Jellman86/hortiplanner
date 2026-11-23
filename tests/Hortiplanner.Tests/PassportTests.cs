@@ -176,6 +176,38 @@ public sealed class PassportTests(PostgresFixture database)
     }
 
     [Fact]
+    public async Task Moving_a_parent_place_under_cover_starts_a_new_interval_for_the_tray()
+    {
+        var clock = new TestClock();
+        await using var nursery = await TwoPersonNursery.CreateAsync(database, clock: clock);
+        var (outside, tunnel) = await PlacesAsync(nursery.Owner);
+        var bay = await AddAsync(nursery.Owner, "/api/locations", new { name = "Bay", kind = "Bench", parentId = outside });
+        var bench = await AddAsync(nursery.Owner, "/api/locations", new { name = "Bench", kind = "Bench", parentId = bay });
+        var (batch, tray) = await BuyInAtAsync(nursery, bench, clock.GetUtcNow().AddDays(-20));
+
+        async Task MoveBayAsync(Guid parentId)
+        {
+            using var response = await nursery.Owner.PutAsJsonAsync(Route($"/api/locations/{bay}/parent"), new { parentId }, Cancellation);
+            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        }
+
+        async Task<bool> CanConfirmGrowthAsync() =>
+            (await DraftAsync(nursery.Staff, batch, tray)).GetProperty("needsActiveGrowthConfirmation").GetBoolean();
+
+        await MoveBayAsync(tunnel);
+        Assert.False(await CanConfirmGrowthAsync());
+        clock.Advance(TimeSpan.FromDays(15));
+        Assert.True(await CanConfirmGrowthAsync());
+
+        await MoveBayAsync(outside);
+        Assert.False(await CanConfirmGrowthAsync());
+        clock.Advance(TimeSpan.FromDays(15));
+        Assert.False(await CanConfirmGrowthAsync());
+        clock.Advance(TimeSpan.FromDays(14));
+        Assert.True(await CanConfirmGrowthAsync());
+    }
+
+    [Fact]
     public async Task Nothing_is_issued_without_a_botanical_name_and_a_registration_number()
     {
         await using var nursery = await TwoPersonNursery.CreateAsync(database);

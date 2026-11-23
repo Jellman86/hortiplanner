@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Hortiplanner.Api.Accounts;
 using Hortiplanner.Api.Data;
+using Hortiplanner.Api.Figures;
 using Hortiplanner.Api.Settings;
 using Microsoft.EntityFrameworkCore;
 using MoneyPair = Hortiplanner.Api.Costs.BatchCostings.MoneyPair;
@@ -108,17 +109,30 @@ internal static class PotAllowances
     /// corrected. Sizes with no allowance, and potting with no size, are named rather than charged.
     /// </summary>
     /// <remarks>Also gives each potting's charge with its time, so what lost plants had cost can be worked out.</remarks>
-    internal static async Task<(PotsCost? Pots, List<PlantCosts.Charge> Charges)> ForBatchAsync(Guid batchId, HortiplannerDbContext db, TimeProvider clock, CancellationToken cancellationToken)
+    internal static async Task<Dictionary<Guid, (PotsCost Pots, List<PlantCosts.Charge> Charges)>> ForBatchesAsync(
+        BatchLedger.Ledger ledger, HortiplannerDbContext db, TimeProvider clock, CancellationToken cancellationToken)
     {
-        var potting = await PottingAsync(batchId, db, cancellationToken);
-
+        var potting = ledger.Rows
+            .Where(row => row.Type is EventType.PrickedOut or EventType.PottedOn
+                && row.Line.QuantityChange > 0 && row.Line.ContainerId == row.Event.ContainerId)
+            .Select(row => new Potting(row.Line.BatchId,
+                row.Event.CorrectsEventId is { } original ? ledger.Events[original].OccurredAt : row.Event.OccurredAt,
+                row.Event.PotSizeId, row.Line.QuantityChange))
+            .ToLookup(row => row.BatchId);
         if (potting.Count == 0)
         {
-            return (null, []);
+            return [];
         }
 
-        var rows = (await db.PotSizeCosts.AsNoTracking().ToListAsync(cancellationToken)).ToLookup(row => row.PotSizeId);
-        var names = await db.PotSizes.AsNoTracking().ToDictionaryAsync(size => size.Id, size => size.Name, cancellationToken);
+        var sizeIds = potting.SelectMany(group => group).Select(row => row.PotSizeId).OfType<Guid>().Distinct().ToArray();
+        var rows = (await db.PotSizeCosts.AsNoTracking().Where(row => sizeIds.Contains(row.PotSizeId)).ToListAsync(cancellationToken)).ToLookup(row => row.PotSizeId);
+        var names = await db.PotSizes.AsNoTracking().Where(size => sizeIds.Contains(size.Id)).ToDictionaryAsync(size => size.Id, size => size.Name, cancellationToken);
+        return potting.ToDictionary(group => group.Key, group => Cost(group, rows, names, clock));
+    }
+
+    private static (PotsCost Pots, List<PlantCosts.Charge> Charges) Cost(
+        IEnumerable<Potting> potting, ILookup<Guid, PotSizeCost> rows, Dictionary<Guid, string> names, TimeProvider clock)
+    {
         var charged = potting
             .Where(pot => pot.PotSizeId is not null)
             .Select(pot => new { Pot = pot, Allowance = On([.. rows[pot.PotSizeId!.Value]], DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(pot.OccurredAt, clock.LocalTimeZone).DateTime)) })
@@ -154,28 +168,7 @@ internal static class PotAllowances
     }
 
 
-    private sealed record Potting(DateTimeOffset OccurredAt, Guid? PotSizeId, int Plants);
-
-    /// <summary>Plants of the batch moved into a new pot or tray, as the work stands now.</summary>
-    private static async Task<List<Potting>> PottingAsync(Guid batchId, HortiplannerDbContext db, CancellationToken cancellationToken)
-    {
-        var rows = await db.EventLines.AsNoTracking()
-            .Where(line => line.BatchId == batchId && line.QuantityChange > 0)
-            .Join(db.Events, line => line.EventId, e => e.Id, (line, e) => new { line.ContainerId, line.QuantityChange, e.Id, e.Type, Into = e.ContainerId, e.PotSizeId, e.OccurredAt, e.CorrectsEventId })
-            .Where(row => row.ContainerId == row.Into)
-            .ToListAsync(cancellationToken);
-        var ids = rows.Select(row => row.Id).Concat(rows.Where(row => row.CorrectsEventId != null).Select(row => row.CorrectsEventId!.Value)).Distinct().ToList();
-        var reversed = (await db.Events.AsNoTracking().Where(e => e.CorrectsEventId != null && ids.Contains(e.CorrectsEventId.Value)).Select(e => e.CorrectsEventId!.Value).ToListAsync(cancellationToken)).ToHashSet();
-        var originals = await db.Events.AsNoTracking().Where(e => ids.Contains(e.Id)).ToDictionaryAsync(e => e.Id, e => new { e.Type, e.OccurredAt }, cancellationToken);
-
-        return [.. rows
-            .Where(row => !reversed.Contains(row.Id))
-            .Select(row => row.Type == EventType.Corrected && row.CorrectsEventId is { } of && originals.TryGetValue(of, out var original)
-                ? new { Type = original.Type, original.OccurredAt, row.PotSizeId, row.QuantityChange }
-                : new { row.Type, row.OccurredAt, row.PotSizeId, row.QuantityChange })
-            .Where(row => row.Type is EventType.PrickedOut or EventType.PottedOn)
-            .Select(row => new Potting(row.OccurredAt, row.PotSizeId, row.QuantityChange))];
-    }
+    private sealed record Potting(Guid BatchId, DateTimeOffset OccurredAt, Guid? PotSizeId, int Plants);
 
     internal sealed record AllowanceRequest(decimal? CostEach, bool IncludesVat = true);
 

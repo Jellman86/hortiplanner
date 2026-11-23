@@ -17,6 +17,9 @@ internal sealed class NurseryJob : IArchivable
 
     public required DateOnly NextDue { get; set; }
 
+    /// <summary>The due date before completions on the current schedule, or null for an older job.</summary>
+    public DateOnly? ScheduledDue { get; set; }
+
     /// <summary>Where the job is done, if it belongs to one place.</summary>
     public Guid? LocationId { get; set; }
 

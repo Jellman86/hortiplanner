@@ -89,6 +89,34 @@ public sealed class VatRateTests(PostgresFixture database)
     }
 
     [Fact]
+    public async Task Overlapping_saves_keep_one_valid_pair_even_on_a_fixed_clock()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database, clock: new TestClock());
+        await using var scope = nursery.App.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<HortiplannerDbContext>();
+        await using var blocker = await db.Database.BeginTransactionAsync(Cancellation);
+        await db.Database.ExecuteSqlRawAsync("LOCK TABLE vat_rate_changes IN SHARE MODE", Cancellation);
+        var lower = SaveAsync(nursery.Owner, 6m, 5m);
+        var higher = SaveAsync(nursery.Owner, 20m, 10m);
+
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(Cancellation);
+        deadline.CancelAfter(TimeSpan.FromSeconds(10));
+        while (await db.Database.SqlQueryRaw<int>("""
+            SELECT count(*)::integer AS "Value" FROM pg_locks
+            WHERE relation = 'vat_rate_changes'::regclass AND database = (SELECT oid FROM pg_database WHERE datname = current_database()) AND NOT granted
+            """).SingleAsync(deadline.Token) < 2)
+        {
+            await Task.Delay(10, deadline.Token);
+        }
+
+        await blocker.CommitAsync(Cancellation);
+        Assert.All(await Task.WhenAll(lower, higher), reply => Assert.Equal(HttpStatusCode.OK, reply.Status));
+        var rates = await RatesAsync(nursery.Owner);
+        var actual = (rates.GetProperty("standard").GetDecimal(), rates.GetProperty("reduced").GetDecimal());
+        Assert.Contains(actual, new[] { (6m, 5m), (20m, 10m) });
+    }
+
+    [Fact]
     public async Task The_history_is_never_changed_or_deleted()
     {
         await using var nursery = await TwoPersonNursery.CreateAsync(database);

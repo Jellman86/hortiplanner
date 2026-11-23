@@ -55,6 +55,13 @@ internal static class CatalogueEndpoints
     private static async Task<IResult> SetArchivedAsync<T>(Guid id, DateTimeOffset? archivedAt, HortiplannerDbContext db, EventStore store, CancellationToken cancellationToken)
         where T : class, IArchivable
     {
+        await using var transaction = typeof(T) == typeof(Location)
+            ? await db.Database.BeginTransactionAsync(cancellationToken) : null;
+        if (transaction is not null)
+        {
+            await PlaceEndpoints.LockHierarchyAsync(db, cancellationToken);
+        }
+
         if (await db.Set<T>().FindAsync([id], cancellationToken) is not { } entry)
         {
             return TypedResults.NotFound();
@@ -65,8 +72,19 @@ internal static class CatalogueEndpoints
             return TypedResults.Conflict(refused);
         }
 
+        if (archivedAt is null && entry is Location { ParentId: { } parentId }
+            && !await PlaceEndpoints.IsUsableParentAsync(parentId, db, cancellationToken))
+        {
+            return TypedResults.BadRequest();
+        }
+
         entry.ArchivedAt = archivedAt;
         await db.SaveChangesAsync(cancellationToken);
+        if (transaction is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+        }
+
         return TypedResults.NoContent();
     }
 
@@ -418,6 +436,9 @@ internal static class CatalogueEndpoints
             return TypedResults.BadRequest();
         }
 
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await PlaceEndpoints.LockHierarchyAsync(db, cancellationToken);
+
         var parentKind = request.ParentId is { } parentId
             ? await db.Locations.Where(parent => parent.Id == parentId && parent.ArchivedAt == null).Select(parent => (LocationKind?)parent.Kind).FirstOrDefaultAsync(cancellationToken)
             : null;
@@ -429,7 +450,9 @@ internal static class CatalogueEndpoints
 
         var location = new Location { Name = name, Kind = request.Kind, ParentId = request.ParentId };
         db.Locations.Add(location);
-        return await SaveAsync(db, CreatedEntry("/api/locations", location.Id), cancellationToken);
+        var result = await SaveAsync(db, CreatedEntry("/api/locations", location.Id), cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return result;
     }
 
     private static async Task<IResult> RenameLocationAsync(Guid id, NameRequest request, HortiplannerDbContext db, CancellationToken cancellationToken)

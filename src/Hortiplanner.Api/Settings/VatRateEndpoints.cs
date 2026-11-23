@@ -34,10 +34,8 @@ internal static class VatRateEndpoints
                 change.SetAt))
             .ToListAsync(cancellationToken);
 
-        return new VatRatesSummary(
-            await VatRates.PercentAsync(db, VatBand.Standard, today, cancellationToken),
-            await VatRates.PercentAsync(db, VatBand.Reduced, today, cancellationToken),
-            changes);
+        var (standard, reduced) = await VatRates.PairAsync(db, today, cancellationToken);
+        return new VatRatesSummary(standard, reduced, changes);
     }
 
     private static bool IsRate(decimal percent) => percent is >= 0 and <= 100 && decimal.Round(percent, 2) == percent;
@@ -55,20 +53,33 @@ internal static class VatRateEndpoints
             return TypedResults.BadRequest(new VatRatesRefused("ReducedAboveStandard"));
         }
 
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await db.Database.ExecuteSqlRawAsync("LOCK TABLE vat_rate_changes IN SHARE ROW EXCLUSIVE MODE", cancellationToken);
+
         var today = Today(clock);
+        var current = await VatRates.PairAsync(db, today, cancellationToken);
+        var last = await db.VatRateChanges.Where(change => change.From == today)
+            .MaxAsync(change => (DateTimeOffset?)change.SetAt, cancellationToken);
+        var setAt = clock.GetUtcNow();
+        // PostgreSQL stores microseconds. Saves on the same day must sort in lock order, even on a fixed clock.
+        if (last is { } previous && setAt < previous.AddTicks(10))
+        {
+            setAt = previous.AddTicks(10);
+        }
         var setBy = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
         var changed = new List<VatBand>();
 
-        foreach (var (band, percent) in new[] { (VatBand.Standard, standard), (VatBand.Reduced, reduced) })
+        foreach (var (band, percent, before) in new[] { (VatBand.Standard, standard, current.Standard), (VatBand.Reduced, reduced, current.Reduced) })
         {
-            if (await VatRates.PercentAsync(db, band, today, cancellationToken) != percent)
+            if (before != percent)
             {
-                db.VatRateChanges.Add(new VatRateChange { Band = band, Percent = percent, From = today, SetBy = setBy, SetAt = clock.GetUtcNow() });
+                db.VatRateChanges.Add(new VatRateChange { Band = band, Percent = percent, From = today, SetBy = setBy, SetAt = setAt });
                 changed.Add(band);
             }
         }
 
         await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return TypedResults.Ok(new VatRatesSaved(changed));
     }
 

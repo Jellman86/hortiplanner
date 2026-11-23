@@ -3,39 +3,30 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Hortiplanner.Api.Settings;
 
-/// <summary>The VAT rate for a band on a day: the newest rate for that band starting on or before it.</summary>
+/// <summary>The VAT rates for a day, read together so every band comes from the same database snapshot.</summary>
 internal static class VatRates
 {
-    internal static async Task<decimal> PercentAsync(HortiplannerDbContext db, VatBand band, DateOnly day, CancellationToken cancellationToken)
+    private static IQueryable<VatRateChange> On(HortiplannerDbContext db, VatBand band, DateOnly day) =>
+        db.VatRateChanges.AsNoTracking().Where(change => change.Band == band)
+            // The latest effective rate wins. Before the first rate, use the earliest one.
+            .OrderByDescending(change => change.From <= day)
+            .ThenByDescending(change => change.From <= day ? (DateOnly?)change.From : null)
+            .ThenBy(change => change.From)
+            .ThenByDescending(change => change.From <= day ? (DateTimeOffset?)change.SetAt : null)
+            .ThenBy(change => change.SetAt)
+            .ThenByDescending(change => change.Id)
+            .Take(1);
+
+    internal static Task<decimal> PercentAsync(HortiplannerDbContext db, VatBand band, DateOnly day, CancellationToken cancellationToken) =>
+        band == VatBand.Zero
+            ? Task.FromResult(0m)
+            : On(db, band, day).Select(change => change.Percent).FirstOrDefaultAsync(cancellationToken);
+
+    internal static async Task<(decimal Standard, decimal Reduced)> PairAsync(HortiplannerDbContext db, DateOnly day, CancellationToken cancellationToken)
     {
-        if (band == VatBand.Zero)
-        {
-            return 0m;
-        }
-
-        var rates = db.VatRateChanges.AsNoTracking().Where(change => change.Band == band);
-
-        // Two changes on one day: the later wins, and the order they were made in settles a tie.
-        return await rates
-                .Where(change => change.From <= day)
-                .OrderByDescending(change => change.From)
-                .ThenByDescending(change => change.SetAt)
-                .ThenByDescending(change => change.Id)
-                .Select(change => (decimal?)change.Percent)
-                .FirstOrDefaultAsync(cancellationToken)
-            // A day before the first rate takes the first rate, rather than nothing.
-            ?? await rates
-                .OrderBy(change => change.From)
-                .ThenBy(change => change.SetAt)
-                .Select(change => change.Percent)
-                .FirstOrDefaultAsync(cancellationToken);
+        var rows = await On(db, VatBand.Standard, day).Concat(On(db, VatBand.Reduced, day))
+            .Select(change => new { change.Band, change.Percent })
+            .ToDictionaryAsync(change => change.Band, change => change.Percent, cancellationToken);
+        return (rows.GetValueOrDefault(VatBand.Standard), rows.GetValueOrDefault(VatBand.Reduced));
     }
-
-    /// <summary>The rates an invoice line may carry on a day for a registered nursery: standard, reduced and zero.</summary>
-    internal static async Task<HashSet<decimal>> AllowedAsync(HortiplannerDbContext db, DateOnly day, CancellationToken cancellationToken) =>
-    [
-        await PercentAsync(db, VatBand.Standard, day, cancellationToken),
-        await PercentAsync(db, VatBand.Reduced, day, cancellationToken),
-        0m,
-    ];
 }

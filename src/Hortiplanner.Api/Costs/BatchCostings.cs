@@ -44,143 +44,154 @@ internal static class BatchCostings
         await CostingAsync(id, db, clock, cancellationToken) is { } costing ? TypedResults.Ok(costing) : TypedResults.NotFound();
 
     /// <summary>A batch's whole costing, as Costs and takings shows it, or null when there's no such batch.</summary>
-    internal static async Task<BatchCosting?> CostingAsync(Guid id, HortiplannerDbContext db, TimeProvider clock, CancellationToken cancellationToken)
+    internal static async Task<BatchCosting?> CostingAsync(Guid id, HortiplannerDbContext db, TimeProvider clock, CancellationToken cancellationToken) =>
+        (await LoadAsync([id], db, clock, cancellationToken)).Batches.GetValueOrDefault(id);
+
+    internal static async Task<Costings> LoadAsync(
+        IReadOnlyCollection<Guid> batchIds, HortiplannerDbContext db, TimeProvider clock, CancellationToken cancellationToken,
+        (DateOnly From, DateOnly To)? unbatchedWindow = null)
     {
-        if (await db.Batches.AsNoTracking()
-                .Where(batch => batch.Id == id)
-                .Join(db.Plants, batch => batch.PlantId, plant => plant.Id, (batch, plant) => new { batch.TraceabilityCode, batch.Source, batch.PurchaseLineId, plant.VatBand })
-                .FirstOrDefaultAsync(cancellationToken) is not { } batch)
+        var registered = await db.NurserySettings.AsNoTracking().Select(settings => settings.VatRegistered).FirstOrDefaultAsync(cancellationToken);
+        var batches = await db.Batches.AsNoTracking()
+            .Where(batch => batchIds.Contains(batch.Id))
+            .Join(db.Plants, batch => batch.PlantId, plant => plant.Id, (batch, plant) => new
+            {
+                batch.Id,
+                batch.TraceabilityCode,
+                batch.Source,
+                batch.PurchaseLineId,
+                plant.VatBand,
+            })
+            .ToListAsync(cancellationToken);
+
+        var sales = (await Sales.ForBatchesAsync(batchIds, db, unbatchedWindow, cancellationToken)).ToLookup(sale => sale.BatchId);
+        if (batches.Count == 0)
         {
-            return null;
+            return new Costings(registered, [], sales[null]);
         }
 
-        var registered = await db.NurserySettings.AsNoTracking().Select(settings => settings.VatRegistered).FirstOrDefaultAsync(cancellationToken);
-        var history = await HistoryAsync(id, db, cancellationToken);
-        var purchase = batch.PurchaseLineId is { } lineId ? await PurchaseShareAsync(lineId, id, db, cancellationToken) : null;
-        var material = Material(batch.Source, history, purchase);
-        var others = history.Where(entry => entry is { Kind: CostKind.Other, Replaced: false, Answer: CostAnswer.Amount }).ToList();
-        var (pots, potCharges) = await PotAllowances.ForBatchAsync(id, db, clock, cancellationToken);
-        var total = Total(material, pots, others);
-        var perPlant = PlantCosts.Work(await BatchLedger.LoadAsync(db, id, cancellationToken), id, total, Spent(material, others, potCharges));
-        var takings = TakingsOf(await Sales.ForBatchAsync(id, db, cancellationToken));
-        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(clock.GetUtcNow(), clock.LocalTimeZone).DateTime);
+        var history = await HistoryAsync(batchIds, db, cancellationToken);
+        var purchases = await PurchaseSharesAsync(batches.Select(batch => batch.PurchaseLineId).OfType<Guid>().Distinct().ToArray(), db, cancellationToken);
+        var ledger = await BatchLedger.LoadAsync(db, batchIds, cancellationToken);
+        var potting = await PotAllowances.ForBatchesAsync(ledger, db, clock, cancellationToken);
+        var rows = ledger.Rows.ToLookup(row => row.Line.BatchId);
+        var absorbedAt = ledger.AbsorbedAt.ToLookup(item => item.BatchId);
+        var counted = BatchLedger.CountedBatches(ledger).ToHashSet();
+        var today = DateOnly.FromDateTime(clock.GetLocalNow().DateTime);
+        var (standard, reduced) = await VatRates.PairAsync(db, today, cancellationToken);
 
-        return new BatchCosting(
-            id,
-            batch.TraceabilityCode,
-            batch.Source,
-            batch.VatBand,
-            registered,
-            registered ? VatCounts.BeforeVat : VatCounts.WithVat,
-            material,
-            others,
-            pots,
-            total,
-            perPlant,
-            takings,
-            history,
-            await VatRates.PercentAsync(db, VatBand.Standard, today, cancellationToken),
-            await VatRates.PercentAsync(db, VatBand.Reduced, today, cancellationToken));
+        var costings = new Dictionary<Guid, BatchCosting>();
+        foreach (var batch in batches)
+        {
+            var entries = history[batch.Id].ToList();
+            var material = Material(batch.Source, entries, purchases.GetValueOrDefault(batch.Id));
+            var others = entries.Where(entry => entry is { Kind: CostKind.Other, Replaced: false, Answer: CostAnswer.Amount }).ToList();
+            var (pots, charges) = potting.TryGetValue(batch.Id, out var potCost) ? potCost : ((PotAllowances.PotsCost?)null, []);
+            var total = Total(material, pots, others);
+            var uncounted = ledger.Batches[batch.Id].SownAs is not (null or SownMeasure.Counted) && !counted.Contains(batch.Id);
+            var perPlant = PlantCosts.Work(rows[batch.Id].ToList(), ledger.Absorbed.GetValueOrDefault(batch.Id),
+                absorbedAt[batch.Id], uncounted, total, Spent(material, others, charges));
+
+            costings.Add(batch.Id, new BatchCosting(
+                batch.Id, batch.TraceabilityCode, batch.Source, batch.VatBand,
+                registered, registered ? VatCounts.BeforeVat : VatCounts.WithVat,
+                material, others, pots, total, perPlant, TakingsOf(sales[batch.Id]), entries, standard, reduced));
+        }
+
+        return new Costings(registered, costings, sales[null]);
     }
 
-    /// <summary>Every entry, replaced ones too, oldest first.</summary>
-    private static async Task<List<CostEntry>> HistoryAsync(Guid batchId, HortiplannerDbContext db, CancellationToken cancellationToken)
-    {
-        var costs = db.BatchCosts.AsNoTracking().Where(cost => cost.BatchId == batchId);
+    internal sealed record Costings(bool VatRegistered, Dictionary<Guid, BatchCosting> Batches, IEnumerable<Sales.Sale> UnbatchedSales);
 
-        return await costs
+    /// <summary>Every entry for the selected batches, replaced ones too, oldest first.</summary>
+    private static async Task<ILookup<Guid, CostEntry>> HistoryAsync(IReadOnlyCollection<Guid> batchIds, HortiplannerDbContext db, CancellationToken cancellationToken)
+    {
+        var costs = db.BatchCosts.AsNoTracking();
+        var rows = await costs
+            .Where(cost => batchIds.Contains(cost.BatchId))
             .OrderBy(cost => cost.RecordedAt)
             .ThenBy(cost => cost.Id)
-            .Select(cost => new CostEntry(
-                cost.Id,
-                cost.Kind,
-                cost.Answer,
-                cost.AmountPaid,
-                cost.IncludesVat,
-                cost.VatBand,
-                cost.VatRate,
-                cost.VatSaid,
-                cost.NetCost == null ? null : new MoneyPair(cost.NetCost.Value + cost.Vat!.Value, cost.NetCost.Value),
-                cost.Note,
-                db.Users.Where(user => user.Id == cost.RecordedBy).Select(user => user.UserName).FirstOrDefault() ?? "Someone",
-                cost.OccurredAt,
-                cost.RecordedAt,
-                costs.Any(other => other.ReplacesId == cost.Id),
-                cost.ReplacesId))
+            .Select(cost => new
+            {
+                cost.BatchId,
+                Entry = new CostEntry(
+                    cost.Id,
+                    cost.Kind,
+                    cost.Answer,
+                    cost.AmountPaid,
+                    cost.IncludesVat,
+                    cost.VatBand,
+                    cost.VatRate,
+                    cost.VatSaid,
+                    cost.NetCost == null ? null : new MoneyPair(cost.NetCost.Value + cost.Vat!.Value, cost.NetCost.Value),
+                    cost.Note,
+                    db.Users.Where(user => user.Id == cost.RecordedBy).Select(user => user.UserName).FirstOrDefault() ?? "Someone",
+                    cost.OccurredAt,
+                    cost.RecordedAt,
+                    costs.Any(other => other.ReplacesId == cost.Id),
+                    cost.ReplacesId),
+            })
             .ToListAsync(cancellationToken);
+        return rows.ToLookup(row => row.BatchId, row => row.Entry);
     }
 
-    /// <summary>
-    /// The batch's part of the purchase line it arrived on, when that purchase isn't voided: shared between the
-    /// batches started from the line by how many each started with, or equally when any was started uncounted.
-    /// </summary>
-    private static async Task<PurchaseSource?> PurchaseShareAsync(Guid lineId, Guid batchId, HortiplannerDbContext db, CancellationToken cancellationToken)
+    /// <summary>Splits net and VAT between all standing batches on each purchase line, including batches outside the report.</summary>
+    private static async Task<Dictionary<Guid, PurchaseSource>> PurchaseSharesAsync(Guid[] lineIds, HortiplannerDbContext db, CancellationToken cancellationToken)
     {
-        var line = await db.PurchaseLines.AsNoTracking()
-            .Where(line => line.Id == lineId)
+        if (lineIds.Length == 0)
+        {
+            return [];
+        }
+
+        var lines = await db.PurchaseLines.AsNoTracking().Where(line => lineIds.Contains(line.Id))
             .Join(db.Purchases.Where(purchase => purchase.VoidedAt == null), line => line.PurchaseId, purchase => purchase.Id, (line, purchase) => new
             {
+                LineId = line.Id,
+                PurchaseId = purchase.Id,
                 line.NetCost,
                 line.Vat,
-                purchase.Id,
                 purchase.PurchasedOn,
                 Supplier = db.Suppliers.Where(supplier => supplier.Id == purchase.SupplierId).Select(supplier => supplier.Name).First(),
             })
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (line is null)
-        {
-            return null;
-        }
-
-        var started = await StartedAsync(lineId, db, cancellationToken);
-
-        // A batch whose start was undone takes no share.
-        if (!started.ContainsKey(batchId))
-        {
-            return null;
-        }
-
-        var equally = started.Values.Any(quantity => quantity == 0);
-        var net = Share(line.NetCost, started, batchId, equally);
-        var vat = Share(line.Vat, started, batchId, equally);
-
-        return new PurchaseSource(line.Id, line.Supplier, line.PurchasedOn, started.Count > 1, equally, new MoneyPair(net + vat, net));
-    }
-
-    /// <summary>
-    /// How many plants each batch from a purchase line started with, leaving out a start that was undone and taking a
-    /// corrected start's new count, as Figures does. Nought for a batch sown without a count.
-    /// </summary>
-    private static async Task<Dictionary<Guid, int>> StartedAsync(Guid lineId, HortiplannerDbContext db, CancellationToken cancellationToken)
-    {
-        var linked = db.Batches.Where(batch => batch.PurchaseLineId == lineId).Select(batch => batch.Id);
-        var rows = await db.EventLines.AsNoTracking()
-            .Where(eventLine => linked.Contains(eventLine.BatchId))
-            .Join(db.Events, eventLine => eventLine.EventId, e => e.Id, (eventLine, e) => new { eventLine.BatchId, eventLine.QuantityChange, e.Id, e.Type, e.CorrectsEventId })
             .ToListAsync(cancellationToken);
-        var touched = rows.Select(row => row.Id).Distinct().ToList();
-        var reversed = (await db.Events.AsNoTracking()
-            .Where(e => e.CorrectsEventId != null && touched.Contains(e.CorrectsEventId.Value))
-            .Select(e => e.CorrectsEventId!.Value)
-            .ToListAsync(cancellationToken)).ToHashSet();
-        var starts = rows.Where(row => row.Type is EventType.Sown or EventType.Received).Select(row => row.Id).ToHashSet();
 
-        return rows
-            .Where(row => !reversed.Contains(row.Id))
-            .Where(row => starts.Contains(row.Id) || (row.Type == EventType.Corrected && row.CorrectsEventId is { } corrected && starts.Contains(corrected)))
-            .GroupBy(row => row.BatchId)
-            .ToDictionary(group => group.Key, group => Math.Max(0, group.Sum(row => row.QuantityChange)));
-    }
+        var starts = db.Events.AsNoTracking().Where(e => e.Type == EventType.Sown || e.Type == EventType.Received);
+        var standing = db.Events.AsNoTracking()
+            .Where(e => !db.Events.Any(undo => undo.CorrectsEventId == e.Id)
+                && (e.Type == EventType.Sown || e.Type == EventType.Received
+                    || (e.Type == EventType.Corrected && starts.Any(start => start.Id == e.CorrectsEventId))));
+        var counts = await db.Batches.AsNoTracking()
+            .Where(batch => batch.PurchaseLineId != null && lineIds.Contains(batch.PurchaseLineId.Value))
+            .Join(db.EventLines, batch => batch.Id, line => line.BatchId, (batch, line) => new { LineId = batch.PurchaseLineId!.Value, line.BatchId, line.EventId, line.QuantityChange })
+            .Where(line => standing.Any(e => e.Id == line.EventId))
+            .GroupBy(line => new { line.LineId, line.BatchId })
+            .Select(group => new { group.Key.LineId, group.Key.BatchId, Count = group.Sum(line => line.QuantityChange) })
+            .ToListAsync(cancellationToken);
+        var byLine = counts.ToLookup(row => row.LineId);
+        var shares = new Dictionary<Guid, PurchaseSource>();
 
-    /// <summary>A batch's part of an amount, to the penny, with the last batch taking what rounding leaves so the parts add up.</summary>
-    private static decimal Share(decimal amount, Dictionary<Guid, int> started, Guid batchId, bool equally)
-    {
-        var order = started.Keys.Order().ToList();
-        var all = equally ? started.Count : started.Values.Sum();
-        decimal Part(Guid id) => Math.Round(amount * (equally ? 1 : started[id]) / all, 2, MidpointRounding.AwayFromZero);
+        foreach (var line in lines)
+        {
+            var started = byLine[line.LineId].OrderBy(row => row.BatchId).ToArray();
+            if (started.Length == 0)
+            {
+                continue;
+            }
 
-        return batchId == order[^1] ? amount - order.SkipLast(1).Sum(Part) : Part(batchId);
+            var equally = started.Any(row => row.Count <= 0);
+            var weights = started.Select(row => equally ? 1 : row.Count).ToArray();
+            var weight = weights.Sum(value => (long)value);
+            var net = PennyShares.Allocate(line.NetCost, weights.Select(value => line.NetCost * 100m * value / weight));
+            var vat = PennyShares.Allocate(line.Vat, weights.Select(value => line.Vat * 100m * value / weight));
+
+            for (var index = 0; index < started.Length; index++)
+            {
+                shares.Add(started[index].BatchId, new PurchaseSource(line.PurchaseId, line.Supplier, line.PurchasedOn,
+                    started.Length > 1, equally, new MoneyPair(net[index] + vat[index], net[index])));
+            }
+        }
+
+        return shares;
     }
 
     /// <summary>The seed or plants: a purchase first, then what someone said, then cuttings costing nothing.</summary>
@@ -204,7 +215,7 @@ internal static class BatchCostings
     }
 
     /// <summary>What the batch has taken: on invoices, and from trays with and without a price.</summary>
-    private static Takings TakingsOf(List<Sales.Sale> sales)
+    private static Takings TakingsOf(IEnumerable<Sales.Sale> sales)
     {
         MoneyPair Sum(IEnumerable<Sales.Sale> some) =>
             new(some.Sum(sale => sale.Takings?.WithVat ?? 0), some.Sum(sale => sale.Takings?.BeforeVat ?? 0));

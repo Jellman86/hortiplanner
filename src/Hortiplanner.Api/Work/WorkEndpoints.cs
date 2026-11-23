@@ -78,7 +78,7 @@ internal static partial class WorkEndpoints
     private static Conflict<WorkRefused> Refused(string problem) => TypedResults.Conflict(new WorkRefused(problem));
 
     /// <summary>Stores the event and anything tracked with it, turning refusals into answers a screen can act on.</summary>
-    private static async Task<IResult> StoreAsync(Func<Task<AppendResult>> append, Func<Task<object>> describe)
+    private static async Task<IResult> StoreAsync(Func<Task<AppendResult>> append, Func<Task<object>> describe, bool move = false)
     {
         try
         {
@@ -89,7 +89,8 @@ internal static partial class WorkEndpoints
                 AppendResult.IdInUse => Refused("IdInUse"),
                 AppendResult.NotInContainer => Refused("NotInContainer"),
                 AppendResult.BeforeStart => Refused("BeforeStart"),
-                AppendResult.OnSite => Refused("OnSite"),
+                AppendResult.PlaceUnavailable => TypedResults.BadRequest(),
+                AppendResult.OnSite => move ? TypedResults.BadRequest() : Refused("OnSite"),
                 _ => Refused("BelowZero"),
             };
         }
@@ -128,17 +129,41 @@ internal static partial class WorkEndpoints
         {
             return repeated == AppendResult.AlreadyStored ? TypedResults.Ok(await DescribeStartedBatchAsync(request.EventId, db, cancellationToken)) : Refused("IdInUse");
         }
+        var purchase = request.PurchaseLineId is { } lineId ? await BatchPurchaseAsync(lineId, db, cancellationToken) : null;
+        if (request.PurchaseLineId is not null && (purchase is null || request.Source == BatchSource.Cuttings))
+        {
+            return TypedResults.BadRequest();
+        }
+
+        if (purchase is not null)
+        {
+            var purchasedAt = PurchaseStart(purchase, clock);
+            if (purchasedAt > clock.GetUtcNow())
+            {
+                return TypedResults.BadRequest();
+            }
+
+            request = request with { SupplierId = purchase.SupplierId, OccurredAt = purchasedAt };
+        }
+
+        var result = await SaveNewBatchAsync(request, user, db, store, device, clock, purchase is not null, cancellationToken);
+        if (result is IStatusCodeHttpResult { StatusCode: StatusCodes.Status200OK or StatusCodes.Status201Created })
+        {
+            await transaction.CommitAsync(cancellationToken);
+        }
+
+        return result;
+    }
+
+    private static async Task<IResult> SaveNewBatchAsync(
+        StartBatchRequest request, ClaimsPrincipal user, HortiplannerDbContext db, EventStore store,
+        DeviceClock device, TimeProvider clock, bool fromPurchase, CancellationToken cancellationToken)
+    {
         // Seed sown without a count starts the tray at nought, "not counted yet", until the first count.
         var sownAs = request.Source == BatchSource.SeedLot ? request.SownAs : null;
         var counted = sownAs is null or SownMeasure.Counted;
 
-        // Bought-in plants must say who supplied them, for the passport record.
-        if ((counted && !IsValidQuantity(request.Quantity))
-            || (request.Source == BatchSource.BoughtIn && request.SupplierId is null)
-            || !IsSensibleSowing(request)
-            // Checked whatever the source, though cuttings and purchase batches keep no cost: the app never sends one.
-            || !CostEndpoints.IsValidStartingCost(request.CostAmount, request.CostNothing)
-            || (request.MotherPlantId is not null && request.Source != BatchSource.Cuttings))
+        if (!IsValidStart(request, counted))
         {
             return TypedResults.BadRequest();
         }
@@ -168,16 +193,29 @@ internal static partial class WorkEndpoints
         db.AddRange(batch, container);
         await AddStartingCostAsync(request, batch, user, db, device, clock, cancellationToken);
 
-        var result = await StoreAsync(
-            () => store.AppendAsync(work, cancellationToken),
+        return await StoreAsync(
+            () => store.AppendAsync(work, cancellationToken, alreadyOnServerClock: fromPurchase),
             async () => await DescribeStartedBatchAsync(request.EventId, db, cancellationToken));
+    }
 
-        if (result is IStatusCodeHttpResult { StatusCode: StatusCodes.Status200OK or StatusCodes.Status201Created })
-        {
-            await transaction.CommitAsync(cancellationToken);
-        }
+    private static bool IsValidStart(StartBatchRequest request, bool counted) =>
+        (!counted || IsValidQuantity(request.Quantity))
+        && (request.Source != BatchSource.BoughtIn || request.SupplierId is not null)
+        && IsSensibleSowing(request)
+        && CostEndpoints.IsValidStartingCost(request.CostAmount, request.CostNothing)
+        && (request.MotherPlantId is null || request.Source == BatchSource.Cuttings);
 
-        return result;
+    internal static Task<Purchase?> BatchPurchaseAsync(Guid lineId, HortiplannerDbContext db, CancellationToken cancellationToken) =>
+        db.Purchases.FromSqlInterpolated($"""
+            SELECT p.* FROM purchases p JOIN purchase_lines l ON l.purchase_id = p.id
+            WHERE l.id = {lineId} AND l.is_plants IS DISTINCT FROM FALSE AND p.voided_at IS NULL
+            FOR SHARE OF p
+            """).AsNoTracking().SingleOrDefaultAsync(cancellationToken);
+
+    internal static DateTimeOffset PurchaseStart(Purchase purchase, TimeProvider clock)
+    {
+        var local = purchase.PurchasedOn.ToDateTime(TimeOnly.MinValue);
+        return new DateTimeOffset(local, clock.LocalTimeZone.GetUtcOffset(local)).ToUniversalTime();
     }
 
     /// <summary>
@@ -439,14 +477,10 @@ internal static partial class WorkEndpoints
     }
 
     /// <summary>A tray goes on a bench, bed or house that's still in use, never on the site as a whole.</summary>
-    private static async Task<IResult> MoveAsync(Guid id, MoveRequest request, ClaimsPrincipal user, HortiplannerDbContext db, EventStore store, CancellationToken cancellationToken)
+    private static Task<IResult> MoveAsync(Guid id, MoveRequest request, ClaimsPrincipal user, EventStore store, CancellationToken cancellationToken)
     {
-        if (!await db.Locations.AnyAsync(place => place.Id == request.LocationId && place.ArchivedAt == null && place.Kind != LocationKind.Site, cancellationToken))
-        {
-            return TypedResults.BadRequest();
-        }
-
-        return await StoreSimpleAsync(store, NewEvent(request.EventId, EventType.Moved, request.OccurredAt, user, id, request.LocationId), cancellationToken);
+        var work = NewEvent(request.EventId, EventType.Moved, request.OccurredAt, user, id, request.LocationId);
+        return StoreAsync(() => store.AppendAsync(work, cancellationToken), () => Task.FromResult<object>(new WorkRecorded(work.Id)), move: true);
     }
 
     /// <summary>Potting on or pricking out: moves plants into a new container, within the same batch.</summary>
@@ -637,7 +671,7 @@ internal static partial class WorkEndpoints
             };
             if (await store.AppendAsync(undoCount, cancellationToken) is var undone and not (AppendResult.Stored or AppendResult.AlreadyStored))
             {
-                return Refused(undone == AppendResult.OnSite ? "OnSite" : "BelowZero");
+                return undone == AppendResult.PlaceUnavailable ? TypedResults.BadRequest() : Refused(undone == AppendResult.OnSite ? "OnSite" : "BelowZero");
             }
         }
         var result = await StoreSimpleAsync(store, correction, cancellationToken);

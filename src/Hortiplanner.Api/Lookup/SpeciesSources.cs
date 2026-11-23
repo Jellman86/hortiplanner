@@ -256,19 +256,22 @@ internal sealed class SpeciesSources(HttpClient http, SpeciesThrottle throttle)
             return null;
         }
 
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(http.Timeout);
+
         try
         {
-            using var response = await http.GetAsync(address, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            using var response = await http.GetAsync(address, HttpCompletionOption.ResponseHeadersRead, deadline.Token);
 
             if (!response.IsSuccessStatusCode)
             {
                 return null;
             }
 
-            await using var body = await response.Content.ReadAsStreamAsync(cancellationToken);
-            return (await ImageContent.ReadAsync(body, cancellationToken)).Image;
+            await using var body = await response.Content.ReadAsStreamAsync(deadline.Token);
+            return (await ImageContent.ReadAsync(body, deadline.Token)).Image;
         }
-        catch (Exception exception) when (IsUnavailable(exception) && !cancellationToken.IsCancellationRequested)
+        catch (Exception exception) when ((exception is OperationCanceledException || IsUnavailable(exception)) && !cancellationToken.IsCancellationRequested)
         {
             return null;
         }

@@ -72,9 +72,10 @@ public sealed class ContainerStockTests(PostgresFixture database)
 
     private async Task<Guid> NewLocationAsync()
     {
-        var location = new Location { Name = Unique("Site"), Kind = LocationKind.Site };
-        await SaveAsync(location);
-        return location.Id;
+        var site = new Location { Name = Unique("Site"), Kind = LocationKind.Site };
+        var bench = new Location { Name = Unique("Bench"), Kind = LocationKind.Bench, ParentId = site.Id };
+        await SaveAsync(site, bench);
+        return bench.Id;
     }
 
     private async Task<AppendResult> AppendAsync(Event work)

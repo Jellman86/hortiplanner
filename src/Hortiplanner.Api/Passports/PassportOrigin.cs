@@ -44,8 +44,8 @@ internal static class PassportOrigin
             return new(GreatBritain, "They were potted on, pricked out or split here, so they were grown on in Great Britain.");
         }
 
-        var underCover = facts.UnderCoverSince is { } since && facts.Now - since >= UnderCover;
-        var outside = facts.OutsideSince is { } outdoors && facts.Now - outdoors >= Outside;
+        var underCover = here >= UnderCover && facts.UnderCoverSince is { } since && facts.Now - since >= UnderCover;
+        var outside = here >= Outside && facts.OutsideSince is { } outdoors && facts.Now - outdoors >= Outside;
         if (underCover || outside)
         {
             var time = underCover ? "at least two weeks under cover without a break" : "at least four weeks outside without a break";

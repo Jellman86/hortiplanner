@@ -13,19 +13,21 @@ internal static class PlantCosts
 {
     /// <param name="total">The batch's whole cost, when known.</param>
     /// <param name="charges">Each part of the cost with the moment it was spent.</param>
-    internal static PerPlant Work(BatchLedger.Ledger ledger, Guid batchId, MoneyPair? total, IReadOnlyList<Charge> charges)
+    internal static PerPlant Work(
+        List<BatchLedger.Row> rows, int absorbed, IEnumerable<BatchLedger.Absorbed> absorbedAt, bool uncounted,
+        MoneyPair? total, IReadOnlyList<Charge> charges)
     {
-        var rows = ledger.Rows.Where(row => row.Line.BatchId == batchId).ToList();
-        var counts = BatchLedger.CountsOf(rows, ledger.Absorbed.GetValueOrDefault(batchId));
+        var counts = BatchLedger.CountsOf(rows, absorbed);
+        var lostAll = BatchLedger.LostAll(rows);
 
         // Seed sown without a count has no number of plants until someone counts it, or it's all lost.
-        if (!BatchLedger.Settled(ledger, batchId))
+        if (uncounted && !lostAll)
         {
             return new PerPlant(counts.Alive, counts.Lost, counts.Adjusted, true, false, null, null);
         }
 
         // Every plant lost, and none gone at a count instead, including a tray lost before anyone counted it.
-        var allLost = counts.Alive <= 0 && counts.Adjusted >= 0 && (counts.Lost > 0 || BatchLedger.LostAll(ledger, batchId));
+        var allLost = counts.Alive <= 0 && counts.Adjusted >= 0 && (counts.Lost > 0 || lostAll);
 
         if (total is null)
         {
@@ -35,7 +37,7 @@ internal static class PlantCosts
         var each = counts.Alive > 0 ? new MoneyPair(total.WithVat / counts.Alive, total.BeforeVat / counts.Alive) : null;
         var lostValue = allLost ? total
             : counts.Lost == 0 ? null
-            : LostValue(rows, ledger.AbsorbedAt.Where(item => item.BatchId == batchId), charges);
+            : LostValue(rows, absorbedAt, charges);
         return new PerPlant(counts.Alive, counts.Lost, counts.Adjusted, false, allLost, each, lostValue);
     }
 
