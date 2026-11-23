@@ -18,10 +18,10 @@ internal static class StaffEndpoints
         var staff = app.MapGroup("/api/staff").RequireAuthorization(AccountServices.OwnerPolicy);
         staff.MapGet("/", ListAsync);
         staff.MapPost("/", AddAsync).Produces<StaffCreated>(StatusCodes.Status201Created);
-        staff.MapPost("/{id:guid}/pin", SetPinAsync);
-        staff.MapPost("/{id:guid}/password", SetPasswordAsync);
+        staff.MapPost("/{id:guid}/pin", SetPinAsync).AddEndpointFilter<PersonalCredentialFilter>();
+        staff.MapPost("/{id:guid}/password", SetPasswordAsync).AddEndpointFilter<PersonalCredentialFilter>();
         staff.MapPost("/{id:guid}/name-only", SetNameOnlyAsync);
-        staff.MapPost("/{id:guid}/invite", InviteAsync).Produces<InviteCreated>();
+        staff.MapPost("/{id:guid}/invite", InviteAsync).AddEndpointFilter<PersonalCredentialFilter>().Produces<InviteCreated>();
         staff.MapPost("/{id:guid}/archive", ArchiveAsync);
         staff.MapPost("/{id:guid}/restore", RestoreAsync);
         staff.MapGet("/sign-in-settings", GetSignInSettingsAsync);
@@ -207,7 +207,7 @@ internal static class StaffEndpoints
         // Signed in again the same way as before, so the session still knows how they signed in.
         if (string.Equals(users.GetUserId(currentUser), id.ToString(), StringComparison.Ordinal))
         {
-            await AccountServices.SignInAsync(signIn, member, currentUser.FindFirstValue(AccountServices.SignInMethodClaim) ?? "password");
+            await AccountServices.RenewSignInAsync(signIn, member, currentUser);
         }
 
         return TypedResults.NoContent();
@@ -247,7 +247,7 @@ internal static class StaffEndpoints
 
     private static async Task<IResult> InviteAsync(Guid id, UserManager<AppUser> users)
     {
-        if (await users.FindByIdAsync(id.ToString()) is not { ArchivedAt: null } member)
+        if (await users.FindByIdAsync(id.ToString()) is not { ArchivedAt: null, IsTeamAccount: false } member)
         {
             return TypedResults.NotFound();
         }
@@ -293,7 +293,7 @@ internal static class StaffEndpoints
     }
 
     private static async Task<AppUser?> FindInvitedAsync(Guid userId, string token, UserManager<AppUser> users) =>
-        await users.FindByIdAsync(userId.ToString()) is { ArchivedAt: null } member
+        await users.FindByIdAsync(userId.ToString()) is { ArchivedAt: null, IsTeamAccount: false } member
             && await users.VerifyUserTokenAsync(member, TokenOptions.DefaultProvider, InvitePurpose, token)
             ? member
             : null;
@@ -341,7 +341,9 @@ internal static class StaffEndpoints
     private static async Task<IResult> CompleteInviteAsync(
         CompleteInviteRequest request,
         UserManager<AppUser> users,
-        SignInManager<AppUser> signIn)
+        SignInManager<AppUser> signIn,
+        HortiplannerDbContext db,
+        CancellationToken cancellationToken)
     {
         if (await FindInvitedAsync(request.UserId, request.Token, users) is not { } member)
         {
@@ -356,11 +358,16 @@ internal static class StaffEndpoints
             return TypedResults.BadRequest();
         }
 
+        // The passkey and the stamp that consumes the invitation must be saved together.
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         member.NameOnlySignIn = false;
-        await users.AddOrUpdatePasskeyAsync(member, attestation.Passkey);
+        if (!(await users.UpdateSecurityStampAsync(member)).Succeeded
+            || !(await users.AddOrUpdatePasskeyAsync(member, attestation.Passkey)).Succeeded)
+        {
+            return TypedResults.BadRequest();
+        }
 
-        // Changing the stamp makes the invitation single use.
-        await users.UpdateSecurityStampAsync(member);
+        await transaction.CommitAsync(cancellationToken);
         await AccountServices.SignInAsync(signIn, member, "passkey");
         return TypedResults.NoContent();
     }

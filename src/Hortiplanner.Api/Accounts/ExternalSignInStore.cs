@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Security.Cryptography;
 using Hortiplanner.Api.Data;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -60,6 +61,14 @@ internal sealed class ExternalSignInStore(
     }
 
     public string Protect(string secret) => protector.Protect(secret);
+
+    public string? ProviderKeyFor(Claim subject)
+    {
+        var settings = Current;
+        return settings.IsOn && string.Equals(subject.Issuer.TrimEnd('/'), settings.Authority?.TrimEnd('/'), StringComparison.Ordinal)
+            ? RequestFingerprint.For(new { subject.Issuer, Subject = subject.Value })
+            : null;
+    }
 
     /// <summary>Picks up what was just saved. The sign-in handler rebuilds itself on the next request.</summary>
     public void Refresh()
