@@ -449,7 +449,7 @@ select:not([multiple]) {
 @container page (min-width: 64rem) {
   .with-sidebar .split.wide-list {
     display: grid;
-    grid-template-columns: minmax(18rem, 1fr) minmax(0, 2fr);
+    grid-template-columns: clamp(18rem, 26%, 22rem) minmax(0, 1fr);
     gap: 2rem;
     align-items: start;
   }
@@ -1358,7 +1358,7 @@ button.link-button.ftree-leaf {
 }
 
 /* Keep search and period controls readable beside the wider lists and tables. */
-.plant-list-search,
+.plant-list-search > :is(label, form, p),
 .money-figures > :is(.segmented, .caution, p) {
   max-width: var(--page-focused);
 }

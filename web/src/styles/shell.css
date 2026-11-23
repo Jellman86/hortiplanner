@@ -284,6 +284,11 @@
     max-width: var(--page-focused);
   }
 
+  /* Keep the tabs in the same place when their screens need different widths. */
+  .with-sidebar main:has(> .hub-nav) {
+    margin-inline-start: max(0px, (100% - var(--page-wide)) / 2);
+  }
+
   .with-sidebar .tray-layout {
     grid-template-areas:
       "details actions"

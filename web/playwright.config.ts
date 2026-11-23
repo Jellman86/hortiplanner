@@ -48,14 +48,19 @@ export default defineConfig({
           {
             name: "layout-webkit",
             testMatch: /layout\.spec\.ts$/,
-            use: { ...devices["Desktop Safari"], ...webkitConnection },
+            use: {
+              ...devices["Desktop Safari"],
+              ...webkitConnection,
+              // The app runs on HTTPS with a local development certificate.
+              serviceWorkers: "block",
+            },
           },
         ]
       : []),
   ],
   webServer: [
     {
-      command: `docker run --rm --name hortiplanner-e2e -e POSTGRES_PASSWORD=e2e -p ${databasePort}:5432 ${postgres}`,
+      command: `docker run --rm -e POSTGRES_PASSWORD=e2e -p ${databasePort}:5432 ${postgres}`,
       port: databasePort,
       timeout: 180_000,
       gracefulShutdown: { signal: "SIGTERM", timeout: 10_000 },

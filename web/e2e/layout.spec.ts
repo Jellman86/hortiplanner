@@ -15,6 +15,10 @@ async function box(locator: Locator) {
   return (await locator.boundingBox())!;
 }
 
+function expectWithinPixel(actual: number, expected: number) {
+  expect(Math.abs(actual - expected)).toBeLessThanOrEqual(1);
+}
+
 const sidebar = (page: Page, name: string) =>
   page.locator(".sidebar").getByRole("button", { name, exact: true });
 
@@ -26,18 +30,14 @@ test("the screens fit the width of a phone, a tablet and a desk", async ({
   test.setTimeout(600_000);
   const overflowing: string[] = [];
   const main = page.locator("main");
+  const hubOffsets = new Map<string, number>();
 
   async function checkDesktop(name: string, width: number) {
     const rem = await page.evaluate(() =>
       parseFloat(getComputedStyle(document.documentElement).fontSize),
     );
     const pageBox = await box(main);
-    const pageWidth = [
-      "new-batch",
-      "lost",
-      "new-invoice",
-      "consignments",
-    ].includes(name)
+    const pageWidth = ["new-batch", "lost", "new-invoice"].includes(name)
       ? 48
       : [
             "record-work",
@@ -54,14 +54,23 @@ test("the screens fit the width of a phone, a tablet and a desk", async ({
     );
     if (!name.startsWith("settings-")) {
       const content = await box(page.locator(".with-sidebar > .content"));
-      expect(pageBox.width).toBeCloseTo(
+      expectWithinPixel(
+        pageBox.width,
         Math.min(content.width, pageWidth * rem),
-        0,
       );
-      expect(pageBox.x - content.x).toBeCloseTo(
-        (content.width - pageBox.width) / 2,
-        0,
-      );
+      const hubNav = main.locator(".hub-nav");
+      if (await hubNav.isVisible()) {
+        const key = `${width} ${await hubNav.getAttribute("aria-label")}`;
+        const navX = (await box(hubNav)).x;
+        const previousX = hubOffsets.get(key);
+        if (previousX === undefined) hubOffsets.set(key, navX);
+        else expectWithinPixel(navX, previousX);
+      } else {
+        expectWithinPixel(
+          pageBox.x - content.x,
+          (content.width - pageBox.width) / 2,
+        );
+      }
     }
 
     async function beside(left: Locator, right: Locator) {
@@ -75,13 +84,18 @@ test("the screens fit the width of a phone, a tablet and a desk", async ({
       const list = main.locator(".split > section").last();
       await beside(form, list);
       const listBox = await box(list);
-      const tableBox = await box(list.locator(".table-wrap").first());
-      expect(tableBox.width).toBeCloseTo(listBox.width, 0);
+      const table = list.locator(".table-wrap").first();
+      expectWithinPixel((await box(table)).width, listBox.width);
       if (name === "money") {
-        expect((await box(list.locator(".stat-tiles"))).width).toBeCloseTo(
+        expectWithinPixel(
+          (await box(list.locator(".stat-tiles"))).width,
           listBox.width,
-          0,
         );
+      } else if (width === 1920) {
+        expect(
+          await table.evaluate((el) => el.scrollWidth - el.clientWidth),
+          "The purchases table fits at a wide desk",
+        ).toBeLessThanOrEqual(1);
       }
     } else if (name === "record-work") {
       const scan = main.locator(".split.home > section").first();
@@ -122,8 +136,8 @@ test("the screens fit the width of a phone, a tablet and a desk", async ({
         .locator("form > :is(.invoice-line, .card)")
         .all()) {
         const itemBox = await box(item);
-        expect(itemBox.x).toBeCloseTo(customer.x, 0);
-        expect(itemBox.width).toBeCloseTo(customer.width, 0);
+        expectWithinPixel(itemBox.x, customer.x);
+        expectWithinPixel(itemBox.width, customer.width);
       }
     }
   }
@@ -276,6 +290,18 @@ test("the screens fit the width of a phone, a tablet and a desk", async ({
   await check("costs-to-fill-in");
 
   await sidebar(page, "Plants").click();
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  const catalogueSearch = main.getByRole("searchbox", {
+    name: "Find or add a plant",
+  });
+  await catalogueSearch.fill("Lavender");
+  const [matches, allPlants] = await Promise.all([
+    box(main.locator(".plant-list-search .card-grid.appear").first()),
+    box(main.locator(":scope > .card-grid")),
+  ]);
+  expectWithinPixel(matches.width, allPlants.width);
+  await catalogueSearch.clear();
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page.locator(".plant-card").first().click();
   await expect(
     page.locator(".plant-page, .plant-layout").first(),

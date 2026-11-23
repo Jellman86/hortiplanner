@@ -527,7 +527,7 @@
     </form>
   </main>
 {:else}
-  <main class="page-form">
+  <main>
     <h1>Consignments</h1>
     <HubNav page="consignments" />
     <p class="muted">
@@ -537,7 +537,7 @@
     </p>
     {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
     <button onclick={start}>Send plants</button>
-    <ul class="place-tree">
+    <ul class="place-tree place-list">
       {#each list as item (item.id)}
         <li>
           <button class="place-row" onclick={() => open(item.id)}>
