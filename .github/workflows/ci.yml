@@ -1,8 +1,9 @@
 name: CI
 
 on:
+  workflow_call:
   push:
-    branches: [dev, main]
+    branches: [main]
   pull_request:
     branches: [dev, main]
 
@@ -10,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.ref }}-${{ github.workflow == 'Publish' && github.sha || 'checks' }}
   cancel-in-progress: true
 
 jobs:
