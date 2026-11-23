@@ -46,10 +46,11 @@
   --shadow: 0 1px 2px rgb(31 42 27 / 8%), 0 2px 8px rgb(31 42 27 / 5%);
   --target: 4rem;
   --radius: 0.6rem;
-  /* Forms, prose, notices and page introductions keep a readable measure; grids, tables and dashboards grow to the
-     page's width; a card in a grid gets no narrower than --card-min. */
-  --measure: 44rem;
-  --page-max: 120rem;
+  /* One task, a split workspace, or a dashboard with room for wide data. */
+  --page-focused: 48rem;
+  --page-work: 76rem;
+  --page-wide: 92rem;
+  /* A card in a grid gets no narrower than this when there is room. */
   --card-min: 16rem;
   --heading: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
   font-family:

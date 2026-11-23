@@ -5,6 +5,9 @@ const port = 5199;
 const databasePort = 55432;
 const postgres =
   "postgres:18.6-alpine@sha256:123b17998ccaf47e53b502e8c6a1e79afd8f579c6f3eec83c563da026f957395";
+const webkitConnection = process.env.PW_WEBKIT_WS
+  ? { connectOptions: { wsEndpoint: process.env.PW_WEBKIT_WS } }
+  : {};
 
 // Runs the real application and a throwaway database. http://localhost counts as secure for passkeys.
 export default defineConfig({
@@ -34,11 +37,18 @@ export default defineConfig({
         ...devices["iPhone 15"],
         // The app's service worker would answer before the tests' stand-in server could.
         serviceWorkers: "block",
-        ...(process.env.PW_WEBKIT_WS
-          ? { connectOptions: { wsEndpoint: process.env.PW_WEBKIT_WS } }
-          : {}),
+        ...webkitConnection,
       },
     },
+    ...(process.env.E2E_LAYOUT
+      ? [
+          {
+            name: "layout-webkit",
+            testMatch: /layout\.spec\.ts$/,
+            use: { ...devices["Desktop Safari"], ...webkitConnection },
+          },
+        ]
+      : []),
   ],
   webServer: [
     {

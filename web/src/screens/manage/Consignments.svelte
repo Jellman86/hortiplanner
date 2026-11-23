@@ -265,7 +265,7 @@
 
 {#if opened}
   {@const consignment = opened}
-  <main>
+  <main class="page-form">
     <h1>Consignment {consignment.number}</h1>
     <p>
       <strong>{kindLabel(consignment.kind)}</strong> to {consignment.sentTo},
@@ -527,7 +527,7 @@
     </form>
   </main>
 {:else}
-  <main>
+  <main class="page-form">
     <h1>Consignments</h1>
     <HubNav page="consignments" />
     <p class="muted">

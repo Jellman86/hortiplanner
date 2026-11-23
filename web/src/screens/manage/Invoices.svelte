@@ -334,7 +334,7 @@
   {/if}
 {/snippet}
 
-<main class:page-form={writing} class:invoice-page={writing}>
+<main class:page-form={writing} class:page-wide={!writing}>
   <h1>{writing ? "New invoice" : "Invoices"}</h1>
   {#if !writing}<HubNav page="invoices" />{/if}
   {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
@@ -371,7 +371,7 @@
       {#each lines as line, index (index)}
         <fieldset class="form-card invoice-line">
           <legend>Line {index + 1}</legend>
-          <div class="stack line-fields">
+          <div class="stack">
             <div class="field-grid">
               <label class="line-plant">
                 From the plant list (optional)
@@ -386,7 +386,7 @@
                 </select>
               </label>
               {#if traysOf(line.plantId).length > 0}
-                <label class="line-tray">
+                <label>
                   Take from a tray (optional)
                   <select
                     onchange={(event) =>
@@ -404,14 +404,14 @@
                 </label>
               {/if}
             </div>
-            <label class="line-description"
+            <label
               >Description <input
                 bind:value={line.description}
                 required
               /></label
             >
-            <div class="field-grid">
-              <label class="line-quantity"
+            <div class="field-grid line-amounts">
+              <label
                 >Quantity <input
                   type="number"
                   min="1"
@@ -419,7 +419,7 @@
                   required
                 /></label
               >
-              <label class="line-price"
+              <label
                 >Price each (£) <input
                   type="number"
                   min="0"

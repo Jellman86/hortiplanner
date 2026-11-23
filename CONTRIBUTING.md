@@ -35,6 +35,8 @@ docker run -d --rm --name hortiplanner-webkit --network host --init mcr.microsof
 PW_WEBKIT_WS=ws://127.0.0.1:3123/ npx playwright test --project=iphone
 ```
 
+Run `npm run e2e:layout` for Chromium and `npm run e2e:layout:webkit` for WebKit. Each command loads fresh example data and checks the five widths from a phone to a large desktop. The WebKit command also accepts `PW_WEBKIT_WS`.
+
 ## API contract
 
 The web client is generated from the API. After changing an endpoint, refresh it, and commit both generated files in `web/src/api`:

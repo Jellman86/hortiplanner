@@ -913,7 +913,7 @@
       />
     {/key}
   {:else}
-    <main>
+    <main class="page-wide">
       <div class="split home">
         <section class="fill">
           <!-- The greeting and any messages head the first column, so both columns start level on a desk. -->

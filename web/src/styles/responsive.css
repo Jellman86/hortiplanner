@@ -1,8 +1,7 @@
 /* One look everywhere.
 
-   Page widths: a page is either one task at a comfortable width (.page-form), a form or summary beside a list
-   (.split inside a plain page), or a table or dashboard using the whole width. Notices at the top of a page sit at
-   the form width, lined up with the page's left edge.
+   Page widths: one task (.page-form or .action-frame), a workspace (the default), or a dashboard or table
+   (.page-wide). Notices and introductions sit at the focused width, lined up with the page's left edge.
 
    Buttons: on a phone a page's buttons run the width of the screen, easy to hit with a thumb. On a desk a button is
    as wide as its words, except in a narrow column of controls, where they line up. Links that act as buttons never
@@ -44,10 +43,6 @@
 }
 
 @media (min-width: 900px) {
-  .with-sidebar main.page-form {
-    max-width: var(--measure);
-  }
-
   .with-sidebar
     main
     > :is(
@@ -60,18 +55,18 @@
       [role="status"],
       .ask-card
     ) {
-    max-width: var(--measure);
+    max-width: var(--page-focused);
   }
 
   /* A page's introduction reads at the same measure as its notices, however wide the page. */
   .with-sidebar main > p {
-    max-width: var(--measure);
+    max-width: var(--page-focused);
   }
 
   /* Nothing here yet: a quiet dashed note the size of its sentence, not a box across the page. */
   .with-sidebar .note-empty {
     width: fit-content;
-    max-width: min(100%, var(--measure));
+    max-width: min(100%, var(--page-focused));
     text-align: start;
   }
 
@@ -260,7 +255,7 @@ button.secondary.destructive:hover:not(:disabled) {
   min-width: 6.5rem;
 }
 
-/* An invoice line: a card of fields on a phone, one row of them on a desk. */
+/* The price for an invoice line sits beside its Remove button when there is room. */
 .line-total {
   display: flex;
   flex-wrap: wrap;
@@ -303,63 +298,14 @@ button.secondary.destructive:hover:not(:disabled) {
   }
 }
 
-/* From a wide desk, a new invoice's lines are one row each; narrower desks keep each line as a card. */
-@media (min-width: 1280px) {
-  .with-sidebar main.invoice-page {
-    max-width: 84rem;
+/* Quantity and price can share a row on a focused page, with room for VAT when it applies. */
+@container page (min-width: 35rem) {
+  .invoice-line .line-amounts {
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
   }
 
-  /* Everything but the lines keeps to the form's width. */
-  .with-sidebar main.invoice-page > :not(form),
-  .with-sidebar main.invoice-page > form > :not(.invoice-line) {
-    max-width: var(--measure);
-  }
-
-  .with-sidebar .invoice-line > .line-fields {
-    display: grid;
-    grid-template-columns:
-      [plant] minmax(9rem, 2fr) [tray] minmax(9rem, 2fr)
-      [description] minmax(11rem, 3fr) [quantity] 6rem [price] 7rem [vat] auto
-      [total] minmax(8rem, auto);
-    gap: 0.75rem;
+  .invoice-line .field-grid {
     align-items: end;
-  }
-
-  .with-sidebar .line-fields .field-grid {
-    display: contents;
-  }
-
-  .with-sidebar .line-fields .line-plant {
-    grid-area: 1 / plant;
-  }
-
-  .with-sidebar .line-fields .line-tray {
-    grid-area: 1 / tray;
-  }
-
-  .with-sidebar .line-fields .line-description {
-    grid-area: 1 / description;
-  }
-
-  .with-sidebar .line-fields .line-quantity {
-    grid-area: 1 / quantity;
-  }
-
-  .with-sidebar .line-fields .line-price {
-    grid-area: 1 / price;
-  }
-
-  .with-sidebar .line-fields .line-vat {
-    grid-area: 1 / vat;
-  }
-
-  .with-sidebar .line-fields .line-total {
-    grid-area: 1 / total;
-    flex-direction: column;
-    align-items: flex-start;
-    align-self: center;
-    gap: 0;
-    font-weight: 600;
   }
 }
 
@@ -472,12 +418,6 @@ select:not([multiple]) {
   }
 }
 
-@media (min-width: 900px) {
-  .with-sidebar .settings-layout {
-    max-width: var(--page-max);
-  }
-}
-
 /* A form or summary beside a list: one column, the form at a comfortable width, until the page has room for both. */
 .with-sidebar .split > :first-child {
   max-width: 30rem;
@@ -488,14 +428,14 @@ select:not([multiple]) {
 }
 
 @container page (min-width: 56rem) {
-  .with-sidebar .split {
+  .with-sidebar .split:where(:not(.wide-list)) {
     display: grid;
     grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr);
     gap: 2.5rem;
     align-items: start;
   }
 
-  .with-sidebar .split > :first-child {
+  .with-sidebar .split:where(:not(.wide-list)) > :first-child {
     max-width: none;
   }
 
@@ -505,15 +445,17 @@ select:not([multiple]) {
   }
 }
 
-/* A list that is a wide table: the form sits above it until the page has room for both side by side. */
-@container page (max-width: 79.99rem) {
+/* Give wide tables more room than their add form once both fit beside one another. */
+@container page (min-width: 64rem) {
   .with-sidebar .split.wide-list {
-    display: flex;
-    align-items: stretch;
+    display: grid;
+    grid-template-columns: minmax(18rem, 1fr) minmax(0, 2fr);
+    gap: 2rem;
+    align-items: start;
   }
 
   .with-sidebar .split.wide-list > :first-child {
-    max-width: 30rem;
+    max-width: none;
   }
 }
 
@@ -1172,10 +1114,8 @@ button.link-button.ftree-leaf {
   }
 }
 
-/* A plant's page. From top to bottom on a phone: the picture, the facts and what can be done with it, the photos,
-   the notes and articles, then the family tree. With a little more room the facts and actions sit beside the picture;
-   with room for two columns the picture, facts, actions and photos sit beside the notes; with room for three the
-   facts and actions take a column of their own. The tree runs across the page beneath. */
+/* The picture, facts and photos sit together, with growing notes beside them when the page has room.
+   A matched plant's family tree can use both columns. The owner's search sits below the notes on an unmatched plant. */
 .plant-page {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -1184,45 +1124,42 @@ button.link-button.ftree-leaf {
   align-items: start;
 }
 
+.plant-page-media,
+.plant-page-notes {
+  display: contents;
+}
+
 .plant-page-hero {
   grid-area: hero;
 }
 
 .plant-page-aside {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
   grid-area: aside;
-  min-width: 0;
 }
 
 .plant-page-photos {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
   grid-area: photos;
-  min-width: 0;
 }
 
+.plant-page-read {
+  grid-area: read;
+}
+
+.plant-page-aside,
+.plant-page-photos,
 .plant-page-read {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-  grid-area: read;
   min-width: 0;
-  max-width: var(--measure);
 }
 
-.plant-page > .plant-wide {
+.plant-wide {
   grid-area: wide;
 }
 
-.plant-find {
-  max-width: var(--measure);
-}
-
-/* A tablet or a small window: the facts and actions beside the picture rather than a picture the page's width. */
-@container page (min-width: 36rem) and (max-width: 55.99rem) {
+/* A tablet or a small window has room for the facts and actions next to the picture. */
+@container page (36rem <= width < 56rem) {
   .plant-page {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-areas: "hero aside" "photos photos" "read read" "wide wide";
@@ -1232,43 +1169,38 @@ button.link-button.ftree-leaf {
 
 @container page (min-width: 56rem) {
   .plant-page {
-    grid-template-columns: minmax(17rem, 22rem) minmax(0, 1fr);
-    grid-template-rows: auto auto 1fr;
-    grid-template-areas:
-      "hero read"
-      "aside read"
-      "photos read"
-      "wide wide";
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    grid-template-areas: "media read" "wide wide";
     column-gap: 2.5rem;
   }
 
-  /* The notes' heading lines up with the top of the picture. */
+  .plant-page-media {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    min-width: 0;
+    grid-area: media;
+  }
+
+  .plant-page.unlinked {
+    grid-template-areas: "media read";
+  }
+
+  .plant-page.unlinked .plant-page-notes {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    min-width: 0;
+    grid-area: read;
+  }
+
   .plant-page-read > :first-child > h2 {
     margin-top: 0;
   }
 
-  /* A mouse doesn't scroll sideways easily, so every photo shows, a few to a row. */
   .plant-page .photo-strip {
     flex-wrap: wrap;
     overflow-x: visible;
-  }
-}
-
-@container page (min-width: 80rem) {
-  .plant-page {
-    /* The notes keep a reading width; spare room goes beyond the facts, so they sit beside the notes. */
-    grid-template-columns:
-      minmax(17rem, 22rem) minmax(0, var(--measure))
-      minmax(17rem, 1fr);
-    grid-template-rows: auto 1fr;
-    grid-template-areas:
-      "hero read aside"
-      "photos read aside"
-      "wide wide wide";
-  }
-
-  .plant-page-aside {
-    max-width: 22rem;
   }
 }
 
@@ -1308,12 +1240,12 @@ button.link-button.ftree-leaf {
   }
 }
 
-@container page (min-width: 80rem) {
+@container page (min-width: 64rem) {
   /* Only with the owner's view in it: anyone else keeps two columns, with Recent across the rest. */
   .with-sidebar .split.home:has(> .home-glance) {
-    grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr) minmax(
-        18rem,
-        22rem
+    grid-template-columns: minmax(16rem, 1fr) minmax(0, 1.25fr) minmax(
+        16rem,
+        1fr
       );
   }
 
@@ -1329,8 +1261,7 @@ button.link-button.ftree-leaf {
 }
 
 /* A place's page. On a phone: what you do here, the facts, what's inside and growing here, the map and photos, then
-   changing the place. With room for two columns the actions, facts, map, photos and changes sit beside what's here;
-   with room for three the map and photos take a column of their own. */
+   changing the place. With room for two columns the actions, facts, map, photos and changes sit beside what's here. */
 .place-page {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -1390,21 +1321,6 @@ button.link-button.ftree-leaf {
   }
 }
 
-@container page (min-width: 80rem) {
-  .place-page {
-    /* The map and photos take the third column to themselves, so nothing in one side column pushes the other. */
-    grid-template-columns: minmax(16rem, 20rem) minmax(0, 1fr) minmax(
-        16rem,
-        20rem
-      );
-    grid-template-rows: auto auto 1fr;
-    grid-template-areas:
-      "actions main media"
-      "facts main media"
-      "manage main media";
-  }
-}
-
 /* A column of a page's everyday actions, such as on Record work or a place's page: on a desk they line up at the
    column's width, like a menu. It ties with the desk's word-width button rule and wins by coming after it, so it must
    stay later in this file. */
@@ -1432,21 +1348,19 @@ button.link-button.ftree-leaf {
   }
 }
 
-/* A tray on a wide desk: what's in it, what's happened to it and what to do next, side by side. */
-@container page (min-width: 80rem) {
-  .with-sidebar .tray-layout {
-    grid-template-areas: "details history actions";
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(18rem, 24rem);
-  }
-}
-
 /* A form beside a list: records that are cards sit side by side; Places' tree keeps to a readable width. */
 .record-grid {
   --card-min: 18rem;
 }
 
 .place-list {
-  max-width: 48rem;
+  max-width: var(--page-focused);
+}
+
+/* Keep search and period controls readable beside the wider lists and tables. */
+.plant-list-search,
+.money-figures > :is(.segmented, .caution, p) {
+  max-width: var(--page-focused);
 }
 
 /* A record's small buttons, such as a supplier's Change and Stop using, are as wide as their words on a desk. */
@@ -1582,10 +1496,6 @@ button.link-button.ftree-leaf {
 }
 
 /* A batch's costs: a name and two amounts a row, which fits a phone, with what's said about each row beneath it. */
-.costing {
-  max-inline-size: var(--measure);
-}
-
 .cost-table {
   width: 100%;
   border-collapse: collapse;

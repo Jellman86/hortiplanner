@@ -313,7 +313,7 @@
     </PlantCard>
   {/key}
 {:else if showForm}
-  <main>
+  <main class:page-form={!species}>
     <h1>{editing ? "Change this plant's details" : "Add a plant"}</h1>
 
     <div class="plant-layout" class:single={!species}>
@@ -511,17 +511,19 @@
     </div>
   </main>
 {:else}
-  <main>
+  <main class="page-wide">
     <h1>Plants</h1>
     <HubNav page="plants" />
     {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
 
-    <PlantSearch
-      recent={plants}
-      onPick={pick}
-      showRecent={false}
-      label="Find or add a plant"
-    />
+    <div class="stack plant-list-search">
+      <PlantSearch
+        recent={plants}
+        onPick={pick}
+        showRecent={false}
+        label="Find or add a plant"
+      />
+    </div>
 
     {#if plants.length > 0}
       <h2>All plants</h2>

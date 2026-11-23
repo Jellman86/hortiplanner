@@ -1,28 +1,18 @@
-import { type Page } from "@playwright/test";
+import { type Locator, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { expectAccessible } from "./accessibility";
 import { expect, test } from "./fixtures";
 
 // The everyday screens and every Settings page, with the example data, at a phone, a tablet, a small laptop and two
 // desks: none may scroll sideways, and nothing may stick out past the page's edge.
-// It needs example data switched on, so it runs on its own with `npm run e2e:layout`. With LAYOUT_SHOTS set to a
-// folder, it also saves a picture of each screen at each width, for checking a layout change by eye.
+// It needs its own example data in each browser. Run with npm run e2e:layout or npm run e2e:layout:webkit.
+// Set LAYOUT_SHOTS to a folder to save a picture of each screen at each width.
 const shots = process.env.LAYOUT_SHOTS;
 const widths = [390, 768, 1024, 1440, 1920];
 
-async function addPasskeySupport(page: Page) {
-  const session = await page.context().newCDPSession(page);
-  await session.send("WebAuthn.enable");
-  await session.send("WebAuthn.addVirtualAuthenticator", {
-    options: {
-      protocol: "ctap2",
-      transport: "internal",
-      hasResidentKey: true,
-      hasUserVerification: true,
-      isUserVerified: true,
-      automaticPresenceSimulation: true,
-    },
-  });
+async function box(locator: Locator) {
+  await expect(locator).toBeVisible();
+  return (await locator.boundingBox())!;
 }
 
 const sidebar = (page: Page, name: string) =>
@@ -35,6 +25,108 @@ test("the screens fit the width of a phone, a tablet and a desk", async ({
 }) => {
   test.setTimeout(600_000);
   const overflowing: string[] = [];
+  const main = page.locator("main");
+
+  async function checkDesktop(name: string, width: number) {
+    const rem = await page.evaluate(() =>
+      parseFloat(getComputedStyle(document.documentElement).fontSize),
+    );
+    const pageBox = await box(main);
+    const pageWidth = [
+      "new-batch",
+      "lost",
+      "new-invoice",
+      "consignments",
+    ].includes(name)
+      ? 48
+      : [
+            "record-work",
+            "figures",
+            "production",
+            "plants",
+            "invoices",
+            "costs-to-fill-in",
+          ].includes(name)
+        ? 92
+        : 76;
+    expect(pageBox.width, `${name} at ${width}px`).toBeLessThanOrEqual(
+      pageWidth * rem + 1,
+    );
+    if (!name.startsWith("settings-")) {
+      const content = await box(page.locator(".with-sidebar > .content"));
+      expect(pageBox.width).toBeCloseTo(
+        Math.min(content.width, pageWidth * rem),
+        0,
+      );
+      expect(pageBox.x - content.x).toBeCloseTo(
+        (content.width - pageBox.width) / 2,
+        0,
+      );
+    }
+
+    async function beside(left: Locator, right: Locator) {
+      const [first, next] = await Promise.all([box(left), box(right)]);
+      expect(next.x).toBeGreaterThan(first.x + first.width);
+      expect(Math.abs(first.y - next.y)).toBeLessThan(2);
+    }
+
+    if (name === "money" || name === "purchases") {
+      const form = main.locator(".split > section").first();
+      const list = main.locator(".split > section").last();
+      await beside(form, list);
+      const listBox = await box(list);
+      const tableBox = await box(list.locator(".table-wrap").first());
+      expect(tableBox.width).toBeCloseTo(listBox.width, 0);
+      if (name === "money") {
+        expect((await box(list.locator(".stat-tiles"))).width).toBeCloseTo(
+          listBox.width,
+          0,
+        );
+      }
+    } else if (name === "record-work") {
+      const scan = main.locator(".split.home > section").first();
+      const recent = main.locator(".split.home > section").nth(1);
+      const overview = main.locator(".home-glance");
+      await beside(scan, recent);
+      await beside(recent, overview);
+    } else if (name === "figures") {
+      for (const item of await main
+        .locator(".money-figures > :is(.segmented, .caution)")
+        .all()) {
+        expect((await box(item)).width).toBeLessThanOrEqual(48 * rem + 1);
+      }
+    } else if (name === "plants") {
+      const search = await box(
+        main.getByRole("searchbox", { name: "Find or add a plant" }),
+      );
+      expect(search.width).toBeLessThanOrEqual(48 * rem + 1);
+    } else if (name === "plant") {
+      const media = main.locator(".plant-page-media");
+      const notes = main.locator(".plant-page-read");
+      await beside(media, notes);
+      const search = main.getByRole("searchbox", {
+        name: "Search for this plant",
+      });
+      await expect(search).toBeVisible();
+      const [searchBox, notesBox] = await Promise.all([
+        box(search),
+        box(notes),
+      ]);
+      expect(searchBox.x).toBeGreaterThanOrEqual(notesBox.x - 1);
+      expect(searchBox.x + searchBox.width).toBeLessThanOrEqual(
+        notesBox.x + notesBox.width + 1,
+      );
+    } else if (name === "new-invoice") {
+      const customer = await box(main.locator("form > .form-card").first());
+      for (const item of await main
+        .locator("form > :is(.invoice-line, .card)")
+        .all()) {
+        const itemBox = await box(item);
+        expect(itemBox.x).toBeCloseTo(customer.x, 0);
+        expect(itemBox.width).toBeCloseTo(customer.width, 0);
+      }
+    }
+  }
 
   async function check(name: string) {
     // Lists fill in after the heading, and the app may keep asking for things, so idle is waited for only so long.
@@ -101,6 +193,9 @@ test("the screens fit the width of a phone, a tablet and a desk", async ({
           overflowing.push(`${name}: the bottom bar is ${bar}px too wide`);
         }
       }
+      if (width >= 1440 && name !== "setup") {
+        await checkDesktop(name, width);
+      }
       if (shots) {
         await page.screenshot({
           path: `${shots}/${name}-${width}.png`,
@@ -114,7 +209,6 @@ test("the screens fit the width of a phone, a tablet and a desk", async ({
   if (shots) {
     mkdirSync(shots, { recursive: true });
   }
-  await addPasskeySupport(page);
   page.on("dialog", (dialog) => void dialog.accept());
   await page.setViewportSize({ width: 1440, height: 1000 });
 
@@ -122,7 +216,10 @@ test("the screens fit the width of a phone, a tablet and a desk", async ({
   await check("setup");
   await page.getByLabel("Setup code").fill("e2e-setup-code");
   await page.getByLabel("Your name").fill("Sam Fielding");
-  await page.getByRole("button", { name: "Create my passkey" }).click();
+  await page
+    .getByLabel("Password (at least 8 characters)")
+    .fill("layout-example-password");
+  await page.getByRole("button", { name: "Use this password" }).click();
   await expect(
     page.getByRole("heading", { name: "Hello, Sam Fielding" }),
   ).toBeVisible();
@@ -210,10 +307,12 @@ test("the screens fit the width of a phone, a tablet and a desk", async ({
   await expect(page.locator(".action-columns")).toBeVisible();
   await check("lost");
 
-  // A new invoice, whose lines are one row each on a wide desk.
+  // A new invoice, with the customer, line and total cards sharing the same width.
   await sidebar(page, "Selling").click();
   await page.getByRole("button", { name: "New invoice" }).click();
-  await expect(page.locator("main.invoice-page")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "New invoice" }),
+  ).toBeVisible();
   await check("new-invoice");
 
   await sidebar(page, "Settings").click();
