@@ -154,7 +154,7 @@
   onMount(load);
 </script>
 
-<main>
+<main class="page-wide">
   <div class="title-row">
     <h1>Production</h1>
     <div class="row">

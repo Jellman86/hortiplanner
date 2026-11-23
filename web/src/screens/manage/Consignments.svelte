@@ -265,7 +265,7 @@
 
 {#if opened}
   {@const consignment = opened}
-  <main>
+  <main class="page-form">
     <h1>Consignment {consignment.number}</h1>
     <p>
       <strong>{kindLabel(consignment.kind)}</strong> to {consignment.sentTo},
@@ -537,7 +537,7 @@
     </p>
     {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
     <button onclick={start}>Send plants</button>
-    <ul class="place-tree">
+    <ul class="place-tree place-list">
       {#each list as item (item.id)}
         <li>
           <button class="place-row" onclick={() => open(item.id)}>

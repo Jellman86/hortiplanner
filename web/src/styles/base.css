@@ -1280,10 +1280,6 @@ button.sort-button:hover:not(:disabled) {
     gap: 1.5rem;
     align-items: start;
   }
-
-  main.action-frame:has(.action-columns) {
-    max-width: 56rem;
-  }
 }
 
 /* Touch targets: ticks are still at least 44px tall. */

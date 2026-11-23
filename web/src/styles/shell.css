@@ -271,18 +271,22 @@
 
   .with-sidebar main {
     width: 100%;
-    max-width: var(--page-max);
-    margin: 0;
+    max-width: var(--page-work);
+    margin-inline: auto;
     padding: 2rem 2.5rem 3rem;
   }
 
-  /* One task at a time reads better at a comfortable width than stretched across a big screen. */
-  .with-sidebar main.action-frame {
-    max-width: 40rem;
+  .with-sidebar main.page-wide {
+    max-width: var(--page-wide);
   }
 
-  .with-sidebar main.action-frame:has(.action-columns) {
-    max-width: 56rem;
+  .with-sidebar main:is(.page-form, .action-frame, .costing) {
+    max-width: var(--page-focused);
+  }
+
+  /* Keep the tabs in the same place when their screens need different widths. */
+  .with-sidebar main:has(> .hub-nav) {
+    margin-inline-start: max(0px, (100% - var(--page-wide)) / 2);
   }
 
   .with-sidebar .tray-layout {
@@ -299,15 +303,11 @@
     top: calc(var(--topbar-height) + 1.5rem);
   }
 
-  .with-sidebar .plant-layout {
+  .with-sidebar .plant-layout:not(.single) {
     display: grid;
     grid-template-columns: minmax(18rem, 25rem) minmax(0, 1fr);
     gap: 2.5rem;
     align-items: start;
-  }
-
-  .with-sidebar .plant-layout.single {
-    grid-template-columns: minmax(0, 46rem);
   }
 
   .with-sidebar .plant-side {
@@ -438,6 +438,7 @@ button.danger:hover:not(:disabled) {
     grid-template-columns: 14rem minmax(0, 1fr);
     align-items: start;
     min-height: 100vh;
+    max-width: var(--page-work);
   }
 
   .with-sidebar .settings-nav {

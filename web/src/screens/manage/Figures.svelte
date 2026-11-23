@@ -141,7 +141,7 @@
   );
 </script>
 
-<main>
+<main class="page-wide">
   <h1>Figures</h1>
   <HubNav page="figures" />
 

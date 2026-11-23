@@ -155,111 +155,116 @@
       </p>
     {/if}
 
-    <!-- One grid. On a phone: the picture, the facts and actions, the photos, the notes, then the tree; with more
-         room the facts and actions move beside the picture, then the notes beside them all. -->
-    <div class="plant-page">
-      <div class="plant-page-hero">
-        {#key photoVersion}
-          <PlantHero
-            url={card.hasPhoto
-              ? `/api/plants/${plantId}/photo?v=${photoVersion}`
-              : null}
-            credit={card.photoCredit}
-          />
-        {/key}
-      </div>
+    <div class="plant-page" class:unlinked={!card.linkedToSpecies}>
+      <div class="plant-page-media">
+        <div class="plant-page-hero">
+          {#key photoVersion}
+            <PlantHero
+              url={card.hasPhoto
+                ? `/api/plants/${plantId}/photo?v=${photoVersion}`
+                : null}
+              credit={card.photoCredit}
+            />
+          {/key}
+        </div>
 
-      <!-- The facts and what can be done with the plant: in the flow of the page on a phone, a column of their
-           own on a wide desk. -->
-      <div class="plant-page-aside">
-        {#if facts.length > 0}
-          <dl class="facts card">
-            {#each facts as [name, value] (name)}
-              <dt>{name}</dt>
-              <dd>{value}</dd>
-            {/each}
-          </dl>
-        {/if}
+        <div class="plant-page-aside">
+          {#if facts.length > 0}
+            <dl class="facts card">
+              {#each facts as [name, value] (name)}
+                <dt>{name}</dt>
+                <dd>{value}</dd>
+              {/each}
+            </dl>
+          {/if}
 
-        <div class="plant-actions">
-          <AskAboutButton
-            about={aboutPlant(
-              plantId,
-              plantName(card.commonName, card.variety),
-            )}
+          <div class="plant-actions">
+            <AskAboutButton
+              about={aboutPlant(
+                plantId,
+                plantName(card.commonName, card.variety),
+              )}
+              {onAsk}
+            />
+            {@render actions?.()}
+          </div>
+        </div>
+
+        <div class="plant-page-photos">
+          <PlantPhotos
+            {plantId}
+            plant={plantName(card.commonName, card.variety)}
+            hasPicture={card.hasPhoto}
             {onAsk}
+            onChanged={photosChanged}
           />
-          {@render actions?.()}
         </div>
       </div>
 
-      <div class="plant-page-photos">
-        <PlantPhotos
-          {plantId}
-          plant={plantName(card.commonName, card.variety)}
-          hasPicture={card.hasPhoto}
-          {onAsk}
-          onChanged={photosChanged}
-        />
-      </div>
+      <div class="plant-page-notes">
+        <div class="plant-page-read">
+          <section class="stack">
+            <h2>Growing notes</h2>
+            <form class="card note-form" onsubmit={addNote}>
+              <label>
+                Add a growing note
+                <textarea bind:value={note} rows="3" required></textarea>
+              </label>
+              <button type="submit" disabled={busy}>Add note</button>
+            </form>
 
-      <div class="plant-page-read">
-        <section class="stack">
-          <h2>Growing notes</h2>
-          <form class="card note-form" onsubmit={addNote}>
-            <label>
-              Add a growing note
-              <textarea bind:value={note} rows="3" required></textarea>
-            </label>
-            <button type="submit" disabled={busy}>Add note</button>
-          </form>
-
-          {#each card.notes as item (item.id)}
-            <article class="card plant-note-card appear">
-              <p class="plant-note">{item.text}</p>
-              <p class="muted credit">{item.addedBy}, {when(item.createdAt)}</p>
-            </article>
-          {:else}
-            <p class="note-empty muted">
-              There are no notes yet. Add what you've learned about growing it.
-            </p>
-          {/each}
-        </section>
-
-        {#if card.description}
-          <ArticleSection title="About this plant" article={card.description} />
-        {/if}
-        {#if card.growing}
-          <ArticleSection title="Growing it" article={card.growing} />
-        {/if}
-      </div>
-
-      <!-- Across the whole page, so the tree can branch across it. -->
-      <div class="plant-wide">
-        <!-- Fetched again once the plant is matched to a species from this page. -->
-        {#key card.linkedToSpecies}
-          <FamilyTree
-            {plantId}
-            plantName={plantName(card.commonName, card.variety)}
-            photoUrl={card.hasPhoto
-              ? `/api/plants/${plantId}/photo?v=${photoVersion}`
-              : null}
-            {canManage}
-            {onOpenPlant}
-          />
-        {/key}
-
-        {#if !card.linkedToSpecies && canManage}
-          <section class="stack plant-find">
-            <h2>Find this plant's details</h2>
-            <PlantSearch
-              recent={[]}
-              onPick={link}
-              speciesOnly
-              label="Search for this plant"
-            />
+            {#each card.notes as item (item.id)}
+              <article class="card plant-note-card appear">
+                <p class="plant-note">{item.text}</p>
+                <p class="muted credit">
+                  {item.addedBy}, {when(item.createdAt)}
+                </p>
+              </article>
+            {:else}
+              <p class="note-empty muted">
+                There are no notes yet. Add what you've learned about growing
+                it.
+              </p>
+            {/each}
           </section>
-        {/if}
+
+          {#if card.description}
+            <ArticleSection
+              title="About this plant"
+              article={card.description}
+            />
+          {/if}
+          {#if card.growing}
+            <ArticleSection title="Growing it" article={card.growing} />
+          {/if}
+        </div>
+
+        <div class="plant-wide">
+          <!-- Fetched again once the plant is matched to a species from this page. -->
+          {#key card.linkedToSpecies}
+            <FamilyTree
+              {plantId}
+              plantName={plantName(card.commonName, card.variety)}
+              photoUrl={card.hasPhoto
+                ? `/api/plants/${plantId}/photo?v=${photoVersion}`
+                : null}
+              {canManage}
+              {onOpenPlant}
+            />
+          {/key}
+
+          {#if !card.linkedToSpecies && canManage}
+            <section class="stack plant-find">
+              <h2>Find this plant's details</h2>
+              <PlantSearch
+                recent={[]}
+                onPick={link}
+                speciesOnly
+                label="Search for this plant"
+              />
+            </section>
+          {/if}
+        </div>
       </div>
     </div>
   {:else if problem}
@@ -267,9 +272,12 @@
   {:else}
     <Loading text="Opening this plant…" />
     <div class="plant-page" aria-hidden="true">
-      <div class="plant-page-hero">
-        <span class="skeleton skeleton-hero"></span>
+      <div class="plant-page-media">
+        <div class="plant-page-hero">
+          <span class="skeleton skeleton-hero"></span>
+        </div>
       </div>
+
       <div class="plant-page-read">
         <span class="skeleton-lines">
           <span class="skeleton"></span>

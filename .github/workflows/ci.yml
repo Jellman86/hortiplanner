@@ -134,7 +134,9 @@ jobs:
       - name: Test in a real browser
         run: npm run e2e
       - name: Check every screen fits phones, tablets and desks
-        run: npm run e2e:layout
+        run: |
+          npm run e2e:layout
+          npm run e2e:layout:webkit
 
   image:
     runs-on: ubuntu-latest

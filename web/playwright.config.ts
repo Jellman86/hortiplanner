@@ -3,8 +3,14 @@ import { defineConfig, devices } from "@playwright/test";
 
 const port = 5199;
 const databasePort = 55432;
+// WebKit requires HTTPS for the app's secure sign-in cookie, even on localhost.
+const layoutWebkit = process.env.E2E_LAYOUT === "webkit";
+const origin = `${layoutWebkit ? "https" : "http"}://localhost:${port}`;
 const postgres =
   "postgres:18.6-alpine@sha256:123b17998ccaf47e53b502e8c6a1e79afd8f579c6f3eec83c563da026f957395";
+const webkitConnection = process.env.PW_WEBKIT_WS
+  ? { connectOptions: { wsEndpoint: process.env.PW_WEBKIT_WS } }
+  : {};
 
 // Runs the real application and a throwaway database. http://localhost counts as secure for passkeys.
 export default defineConfig({
@@ -15,7 +21,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   // One long story that grows with Hortiplanner, including a phone waiting for its signal back.
   timeout: 120_000,
-  use: { baseURL: `http://localhost:${port}` },
+  use: { baseURL: origin, ignoreHTTPSErrors: layoutWebkit },
   projects: [
     {
       // The whole story, phone-sized. Passkeys use Chromium's virtual authenticator, so this one runs in Chromium.
@@ -34,15 +40,27 @@ export default defineConfig({
         ...devices["iPhone 15"],
         // The app's service worker would answer before the tests' stand-in server could.
         serviceWorkers: "block",
-        ...(process.env.PW_WEBKIT_WS
-          ? { connectOptions: { wsEndpoint: process.env.PW_WEBKIT_WS } }
-          : {}),
+        ...webkitConnection,
       },
     },
+    ...(layoutWebkit
+      ? [
+          {
+            name: "layout-webkit",
+            testMatch: /layout\.spec\.ts$/,
+            use: {
+              ...devices["Desktop Safari"],
+              ...webkitConnection,
+              // The app runs on HTTPS with a local development certificate.
+              serviceWorkers: "block",
+            },
+          },
+        ]
+      : []),
   ],
   webServer: [
     {
-      command: `docker run --rm --name hortiplanner-e2e -e POSTGRES_PASSWORD=e2e -p ${databasePort}:5432 ${postgres}`,
+      command: `docker run --rm -e POSTGRES_PASSWORD=e2e -p ${databasePort}:5432 ${postgres}`,
       port: databasePort,
       timeout: 180_000,
       gracefulShutdown: { signal: "SIGTERM", timeout: 10_000 },
@@ -50,14 +68,15 @@ export default defineConfig({
     {
       command:
         "dotnet run --project ../src/Hortiplanner.Api --configuration Release --no-launch-profile",
-      url: `http://localhost:${port}/api/health`,
+      url: `${origin}/api/health`,
+      ignoreHTTPSErrors: layoutWebkit,
       timeout: 240_000,
       env: {
-        ASPNETCORE_URLS: `http://localhost:${port}`,
+        ASPNETCORE_URLS: origin,
         ASPNETCORE_WEBROOT: resolve("dist"),
         ConnectionStrings__Hortiplanner: `Host=localhost;Port=${databasePort};Username=postgres;Password=e2e;Database=postgres`,
         Passkeys__ServerDomain: "localhost",
-        Passkeys__Origin: `http://localhost:${port}`,
+        Passkeys__Origin: origin,
         Setup__Token: "e2e-setup-code",
         Species__Online: process.env.E2E_SPECIES_ONLINE ?? "false",
         Demo__Enabled: process.env.E2E_LAYOUT ? "true" : "false",

@@ -175,7 +175,7 @@
       {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
 
       {#if summary}
-        <div class="stat-tiles money-totals">
+        <div class="stat-tiles">
           {#if isOn("Purchases")}
             <div class="stat-tile">
               <strong>{money(Number(summary.owed))}</strong><span
@@ -210,7 +210,6 @@
               columns={monthColumns}
               key={(month) => month.month}
               caption="Income and spending by month"
-              fit
             />
           </div>
         {/if}
@@ -246,7 +245,6 @@
             key={(taking) => taking.id}
             caption="Recent takings"
             actions={takingActions}
-            fit
           />
         </div>
       {:else}

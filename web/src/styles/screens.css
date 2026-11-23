@@ -244,11 +244,6 @@
   color: var(--accent-text);
 }
 
-/* Money's totals keep to the width of its form and its narrow tables. */
-.money-totals {
-  max-width: 30rem;
-}
-
 /* Money's months and takings on a phone: one card each, a row for each month or day, with its figures or its small
    Void button on the right. */
 .takings-list {
@@ -825,7 +820,7 @@ button.production-row.chosen:hover:not(:disabled) {
   }
 
   .with-sidebar .breadcrumbs {
-    max-width: var(--page-max);
+    max-width: var(--page-wide);
     margin: 0;
     padding: 1.25rem 2.5rem 0;
   }

@@ -197,7 +197,7 @@
   }
 </script>
 
-<main class="costs-to-fill-in">
+<main class="page-wide costs-to-fill-in">
   <h1 tabindex="-1" bind:this={heading}>Costs to fill in</h1>
 
   {#if problem}<p class="problem" role="alert">{problem}</p>{/if}

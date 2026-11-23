@@ -365,8 +365,7 @@
     {/if}
 
     <!-- On a phone: what you do here, the facts, what's inside and growing here, then the map and photos, then
-         changing the place. On a desk the actions, facts, map and photos sit beside what's here, and on a wide
-         desk the map and photos take a column of their own. -->
+         changing the place. On a desk the actions, facts, map and photos sit beside what's here. -->
     <div class="place-page">
       <div class="stack fill place-page-actions">
         {#if place.kind !== "Site"}
