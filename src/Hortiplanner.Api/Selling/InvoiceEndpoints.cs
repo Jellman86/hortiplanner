@@ -91,7 +91,8 @@ internal static class InvoiceEndpoints
         var issuedOn = request.IssuedOn ?? DateOnly.FromDateTime(clock.GetLocalNow().DateTime);
 
         // A line may carry the standard or reduced rate in force on the day of issue, or nothing.
-        var problem = Problem(request, settings.VatRegistered, await VatRates.AllowedAsync(db, issuedOn, cancellationToken));
+        var (standard, reduced) = await VatRates.PairAsync(db, issuedOn, cancellationToken);
+        var problem = Problem(request, settings.VatRegistered, [standard, reduced, 0m]);
         if (requestId == Guid.Empty || problem is not null
             || await db.Customers.AsNoTracking().FirstOrDefaultAsync(customer => customer.Id == request.CustomerId && customer.ArchivedAt == null, cancellationToken) is not { } customer)
         {

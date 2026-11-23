@@ -105,6 +105,79 @@ public sealed class PlaceSiteRuleTests(PostgresFixture database)
         }
     }
 
+    [Theory]
+    [InlineData("start")]
+    [InlineData("move")]
+    [InlineData("transfer")]
+    [InlineData("child")]
+    public async Task Archiving_and_placing_stock_or_a_child_never_both_succeed(string operation)
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var site = await AddPlaceAsync(nursery.Owner, "Nursery");
+        var start = await AddPlaceAsync(nursery.Owner, "Start bench", site);
+        var (batch, tray) = await StartTrayAsync(nursery.Owner, start);
+        var plant = Json(await PostForTextAsync(nursery.Owner, "/api/plants", new { commonName = "Rosemary" })).GetProperty("id").GetGuid();
+        var target = await AddPlaceAsync(nursery.Owner, "Target", site);
+        var eventId = Guid.NewGuid();
+        var occurredAt = DateTimeOffset.UtcNow;
+        var placing = operation switch
+        {
+            "start" => PostStatusAsync(nursery.Staff, "/api/batches", new
+            {
+                eventId,
+                occurredAt,
+                plantId = plant,
+                quantity = 10,
+                source = "SeedLot",
+                originCountry = "GB",
+                containerKind = "Tray",
+                locationId = target,
+            }),
+            "transfer" => PostStatusAsync(nursery.Staff, $"/api/containers/{tray}/transfer", new
+            {
+                eventId,
+                occurredAt,
+                batchId = batch,
+                quantity = 5,
+                type = "PottedOn",
+                containerKind = "PotGroup",
+                locationId = target,
+            }),
+            "move" => PostStatusAsync(nursery.Staff, $"/api/containers/{tray}/move", new { eventId, occurredAt, locationId = target }),
+            _ => PostStatusAsync(nursery.Staff, "/api/locations", new { name = "Child", kind = "Bench", parentId = target }),
+        };
+
+        var results = await Task.WhenAll(placing, PostStatusAsync(nursery.Owner, $"/api/locations/{target}/archive"));
+        if (results[0] == HttpStatusCode.Created)
+        {
+            Assert.Equal(HttpStatusCode.Conflict, results[1]);
+        }
+        else
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, results[0]);
+            Assert.Equal(HttpStatusCode.NoContent, results[1]);
+        }
+    }
+
+    [Fact]
+    public async Task An_identical_move_retry_succeeds_after_its_destination_is_archived()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var site = await AddPlaceAsync(nursery.Owner, "Nursery");
+        var start = await AddPlaceAsync(nursery.Owner, "Start bench", site);
+        var target = await AddPlaceAsync(nursery.Owner, "Target", site);
+        var (_, tray) = await StartTrayAsync(nursery.Owner, start);
+        var path = $"/api/containers/{tray}/move";
+        var move = new { eventId = Guid.NewGuid(), occurredAt = DateTimeOffset.UtcNow.AddMinutes(-10), locationId = target };
+
+        Assert.Equal(HttpStatusCode.Created, await PostStatusAsync(nursery.Staff, path, move));
+        Assert.Equal(HttpStatusCode.Created, await PostStatusAsync(nursery.Staff, path, new { eventId = Guid.NewGuid(), occurredAt = DateTimeOffset.UtcNow, locationId = start }));
+        Assert.Equal(HttpStatusCode.NoContent, await PostStatusAsync(nursery.Owner, $"/api/locations/{target}/archive"));
+        Assert.Equal(HttpStatusCode.OK, await PostStatusAsync(nursery.Staff, path, move));
+        Assert.Equal(HttpStatusCode.Conflict, await PostStatusAsync(nursery.Staff, path, move with { occurredAt = move.occurredAt.AddMinutes(1) }));
+        Assert.Equal(HttpStatusCode.BadRequest, await PostStatusAsync(nursery.Staff, path, move with { eventId = Guid.NewGuid() }));
+    }
+
     [Fact]
     public async Task A_photo_arriving_while_its_place_is_deleted_is_not_left_behind()
     {

@@ -3,9 +3,7 @@ using Microsoft.AspNetCore.Identity;
 namespace Hortiplanner.Api.Accounts;
 
 /// <summary>
-/// Changing how someone signs in needs their own session: never a bench session, which a PIN or a
-/// tapped name opened, and never the shared nursery team account. Otherwise a bench could be turned
-/// into the owner's account by setting a password.
+/// Account settings available away from a bench and the shared nursery team account.
 /// </summary>
 internal sealed class OwnSettingsFilter : IEndpointFilter
 {

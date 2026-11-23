@@ -93,14 +93,19 @@ internal static class JobEndpoints
             return TypedResults.BadRequest();
         }
 
-        if (await db.Jobs.FindAsync([id], cancellationToken) is not { } job)
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        if (await LockJobAsync(id, db, cancellationToken) is not { } job)
         {
             return TypedResults.NotFound();
         }
 
         Apply(request, job);
         job.NextDue = request.FirstDue;
+        job.ScheduledDue = request.FirstDue;
+        await db.JobsDone.Where(done => done.JobId == id && done.NextDueCandidate != null)
+            .ExecuteUpdateAsync(change => change.SetProperty(done => done.NextDueCandidate, (DateOnly?)null), cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return TypedResults.NoContent();
     }
 
@@ -117,14 +122,22 @@ internal static class JobEndpoints
 
     private static async Task<IResult> StopAsync(Guid id, HortiplannerDbContext db, TimeProvider clock, CancellationToken cancellationToken)
     {
-        if (await db.Jobs.FindAsync([id], cancellationToken) is not { } job)
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        if (await LockJobAsync(id, db, cancellationToken) is not { } job)
         {
             return TypedResults.NotFound();
         }
 
         job.ArchivedAt ??= clock.GetUtcNow();
         await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return TypedResults.NoContent();
+    }
+
+    private static async Task<NurseryJob?> LockJobAsync(Guid id, HortiplannerDbContext db, CancellationToken cancellationToken)
+    {
+        await db.Database.ExecuteSqlRawAsync("SELECT 1 FROM jobs WHERE id = {0} FOR UPDATE", [id], cancellationToken);
+        return await db.Jobs.FindAsync([id], cancellationToken);
     }
 
     /// <summary>Done, today unless another day is given. Done twice on one day counts once.</summary>
@@ -138,7 +151,8 @@ internal static class JobEndpoints
             return TypedResults.BadRequest();
         }
 
-        if (await db.Jobs.FirstOrDefaultAsync(job => job.Id == id && job.ArchivedAt == null, cancellationToken) is not { } job)
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        if (await LockJobAsync(id, db, cancellationToken) is not { ArchivedAt: null } job)
         {
             return TypedResults.NotFound();
         }
@@ -148,21 +162,21 @@ internal static class JobEndpoints
             return TypedResults.Ok(new JobDone(job.NextDue));
         }
 
-        db.JobsDone.Add(new NurseryJobDone { JobId = id, DoneOn = doneOn, DoneBy = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!), NextDueBefore = job.NextDue });
+        job.ScheduledDue ??= job.NextDue;
+        var next = JobDates.NextAfter(doneOn, job.EveryDays, today);
+        db.JobsDone.Add(new NurseryJobDone
+        {
+            JobId = id,
+            DoneOn = doneOn,
+            DoneBy = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!),
+            NextDueBefore = job.NextDue,
+            NextDueCandidate = next > job.NextDue ? next : null,
+        });
 
         // Done for an earlier day never brings the next date forward.
-        var next = JobDates.NextAfter(doneOn, job.EveryDays, today);
         job.NextDue = next > job.NextDue ? next : job.NextDue;
-
-        try
-        {
-            await db.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateException exception) when (exception.InnerException is Npgsql.PostgresException { SqlState: Npgsql.PostgresErrorCodes.UniqueViolation })
-        {
-            // Someone else marked it done for that day at the same moment.
-            return TypedResults.Ok(new JobDone(job.NextDue));
-        }
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         return TypedResults.Created($"/api/jobs/{id}", new JobDone(job.NextDue));
     }
@@ -177,8 +191,9 @@ internal static class JobEndpoints
         var userId = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
         var owner = user.IsInRole(AccountServices.OwnerRole) && user.FindFirst(AccountServices.BenchSessionClaim) is null;
 
-        if (await db.JobsDone.FirstOrDefaultAsync(done => done.JobId == id && done.DoneOn == doneOn, cancellationToken) is not { } done
-            || await db.Jobs.FirstOrDefaultAsync(job => job.Id == id, cancellationToken) is not { } job)
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        if (await LockJobAsync(id, db, cancellationToken) is not { } job
+            || await db.JobsDone.FirstOrDefaultAsync(done => done.JobId == id && done.DoneOn == doneOn, cancellationToken) is not { } done)
         {
             return TypedResults.NotFound();
         }
@@ -188,9 +203,16 @@ internal static class JobEndpoints
             return TypedResults.Conflict();
         }
 
-        job.NextDue = done.NextDueBefore ?? job.NextDue;
+        if (done.NextDueCandidate is not null && job.ScheduledDue is { } scheduled)
+        {
+            var latest = await db.JobsDone.Where(other => other.JobId == id && other.Id != done.Id)
+                .MaxAsync(other => other.NextDueCandidate, cancellationToken);
+            job.NextDue = latest is { } next && next > scheduled ? next : scheduled;
+        }
+
         db.JobsDone.Remove(done);
         await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return TypedResults.NoContent();
     }
 

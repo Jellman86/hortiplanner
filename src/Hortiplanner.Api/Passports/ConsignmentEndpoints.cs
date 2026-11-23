@@ -167,7 +167,7 @@ internal static class ConsignmentEndpoints
             return TypedResults.BadRequest();
         }
 
-        if (!await InTraysAsync([.. packages.SelectMany(package => package).Where(line => line.InvoiceLineId is null)], store, cancellationToken))
+        if (!await InTraysAsync(packages.SelectMany(package => package).Where(line => line.InvoiceLineId is null).Select(line => (line.ContainerId, line.BatchId, line.Quantity)), store, cancellationToken))
         {
             return TypedResults.Conflict(new PassportRefused("TooMany"));
         }
@@ -265,13 +265,13 @@ internal static class ConsignmentEndpoints
     }
 
     /// <summary>Whether every line not from an invoice is plants that are in that tray now.</summary>
-    private static async Task<bool> InTraysAsync(List<ConsignmentLineRequest> lines, EventStore store, CancellationToken cancellationToken)
+    private static async Task<bool> InTraysAsync(IEnumerable<(Guid ContainerId, Guid BatchId, int Quantity)> lines, EventStore store, CancellationToken cancellationToken)
     {
         foreach (var container in lines.GroupBy(line => line.ContainerId))
         {
             var contents = (await store.GetContainerStateAsync(container.Key, cancellationToken)).Contents;
 
-            if (container.GroupBy(line => line.BatchId).Any(batch => (contents.FirstOrDefault(item => item.BatchId == batch.Key)?.Quantity ?? 0) < batch.Sum(line => line.Quantity)))
+            if (container.GroupBy(line => line.BatchId).Any(batch => (contents.FirstOrDefault(item => item.BatchId == batch.Key)?.Quantity ?? 0) < batch.Sum(line => (long)line.Quantity)))
             {
                 return false;
             }
@@ -288,7 +288,7 @@ internal static class ConsignmentEndpoints
             var invoiced = await db.InvoiceLines.Where(item => item.Id == line.Key).Select(item => item.Quantity).FirstAsync(cancellationToken);
             var sent = await db.Set<PackageLine>().Where(item => item.InvoiceLineId == line.Key).SumAsync(item => (int?)item.Quantity, cancellationToken) ?? 0;
 
-            if (line.Sum(item => item.Quantity) > invoiced - sent)
+            if (line.Sum(item => (long)item.Quantity) > invoiced - sent)
             {
                 return false;
             }
@@ -380,8 +380,15 @@ internal static class ConsignmentEndpoints
                 ? TypedResults.Ok() : TypedResults.Conflict(new PassportRefused("IdInUse"));
         }
         await LockInvoicesAsync(package, db, cancellationToken);
-        await store.LockAsync(package.Lines.Select(line => line.ContainerId), cancellationToken);
+        var fromTrays = consignment.Packages.SelectMany(item => item.Lines).Where(line => line.InvoiceLineId is null).ToList();
+        await store.LockAsync(fromTrays.Concat(package.Lines).Select(line => line.ContainerId), cancellationToken);
 
+        if (!await StockCoversPackagesAsync(consignment, fromTrays, db, store, cancellationToken))
+        {
+            return TypedResults.Conflict(new PassportRefused("TooMany"));
+        }
+
+        await store.LockPlacesAsync(cancellationToken);
         var (drafts, refused) = await DraftAllAsync(package, request.ActiveGrowthConfirmed, db, store, clock, cancellationToken);
 
         if (refused is not null)
@@ -432,6 +439,27 @@ internal static class ConsignmentEndpoints
         await db.Database.ExecuteSqlRawAsync("SELECT 1 FROM invoices WHERE id = ANY({0}) ORDER BY id FOR UPDATE", [invoiceIds], cancellationToken);
     }
 
+    /// <summary>Stock must cover this consignment's allocation and any packages already issued elsewhere from the same stock.</summary>
+    private static async Task<bool> StockCoversPackagesAsync(
+        Consignment consignment, List<PackageLine> fromTrays, HortiplannerDbContext db, EventStore store, CancellationToken cancellationToken)
+    {
+        if (fromTrays.Count == 0)
+        {
+            return true;
+        }
+
+        var trays = fromTrays.Select(line => line.ContainerId).Distinct().ToArray();
+        var keys = fromTrays.Select(line => (line.ContainerId, line.BatchId)).ToHashSet();
+        var ownPackages = consignment.Packages.Select(package => package.Id).ToArray();
+        var issuedElsewhere = await db.Set<PackageLine>().AsNoTracking()
+            .Where(line => line.InvoiceLineId == null && trays.Contains(line.ContainerId) && !ownPackages.Contains(line.PackageId)
+                && db.IssuedPassports.Any(passport => passport.PackageId == line.PackageId))
+            .ToListAsync(cancellationToken);
+
+        return await InTraysAsync(fromTrays.Concat(issuedElsewhere.Where(line => keys.Contains((line.ContainerId, line.BatchId))))
+            .Select(line => (line.ContainerId, line.BatchId, line.Quantity)), store, cancellationToken);
+    }
+
     /// <summary>Each line's passport as it would be issued now, or why the package can't have one.</summary>
     private static async Task<(List<(PackageLine Line, PassportEndpoints.IssueDraft Draft)> Drafts, string? Refused)> DraftAllAsync(
         ConsignmentPackage package,
@@ -453,9 +481,9 @@ internal static class ConsignmentEndpoints
             var sold = line.InvoiceLineId is not null;
             var draft = await PassportEndpoints.MakeDraftAsync(line.BatchId, line.ContainerId, db, store, clock, cancellationToken, sold, activeGrowthConfirmed);
 
-            if (draft is null || draft.Problems.Count > 0 || (!sold && draft.Available < package.Lines.Where(other => other.InvoiceLineId == null && other.BatchId == line.BatchId && other.ContainerId == line.ContainerId).Sum(other => other.Quantity)))
+            if (draft is null || draft.Problems.Count > 0)
             {
-                return ([], draft is { Problems.Count: 0 } ? "TooMany" : "CannotIssue");
+                return ([], "CannotIssue");
             }
 
             drafts.Add((line, draft));

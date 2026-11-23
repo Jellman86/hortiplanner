@@ -11,7 +11,7 @@
   import SendHorizontal from "@lucide/svelte/icons/send-horizontal";
   import Sparkles from "@lucide/svelte/icons/sparkles";
   import X from "@lucide/svelte/icons/x";
-  import { tick } from "svelte";
+  import { onMount, tick } from "svelte";
   import type { Schemas } from "../lib/types";
   import AskConversations from "./AskConversations.svelte";
   import { api } from "../api/client";
@@ -81,6 +81,11 @@
   let problem = $state("");
   let list = $state<HTMLOListElement | null>(null);
   let box = $state<HTMLTextAreaElement | null>(null);
+  // Discards late replies if the person signs out or leaves the screen while an answer is in flight.
+  let alive = true;
+  onMount(() => () => {
+    alive = false;
+  });
 
   function remembered(): Line[] {
     try {
@@ -415,6 +420,10 @@
         },
       });
 
+      if (!alive) {
+        return;
+      }
+
       if (data) {
         lines = [
           ...lines,
@@ -457,18 +466,23 @@
         photos = sent;
       }
     } catch {
+      if (!alive) {
+        return;
+      }
       problem =
         "This device can't reach Hortiplanner. Please check the connection and try again.";
       lines = lines.slice(0, -1);
       question = wanted;
       photos = sent;
     } finally {
-      busy = false;
-      await scrollDown();
+      if (alive) {
+        busy = false;
+        await scrollDown();
 
-      // On a phone, focusing would bring the keyboard back over the answer.
-      if (finePointer) {
-        box?.focus();
+        // On a phone, focusing would bring the keyboard back over the answer.
+        if (finePointer) {
+          box?.focus();
+        }
       }
     }
   }

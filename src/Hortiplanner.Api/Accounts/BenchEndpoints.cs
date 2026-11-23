@@ -82,11 +82,9 @@ internal static class BenchEndpoints
         return TypedResults.NoContent();
     }
 
-    private static async Task<bool> StationIsActiveAsync(ClaimsPrincipal station, HortiplannerDbContext db, CancellationToken cancellationToken)
-    {
-        var id = Guid.Parse(station.FindFirstValue(StationClaim)!);
-        return await db.BenchStations.AnyAsync(s => s.Id == id && s.RevokedAt == null, cancellationToken);
-    }
+    internal static async Task<bool> StationIsActiveAsync(string? stationId, HortiplannerDbContext db, CancellationToken cancellationToken) =>
+        Guid.TryParse(stationId, out var id)
+        && await db.BenchStations.AnyAsync(s => s.Id == id && s.RevokedAt == null, cancellationToken);
 
     private static async Task<IResult> ListPeopleAsync(
         ClaimsPrincipal station,
@@ -94,7 +92,7 @@ internal static class BenchEndpoints
         UserManager<AppUser> users,
         CancellationToken cancellationToken)
     {
-        if (!await StationIsActiveAsync(station, db, cancellationToken))
+        if (!await StationIsActiveAsync(station.FindFirstValue(StationClaim), db, cancellationToken))
         {
             return TypedResults.Unauthorized();
         }
@@ -122,7 +120,7 @@ internal static class BenchEndpoints
         IPasswordHasher<AppUser> hasher,
         CancellationToken cancellationToken)
     {
-        if (!await StationIsActiveAsync(station, db, cancellationToken))
+        if (station.FindFirstValue(StationClaim) is not { } stationId || !await StationIsActiveAsync(stationId, db, cancellationToken))
         {
             return TypedResults.Unauthorized();
         }
@@ -133,7 +131,8 @@ internal static class BenchEndpoints
         }
 
         // Some nurseries choose tapping a name at the bench, with no PIN; never for the owner.
-        if (SignInRules.BenchNeedsPin((await db.GetNurserySettingsAsync(cancellationToken)).SignInLevel))
+        var needsPin = SignInRules.BenchNeedsPin((await db.GetNurserySettingsAsync(cancellationToken)).SignInLevel);
+        if (needsPin)
         {
             if (await RefusePinAsync(person, request.Pin, users, hasher) is { } refused)
             {
@@ -153,7 +152,7 @@ internal static class BenchEndpoints
                 IsPersistent = false,
                 ExpiresUtc = DateTimeOffset.UtcNow + IdleLimit,
             },
-            [new Claim(AccountServices.BenchSessionClaim, "true"), new Claim(AccountServices.SignInMethodClaim, "pin")]);
+            [new Claim(AccountServices.BenchSessionClaim, stationId), new Claim(AccountServices.SignInMethodClaim, needsPin ? "pin" : "name")]);
 
         return TypedResults.NoContent();
     }

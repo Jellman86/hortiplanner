@@ -63,6 +63,8 @@ internal sealed class HortiplannerDbContext(DbContextOptions<HortiplannerDbConte
 
     public DbSet<Location> Locations => Set<Location>();
 
+    public DbSet<LocationChange> LocationChanges => Set<LocationChange>();
+
     public DbSet<Batch> Batches => Set<Batch>();
 
     public DbSet<Container> Containers => Set<Container>();
@@ -750,7 +752,18 @@ internal sealed class HortiplannerDbContext(DbContextOptions<HortiplannerDbConte
             entity.HasIndex(e => new { e.ParentId, e.Name }).IsUnique().AreNullsDistinct(false);
             entity.HasOne<Location>().WithMany().HasForeignKey(e => e.ParentId).OnDelete(DeleteBehavior.Restrict);
         });
+
+        ConfigureLocationHistory(modelBuilder);
     }
+
+    private static void ConfigureLocationHistory(ModelBuilder modelBuilder) =>
+        modelBuilder.Entity<LocationChange>(entity =>
+        {
+            entity.Property(change => change.PreviousKind).HasConversion<string>();
+            entity.HasIndex(change => new { change.LocationId, change.EffectiveAt });
+            entity.HasOne<Location>().WithMany().HasForeignKey(change => change.LocationId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<Location>().WithMany().HasForeignKey(change => change.PreviousParentId).OnDelete(DeleteBehavior.Restrict);
+        });
 
     private static void ConfigureEvents(ModelBuilder modelBuilder)
     {

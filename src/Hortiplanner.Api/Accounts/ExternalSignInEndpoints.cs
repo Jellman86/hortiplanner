@@ -15,6 +15,8 @@ internal static class ExternalSignInEndpoints
 {
     private const string CompletePath = "/api/account/external/complete";
     private const string LinkItem = "hortiplanner_link_user";
+    private const string LinkStampItem = "hortiplanner_link_stamp";
+    private const string LinkCheckedAtItem = "hortiplanner_link_checked_at";
     private const string NameClaim = "name";
     private const string UsernameClaim = "preferred_username";
     private const string GroupsClaim = "groups";
@@ -24,7 +26,7 @@ internal static class ExternalSignInEndpoints
         var external = app.MapGroup("/api/account/external");
         external.MapGet("/", GetOptions).AllowAnonymous();
         external.MapGet("/login", LoginAsync).AllowAnonymous();
-        external.MapGet("/link", LinkAsync).AddEndpointFilter<OwnSettingsFilter>();
+        external.MapGet("/link", LinkAsync).AddEndpointFilter<PersonalCredentialFilter>();
         external.MapGet("/complete", CompleteAsync).AllowAnonymous();
     }
 
@@ -34,12 +36,12 @@ internal static class ExternalSignInEndpoints
         new(store.Current.IsOn, store.Current.DisplayName);
 
     private static Task<IResult> LoginAsync(HttpContext context, SignInManager<AppUser> signIn, ExternalSignInStore store) =>
-        ChallengeAsync(context, signIn, store, linkUser: null);
+        ChallengeAsync(context, signIn, store, link: false);
 
-    private static Task<IResult> LinkAsync(HttpContext context, ClaimsPrincipal user, UserManager<AppUser> users, SignInManager<AppUser> signIn, ExternalSignInStore store) =>
-        ChallengeAsync(context, signIn, store, users.GetUserId(user));
+    private static Task<IResult> LinkAsync(HttpContext context, SignInManager<AppUser> signIn, ExternalSignInStore store) =>
+        ChallengeAsync(context, signIn, store, link: true);
 
-    private static async Task<IResult> ChallengeAsync(HttpContext context, SignInManager<AppUser> signIn, ExternalSignInStore store, string? linkUser)
+    private static async Task<IResult> ChallengeAsync(HttpContext context, SignInManager<AppUser> signIn, ExternalSignInStore store, bool link)
     {
         if (!store.Current.IsOn)
         {
@@ -49,9 +51,11 @@ internal static class ExternalSignInEndpoints
         var properties = signIn.ConfigureExternalAuthenticationProperties(AccountServices.OidcScheme, CompletePath);
 
         // Kept in the protected sign-in state: the session cookie doesn't survive the trip back.
-        if (linkUser is not null)
+        if (link)
         {
-            properties.Items[LinkItem] = linkUser;
+            properties.Items[LinkItem] = signIn.UserManager.GetUserId(context.User);
+            properties.Items[LinkStampItem] = context.User.FindFirstValue(signIn.Options.ClaimsIdentity.SecurityStampClaimType);
+            properties.Items[LinkCheckedAtItem] = context.User.FindFirstValue(AccountServices.CredentialCheckedAtClaim);
         }
 
         try
@@ -83,25 +87,33 @@ internal static class ExternalSignInEndpoints
 
         await context.SignOutAsync(IdentityConstants.ExternalScheme);
         var subject = info.Principal.FindFirst("sub") ?? info.Principal.FindFirst(ClaimTypes.NameIdentifier);
-        if (subject is null || !string.Equals(subject.Issuer.TrimEnd('/'), store.Current.Authority?.TrimEnd('/'), StringComparison.Ordinal))
+        if (subject is null || store.ProviderKeyFor(subject) is not { } providerKey)
         {
             return Back("failed");
         }
-        info = new ExternalLoginInfo(info.Principal, info.LoginProvider, RequestFingerprint.For(new { subject.Issuer, Subject = subject.Value }), info.ProviderDisplayName ?? AccountServices.OidcScheme)
-        {
-            AuthenticationProperties = info.AuthenticationProperties,
-        };
+        var state = info.AuthenticationProperties;
+        info = new ExternalLoginInfo(info.Principal, info.LoginProvider, providerKey, info.ProviderDisplayName ?? AccountServices.OidcScheme);
 
-        if (info.AuthenticationProperties?.Items.TryGetValue(LinkItem, out var linkUser) == true && linkUser is not null)
+        if (state?.Items.TryGetValue(LinkItem, out var linkUser) == true)
         {
-            return await LinkLoginAsync(linkUser, info, users);
+            if (linkUser is null || !SignInRules.IsRecentCredentialCheck(state.GetString(LinkCheckedAtItem), clock))
+            {
+                return Back("refused");
+            }
+
+            return await LinkLoginAsync(linkUser, state.GetString(LinkStampItem), info, subject.Value, users, db, context.RequestAborted);
         }
 
-        var person = await users.FindByLoginAsync(info.LoginProvider, info.ProviderKey)
-            ?? await UpgradeLegacyLoginAsync(info, subject.Value, users);
+        var person = await users.FindByLoginAsync(info.LoginProvider, info.ProviderKey);
 
         if (person is null)
         {
+            // A subject-only association cannot identify a person or be enrolled automatically.
+            if (await users.FindByLoginAsync(info.LoginProvider, subject.Value) is not null)
+            {
+                return Back("refused");
+            }
+
             var (created, problem) = await CreatePersonAsync(info, users);
 
             if (created is null)
@@ -126,31 +138,13 @@ internal static class ExternalSignInEndpoints
         return TypedResults.Redirect("/");
     }
 
-    /// <summary>
-    /// Links made before logins were bound to their issuer stored only the subject. The issuer has just been checked
-    /// against the configured provider, and changing the provider removes every link, so such a link belongs to this
-    /// provider: move it to the issuer-bound key rather than creating a second account for the same person.
-    /// </summary>
-    private static async Task<AppUser?> UpgradeLegacyLoginAsync(ExternalLoginInfo info, string subject, UserManager<AppUser> users)
-    {
-        if (await users.FindByLoginAsync(info.LoginProvider, subject) is not { } person)
-        {
-            return null;
-        }
-
-        if (!(await users.RemoveLoginAsync(person, info.LoginProvider, subject)).Succeeded
-            || !(await users.AddLoginAsync(person, info)).Succeeded)
-        {
-            return null;
-        }
-
-        return person;
-    }
-
     /// <summary>Connects the shared login to the account already signed in here.</summary>
-    private static async Task<IResult> LinkLoginAsync(string userId, ExternalLoginInfo info, UserManager<AppUser> users)
+    private static async Task<IResult> LinkLoginAsync(
+        string userId, string? stamp, ExternalLoginInfo info, string subject, UserManager<AppUser> users,
+        HortiplannerDbContext db, CancellationToken cancellationToken)
     {
-        if (await users.FindByIdAsync(userId) is not { ArchivedAt: null } person)
+        if (stamp is null || await users.FindByIdAsync(userId) is not { ArchivedAt: null, IsTeamAccount: false } person
+            || !string.Equals(stamp, await users.GetSecurityStampAsync(person), StringComparison.Ordinal))
         {
             return Back("refused");
         }
@@ -162,13 +156,21 @@ internal static class ExternalSignInEndpoints
             return existing.Id == person.Id ? TypedResults.Redirect("/") : Back("already-linked");
         }
 
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        person.NameOnlySignIn = false;
         if (!(await users.AddLoginAsync(person, info)).Succeeded)
         {
             return Back("failed");
         }
 
-        person.NameOnlySignIn = false;
-        await users.UpdateAsync(person);
+        if ((await users.GetLoginsAsync(person)).Any(login => string.Equals(login.LoginProvider, info.LoginProvider, StringComparison.Ordinal)
+                && string.Equals(login.ProviderKey, subject, StringComparison.Ordinal))
+            && !(await users.RemoveLoginAsync(person, info.LoginProvider, subject)).Succeeded)
+        {
+            return Back("failed");
+        }
+
+        await transaction.CommitAsync(cancellationToken);
         return TypedResults.Redirect("/");
     }
 

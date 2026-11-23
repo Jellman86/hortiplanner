@@ -256,6 +256,54 @@ public sealed class PurchaseTests(PostgresFixture database)
     }
 
     [Fact]
+    public async Task Purchase_linked_batches_take_the_purchase_supplier_and_day_on_start_and_edit()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var supplier = await AddSupplierAsync(nursery.Owner);
+        var purchasedOn = Today.AddDays(-8);
+        var purchase = Json(await PostForTextAsync(nursery.Owner, "/api/purchases", Body(supplier,
+            [new { description = "Legacy seed line", netCost = 1m, vat = 0m }, new { description = "Compost", netCost = 1m, vat = 0m, isPlants = false }],
+            purchasedOn))).GetProperty("id").GetGuid();
+        var lines = (await ListAsync(nursery.Owner))[0].GetProperty("lines").EnumerateArray().ToDictionary(
+            line => line.GetProperty("description").GetString()!, line => line.GetProperty("id").GetGuid(), StringComparer.Ordinal);
+        var plant = Json(await PostForTextAsync(nursery.Owner, "/api/plants", new { commonName = "Lavender", protectedVariety = false })).GetProperty("id").GetGuid();
+
+        object Start(Guid purchaseLineId) => new
+        {
+            eventId = Guid.NewGuid(),
+            plantId = plant,
+            supplierId = Guid.NewGuid(),
+            occurredAt = DateTimeOffset.UtcNow.AddDays(-2),
+            quantity = 10,
+            source = "BoughtIn",
+            originCountry = "GB",
+            containerKind = "Tray",
+            purchaseLineId,
+        };
+
+        Assert.Equal(HttpStatusCode.BadRequest, await PostStatusAsync(nursery.Staff, "/api/batches", Start(lines["Compost"])));
+        var request = Start(lines["Legacy seed line"]);
+        var id = Json(await PostForTextAsync(nursery.Staff, "/api/batches", request)).GetProperty("batchId").GetGuid();
+        var path = $"/api/batches/{id}";
+        var edit = new { plantId = plant, source = "BoughtIn", originCountry = "GB", supplierId = Guid.NewGuid(), startedAt = DateTimeOffset.UtcNow.AddDays(-1), sourceReference = "L3" };
+        using (var changed = await nursery.Staff.PutAsJsonAsync(Route(path), edit, Cancellation))
+        {
+            Assert.Equal(HttpStatusCode.NoContent, changed.StatusCode);
+        }
+
+        var batch = await nursery.Staff.GetFromJsonAsync<JsonElement>(Route(path), Cancellation);
+        Assert.Equal("L3", batch.GetProperty("sourceReference").GetString());
+        Assert.Equal(supplier, batch.GetProperty("supplierId").GetGuid());
+        Assert.Equal(purchasedOn, DateOnly.FromDateTime(batch.GetProperty("startedAt").GetDateTimeOffset().LocalDateTime));
+
+        Assert.Equal(HttpStatusCode.NoContent, await PostStatusAsync(nursery.Owner, $"/api/purchases/{purchase}/void"));
+        Assert.Equal(HttpStatusCode.OK, await PostStatusAsync(nursery.Staff, "/api/batches", request));
+        Assert.Equal(HttpStatusCode.BadRequest, await PostStatusAsync(nursery.Staff, "/api/batches", Start(lines["Legacy seed line"])));
+        using var refused = await nursery.Staff.PutAsJsonAsync(Route(path), edit with { sourceReference = "L4" }, Cancellation);
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+    }
+
+    [Fact]
     public async Task Purchases_are_for_the_owner()
     {
         await using var nursery = await TwoPersonNursery.CreateAsync(database);

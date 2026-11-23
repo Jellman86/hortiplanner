@@ -123,6 +123,34 @@ public sealed class ConversationTests(PostgresFixture database)
         Assert.Equal(0, await scope.ServiceProvider.GetRequiredService<HortiplannerDbContext>().AssistantConversations.CountAsync(Cancellation));
     }
 
+    [Theory]
+    [InlineData("Open")]
+    [InlineData("Names")]
+    public async Task Tapping_a_staff_members_name_cannot_add_credentials_or_open_their_conversations(string level)
+    {
+        var openRouter = new PretendOpenRouter();
+        await using var nursery = await TwoPersonNursery.CreateAsync(database, outsideWorld: openRouter);
+        await SetUpAsync(nursery, openRouter, forStaff: true);
+        await SetSignInLevelAsync(nursery.Owner, level);
+        const string question = "A private question about the tulips";
+        var saved = (await AskAsync(nursery.Staff, question)).GetProperty("conversationId").GetGuid();
+        var options = await PostForTextAsync(nursery.Staff, "/api/account/settings/passkey-options");
+        using var newKey = new TestAuthenticator();
+
+        Assert.Equal(HttpStatusCode.NoContent, await PostStatusAsync(nursery.Staff, "/api/account/sign-in/name", new { userId = nursery.StaffId }));
+        Assert.Equal(HttpStatusCode.Forbidden, await PostStatusAsync(nursery.Staff, "/api/account/settings/password", new { newPassword = "a long new password" }));
+        Assert.Equal(HttpStatusCode.Forbidden, await PostStatusAsync(nursery.Staff, "/api/account/settings/passkey-options"));
+        Assert.Equal(HttpStatusCode.Forbidden, await PostStatusAsync(nursery.Staff, "/api/account/settings/passkey", new { credential = Json(newKey.Register(options)) }));
+        Assert.Empty(await ListAsync(nursery.Staff));
+        Assert.Equal(HttpStatusCode.NotFound, await GetStatusAsync(nursery.Staff, $"/api/assistant/conversations/{saved}"));
+
+        openRouter.Questions.Clear();
+        var answer = await AskAsync(nursery.Staff, "What did I ask?", saved);
+        Assert.Equal(JsonValueKind.Null, answer.GetProperty("conversationId").ValueKind);
+        Assert.NotEmpty(openRouter.Questions);
+        Assert.All(openRouter.Questions, sent => Assert.DoesNotContain(question, sent.Body, StringComparison.Ordinal));
+    }
+
     [Fact]
     public async Task A_full_conversation_is_refused_and_the_oldest_and_year_old_ones_make_way()
     {

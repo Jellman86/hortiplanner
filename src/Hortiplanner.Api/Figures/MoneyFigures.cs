@@ -26,11 +26,11 @@ internal static class MoneyFigures
 
     private static async Task<Money> GetAsync(HortiplannerDbContext db, TimeProvider clock, CancellationToken cancellationToken, StartedIn started = StartedIn.ThisYear)
     {
-        var batches = await BatchesAsync(started, db, clock, cancellationToken);
-        var registered = (await db.GetNurserySettingsAsync(cancellationToken)).VatRegistered;
+        var (batches, costings) = await BatchesAsync(started, db, clock, cancellationToken, includeUnbatched: true);
+        var registered = costings.VatRegistered;
         var counts = registered ? VatCounts.BeforeVat : VatCounts.WithVat;
         var (from, to) = Window(started, clock);
-        var unbatched = await UnbatchedAsync(from, to, db, cancellationToken);
+        var unbatched = await UnbatchedAsync(costings.UnbatchedSales, db, cancellationToken);
 
         return new Money(
             counts,
@@ -47,8 +47,8 @@ internal static class MoneyFigures
     /// <summary>One row for each batch, in the order the figures show them; an unknown figure is an empty cell.</summary>
     private static async Task<IResult> CsvAsync(HortiplannerDbContext db, TimeProvider clock, CancellationToken cancellationToken, StartedIn started = StartedIn.All)
     {
-        var batches = await BatchesAsync(started, db, clock, cancellationToken);
-        var registered = (await db.GetNurserySettingsAsync(cancellationToken)).VatRegistered;
+        var (batches, costings) = await BatchesAsync(started, db, clock, cancellationToken);
+        var registered = costings.VatRegistered;
         string[] header =
         [
             "Batch", "Plant", "Variety", "How it started", "Started", "Supplier", "Plants started", "Lost", "Sold on invoices", "Sold from trays", "Still growing", "Cost known",
@@ -108,10 +108,11 @@ internal static class MoneyFigures
     }
 
     /// <summary>Every batch started in the window, each with its costing worked out as Costs and takings does.</summary>
-    private static async Task<List<BatchMoney>> BatchesAsync(StartedIn started, HortiplannerDbContext db, TimeProvider clock, CancellationToken cancellationToken)
+    private static async Task<(List<BatchMoney> Batches, BatchCostings.Costings Costings)> BatchesAsync(
+        StartedIn started, HortiplannerDbContext db, TimeProvider clock, CancellationToken cancellationToken, bool includeUnbatched = false)
     {
         var (from, to) = Window(started, clock);
-        var facts = await db.Batches.AsNoTracking()
+        var query = db.Batches.AsNoTracking()
             // A batch whose start was undone was a mistake, with nothing to cost, as Costs to fill in has it.
             .Where(batch => db.EventLines.Any(line => line.BatchId == batch.Id && !db.Events.Any(correction => correction.CorrectsEventId == line.EventId)))
             .Join(db.Plants, batch => batch.PlantId, plant => plant.Id, (batch, plant) => new
@@ -122,41 +123,44 @@ internal static class MoneyFigures
                 PlantId = plant.Id,
                 Supplier = db.Suppliers.Where(supplier => supplier.Id == batch.SupplierId).Select(supplier => supplier.Name).FirstOrDefault(),
                 StartedAt = db.EventLines.Where(line => line.BatchId == batch.Id).Join(db.Events, line => line.EventId, e => e.Id, (line, e) => e.OccurredAt).Min(at => (DateTimeOffset?)at),
-            })
-            .ToListAsync(cancellationToken);
+            });
 
-        var rows = new List<BatchMoney>();
-
-        foreach (var batch in facts
-            .Select(batch => (Batch: batch, Day: batch.StartedAt is { } at ? DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(at, clock.LocalTimeZone).DateTime) : (DateOnly?)null))
-            .Where(row => started == StartedIn.All || (row.Day is { } day && day >= from && day <= to))
-            .OrderBy(row => row.Day)
-            .ThenBy(row => row.Batch.CommonName, StringComparer.OrdinalIgnoreCase))
+        if (started != StartedIn.All)
         {
-            if (await BatchCostings.CostingAsync(batch.Batch.Id, db, clock, cancellationToken) is { } costing)
-            {
-                rows.Add(BatchMoney.Of(costing, batch.Batch.PlantId, batch.Batch.CommonName, batch.Batch.Variety, batch.Batch.Supplier, batch.Day));
-            }
+            var start = StartOf(from, clock);
+            var end = StartOf(to.AddDays(1), clock);
+            query = query.Where(batch => batch.StartedAt >= start && batch.StartedAt < end);
         }
 
-        return rows;
+        var facts = await query.ToListAsync(cancellationToken);
+        var costings = await BatchCostings.LoadAsync(facts.Select(batch => batch.Id).ToArray(), db, clock, cancellationToken, includeUnbatched ? (from, to) : null);
+
+        var rows = facts
+            .Where(batch => costings.Batches.ContainsKey(batch.Id))
+            .Select(batch => BatchMoney.Of(costings.Batches[batch.Id], batch.PlantId, batch.CommonName, batch.Variety, batch.Supplier,
+                batch.StartedAt is { } at ? DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(at, clock.LocalTimeZone).DateTime) : null))
+            .OrderBy(row => row.Started)
+            .ThenBy(row => row.CommonName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return (rows, costings);
     }
 
     /// <summary>Plants sold on invoices without saying which batch, in the window: they count in the plant's takings only.</summary>
-    private static async Task<Dictionary<Guid, Unbatched>> UnbatchedAsync(DateOnly from, DateOnly to, HortiplannerDbContext db, CancellationToken cancellationToken) =>
-        (await db.Invoices.AsNoTracking()
-            .Where(invoice => invoice.Kind == InvoiceKind.Invoice && invoice.IssuedOn >= from && invoice.IssuedOn <= to && !db.Invoices.Any(credit => credit.CreditsInvoiceId == invoice.Id))
-            .SelectMany(invoice => invoice.Lines.Where(line => line.PlantId != null && line.BatchId == null), (invoice, line) => new { line.PlantId, line.Quantity, line.UnitPrice, line.VatRate })
-            .Join(db.Plants, line => line.PlantId, plant => plant.Id, (line, plant) => new { line.PlantId, plant.CommonName, plant.Variety, line.Quantity, line.UnitPrice, line.VatRate })
-            .ToListAsync(cancellationToken))
-        .GroupBy(line => line.PlantId!.Value)
-        .ToDictionary(
-            group => group.Key,
-            group => new Unbatched(
-                group.First().CommonName,
-                group.First().Variety,
-                group.Sum(line => line.Quantity),
-                new MoneyPair(group.Sum(line => line.Quantity * line.UnitPrice * (1 + (line.VatRate / 100m))), group.Sum(line => line.Quantity * line.UnitPrice))));
+    private static async Task<Dictionary<Guid, Unbatched>> UnbatchedAsync(IEnumerable<Sales.Sale> sales, HortiplannerDbContext db, CancellationToken cancellationToken)
+    {
+        var groups = sales.ToLookup(sale => sale.PlantId!.Value);
+        var ids = groups.Select(group => group.Key).ToArray();
+        var plants = await db.Plants.AsNoTracking().Where(plant => ids.Contains(plant.Id))
+            .Select(plant => new { plant.Id, plant.CommonName, plant.Variety })
+            .ToListAsync(cancellationToken);
+
+        return plants.ToDictionary(plant => plant.Id, plant =>
+        {
+            var lines = groups[plant.Id];
+            return new Unbatched(plant.CommonName, plant.Variety, lines.Sum(line => line.Quantity), Sum(lines.Select(line => line.Takings)));
+        });
+    }
 
     private sealed record Unbatched(string CommonName, string? Variety, int Quantity, MoneyPair Takings);
 

@@ -43,6 +43,8 @@ public sealed class ExternalSignInTests(PostgresFixture database)
 
         public string? ClaimedIssuer { get; set; }
 
+        public string Authority { get; init; } = Issuer;
+
         /// <summary>The standard picture claim, if the login sends one.</summary>
         public string? Picture { get; set; }
 
@@ -82,7 +84,7 @@ public sealed class ExternalSignInTests(PostgresFixture database)
             var body = path switch
             {
                 "/.well-known/openid-configuration" => $$"""
-                    {"issuer":"{{ClaimedIssuer ?? $"https://{request.RequestUri!.Host}/"}}","authorization_endpoint":"{{Issuer}}authorize","token_endpoint":"{{Issuer}}token","jwks_uri":"{{Issuer}}jwks"}
+                    {"issuer":"{{ClaimedIssuer ?? $"https://{request.RequestUri!.Host}/"}}","authorization_endpoint":"{{Authority}}authorize","token_endpoint":"{{Authority}}token","jwks_uri":"{{Authority}}jwks"}
                     """,
                 "/jwks" => JsonSerializer.Serialize(new { keys = new[] { JsonWebKeyConverter.ConvertFromRSASecurityKey(Key) } }),
                 _ => JsonSerializer.Serialize(new { id_token = Token(), access_token = "unused", token_type = "Bearer" }),
@@ -115,7 +117,7 @@ public sealed class ExternalSignInTests(PostgresFixture database)
 
             return new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
             {
-                Issuer = Issuer,
+                Issuer = Authority,
                 Audience = ClientId,
                 Expires = DateTime.UtcNow.AddMinutes(5),
                 Claims = claims,
@@ -156,16 +158,16 @@ public sealed class ExternalSignInTests(PostgresFixture database)
         public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 
-    private static async Task<TestApp> CreateAsync(PostgresFixture database, Provider provider, bool enabled = true)
+    private static async Task<TestApp> CreateAsync(PostgresFixture database, Provider provider, bool enabled = true, string? connectionString = null)
     {
-        var connectionString = await database.CreateDatabaseAsync();
+        connectionString ??= await database.CreateDatabaseAsync();
 
         return new TestApp(
             ("ConnectionStrings:Hortiplanner", connectionString),
             ("Passkeys:ServerDomain", "localhost"),
             ("Setup:Token", SetupToken),
             ("Demo:Enabled", "false"),
-            ("Oidc:Authority", enabled ? Issuer : null),
+            ("Oidc:Authority", enabled ? provider.Authority : null),
             ("Oidc:ClientId", ClientId),
             ("Oidc:ClientSecret", "test-secret"),
             ("Oidc:OwnerGroup", OwnersGroup))
@@ -184,7 +186,7 @@ public sealed class ExternalSignInTests(PostgresFixture database)
         using var challenge = await browser.GetAsync(Route(start), Cancellation);
         var location = challenge.Headers.Location!;
 
-        if (!location.ToString().StartsWith(Issuer, StringComparison.Ordinal))
+        if (!location.ToString().StartsWith(provider.Authority, StringComparison.Ordinal))
         {
             return location.ToString();
         }
@@ -392,6 +394,22 @@ public sealed class ExternalSignInTests(PostgresFixture database)
 
         Assert.Equal("Sam Fielding", (await MeAsync(browser)).GetProperty("name").GetString());
         Assert.Single(await StaffAsync(owner));
+    }
+
+    [Fact]
+    public async Task A_name_tap_cannot_link_an_external_login()
+    {
+        var provider = new Provider();
+        await using var app = await CreateAsync(database, provider);
+        using var owner = Browser(app);
+        using var key = new TestAuthenticator();
+        await SetUpOwnerAsync(owner, key);
+        await SetSignInLevelAsync(owner, "Names");
+        var staffId = Json(await PostForTextAsync(owner, "/api/staff", new { name = "Jo Reed", password = "a long enough password" })).GetProperty("id").GetGuid();
+
+        using var tapped = Browser(app);
+        Assert.Equal(HttpStatusCode.NoContent, await PostStatusAsync(tapped, "/api/account/sign-in/name", new { userId = staffId }));
+        Assert.Equal(HttpStatusCode.Forbidden, await GetStatusAsync(tapped, "/api/account/external/link"));
     }
 
     [Fact]
@@ -686,34 +704,48 @@ public sealed class ExternalSignInTests(PostgresFixture database)
     }
 
     [Fact]
-    public async Task A_login_linked_before_issuers_were_recorded_finds_the_same_account()
+    public async Task A_different_issuer_with_the_same_legacy_subject_is_refused_until_explicitly_relinked()
     {
         var provider = new Provider();
-        await using var app = await CreateAsync(database, provider);
-        using var owner = Browser(app);
+        var connectionString = await database.CreateDatabaseAsync();
         using var key = new TestAuthenticator();
-        await SetUpOwnerAsync(owner, key);
+        Guid userId;
 
-        using (var first = Browser(app))
+        await using (var originalApp = await CreateAsync(database, provider, connectionString: connectionString))
         {
+            using var owner = Browser(originalApp);
+            await SetUpOwnerAsync(owner, key);
+            using var first = Browser(originalApp);
             Assert.Equal("/", await GoThroughProviderAsync(first, provider));
-        }
+            userId = (await MeAsync(first)).GetProperty("id").GetGuid();
 
-        // Older versions stored only the subject as the login's key.
-        using (var scope = app.Services.CreateScope())
-        {
+            // Older versions stored only the subject as the login's key.
+            using var scope = originalApp.Services.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<Hortiplanner.Api.Data.HortiplannerDbContext>();
             await db.Database.ExecuteSqlRawAsync(
                 "UPDATE \"AspNetUserLogins\" SET provider_key = {0}", [provider.Subject], Cancellation);
         }
 
-        using var second = Browser(app);
-        Assert.Equal("/", await GoThroughProviderAsync(second, provider));
-        Assert.Equal("Jo Reed", (await MeAsync(second)).GetProperty("name").GetString());
-        Assert.Equal(2, (await StaffAsync(owner)).Count);
+        var newProvider = new Provider { Authority = "https://different-idp.test/", Subject = provider.Subject, Name = "A different person" };
+        await using var app = await CreateAsync(database, newProvider, connectionString: connectionString);
+        using var unlinked = Browser(app);
+        Assert.Equal("/?sso=refused", await GoThroughProviderAsync(unlinked, newProvider));
+        Assert.Equal(HttpStatusCode.Unauthorized, await MeStatusAsync(unlinked));
 
         using var check = app.Services.CreateScope();
-        var logins = check.ServiceProvider.GetRequiredService<Hortiplanner.Api.Data.HortiplannerDbContext>().UserLogins.ToList();
-        Assert.NotEqual(provider.Subject, Assert.Single(logins).ProviderKey, StringComparer.Ordinal);
+        var logins = check.ServiceProvider.GetRequiredService<Hortiplanner.Api.Data.HortiplannerDbContext>().UserLogins.AsNoTracking();
+        Assert.Equal(provider.Subject, (await logins.SingleAsync(Cancellation)).ProviderKey);
+
+        using var restoredOwner = Browser(app);
+        Assert.Equal(HttpStatusCode.NoContent, await SignInAsync(restoredOwner, key));
+        Assert.Equal(2, (await StaffAsync(restoredOwner)).Count);
+        var token = Json(await PostForTextAsync(restoredOwner, $"/api/staff/{userId}/invite")).GetProperty("token").GetString();
+        using var recovering = Browser(app);
+        Assert.Equal(HttpStatusCode.NoContent, await PostStatusAsync(recovering, "/api/invites/complete-with-password", new { userId, token, password = "a long recovery password" }));
+        Assert.Equal("/", await GoThroughProviderAsync(recovering, newProvider, "/api/account/external/link"));
+        Assert.NotEqual(provider.Subject, (await logins.SingleAsync(Cancellation)).ProviderKey, StringComparer.Ordinal);
+
+        Assert.Equal("/", await GoThroughProviderAsync(unlinked, newProvider));
+        Assert.Equal(userId, (await MeAsync(unlinked)).GetProperty("id").GetGuid());
     }
 }

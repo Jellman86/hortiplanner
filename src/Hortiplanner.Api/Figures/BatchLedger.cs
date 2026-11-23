@@ -24,7 +24,7 @@ internal static class BatchLedger
     {
         var events = await db.Events
             .AsNoTracking()
-            .Select(e => new EventFacts(e.Id, e.Type, e.CorrectsEventId, e.ContainerId, e.Payload, e.OccurredAt))
+            .Select(e => new EventFacts(e.Id, e.Type, e.CorrectsEventId, e.ContainerId, e.PotSizeId, e.Payload, e.OccurredAt))
             .ToDictionaryAsync(e => e.Id, cancellationToken);
         var batches = await BatchesAsync(db.Batches.AsNoTracking(), db, cancellationToken);
         var lines = await db.EventLines.AsNoTracking().ToListAsync(cancellationToken);
@@ -33,14 +33,14 @@ internal static class BatchLedger
     }
 
     /// <summary>
-    /// One batch's work, read without the rest of the nursery's: its lines, the counts and late work its adjustments
+    /// Selected batches' work: their lines, the counts and late work their adjustments
     /// name, any count of its trays (a count that found what was expected has no line), whatever corrects any of
     /// those, and whatever a correction corrected.
     /// </summary>
-    internal static async Task<Ledger> LoadAsync(HortiplannerDbContext db, Guid batchId, CancellationToken cancellationToken)
+    internal static async Task<Ledger> LoadAsync(HortiplannerDbContext db, IReadOnlyCollection<Guid> batchIds, CancellationToken cancellationToken)
     {
-        var lines = await db.EventLines.AsNoTracking().Where(line => line.BatchId == batchId).ToListAsync(cancellationToken);
-        var adjustments = await db.CountAdjustments.AsNoTracking().Where(adjustment => adjustment.BatchId == batchId).ToListAsync(cancellationToken);
+        var lines = await db.EventLines.AsNoTracking().Where(line => batchIds.Contains(line.BatchId)).ToListAsync(cancellationToken);
+        var adjustments = await db.CountAdjustments.AsNoTracking().Where(adjustment => batchIds.Contains(adjustment.BatchId)).ToListAsync(cancellationToken);
         var containers = lines.Select(line => line.ContainerId).Distinct().ToList();
         var named = lines.Select(line => line.EventId)
             .Concat(adjustments.Select(adjustment => adjustment.EventId))
@@ -50,7 +50,7 @@ internal static class BatchLedger
 
         var events = await db.Events.AsNoTracking()
             .Where(e => named.Contains(e.Id) || (e.Type == EventType.StockCounted && e.ContainerId != null && containers.Contains(e.ContainerId.Value)))
-            .Select(e => new EventFacts(e.Id, e.Type, e.CorrectsEventId, e.ContainerId, e.Payload, e.OccurredAt))
+            .Select(e => new EventFacts(e.Id, e.Type, e.CorrectsEventId, e.ContainerId, e.PotSizeId, e.Payload, e.OccurredAt))
             .ToDictionaryAsync(e => e.Id, cancellationToken);
 
         // What corrects any of them, then whatever a correction corrected, to know what it stands for.
@@ -59,14 +59,14 @@ internal static class BatchLedger
         var originals = events.Values.Where(e => e.CorrectsEventId is { } of && !events.ContainsKey(of)).Select(e => e.CorrectsEventId!.Value).ToList();
         await AddAsync(events, db.Events.Where(e => originals.Contains(e.Id)), cancellationToken);
 
-        var batches = await BatchesAsync(db.Batches.AsNoTracking().Where(batch => batch.Id == batchId), db, cancellationToken);
+        var batches = await BatchesAsync(db.Batches.AsNoTracking().Where(batch => batchIds.Contains(batch.Id)), db, cancellationToken);
         return Build(events, batches, lines, adjustments);
     }
 
     private static async Task AddAsync(Dictionary<Guid, EventFacts> events, IQueryable<Event> query, CancellationToken cancellationToken)
     {
         foreach (var e in await query.AsNoTracking()
-            .Select(e => new EventFacts(e.Id, e.Type, e.CorrectsEventId, e.ContainerId, e.Payload, e.OccurredAt))
+            .Select(e => new EventFacts(e.Id, e.Type, e.CorrectsEventId, e.ContainerId, e.PotSizeId, e.Payload, e.OccurredAt))
             .ToListAsync(cancellationToken))
         {
             events.TryAdd(e.Id, e);
@@ -153,15 +153,20 @@ internal static class BatchLedger
             return true;
         }
 
-        var counted = ledger.Events.Values.Any(e => !ledger.Reversed.Contains(e.Id)
-            && WorkDoneBy(e, ledger.Events) == EventType.StockCounted
-            && EventStore.CountOf(e.Payload)?.BatchId == batchId);
+        var counted = CountedBatches(ledger).Contains(batchId);
         return counted || LostAll(ledger, batchId);
     }
 
+    internal static IEnumerable<Guid> CountedBatches(Ledger ledger) =>
+        ledger.Events.Values.Where(e => !ledger.Reversed.Contains(e.Id) && WorkDoneBy(e, ledger.Events) == EventType.StockCounted)
+            .Select(e => EventStore.CountOf(e.Payload)?.BatchId).OfType<Guid>();
+
     /// <summary>Whether a standing loss took every plant of the batch, said as "all of them".</summary>
     internal static bool LostAll(Ledger ledger, Guid batchId) =>
-        ledger.Rows.Exists(row => row.Line.BatchId == batchId && row.Type == EventType.Lost && EventStore.LostAll(row.Event.Payload));
+        LostAll(ledger.Rows.Where(row => row.Line.BatchId == batchId));
+
+    internal static bool LostAll(IEnumerable<Row> rows) =>
+        rows.Any(row => row.Type == EventType.Lost && EventStore.LostAll(row.Event.Payload));
 
     /// <summary>How many plants started, were lost, and were found more or fewer at a count, from some rows.</summary>
     internal static Counts CountsOf(IReadOnlyCollection<Row> rows, int absorbed)
@@ -199,5 +204,5 @@ internal static class BatchLedger
     /// <param name="StartCount">For a first count, the number it counted: where the batch starts.</param>
     internal sealed record Row(EventLine Line, EventFacts Event, EventType Type, bool FirstCount = false, int? SownAbout = null, int StartCount = 0);
 
-    internal sealed record EventFacts(Guid Id, EventType Type, Guid? CorrectsEventId, Guid? ContainerId, string Payload, DateTimeOffset OccurredAt);
+    internal sealed record EventFacts(Guid Id, EventType Type, Guid? CorrectsEventId, Guid? ContainerId, Guid? PotSizeId, string Payload, DateTimeOffset OccurredAt);
 }

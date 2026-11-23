@@ -64,7 +64,7 @@ builder.Services.AddHttpClient(PersonPictureEndpoints.ClientName, client =>
     client.Timeout = TimeSpan.FromSeconds(5);
     client.DefaultRequestHeaders.UserAgent.ParseAdd("Hortiplanner/1.0 (+https://github.com/Jellman86/hortiplanner)");
 }).ConfigurePrimaryHttpMessageHandler(PersonPictureEndpoints.PublicOnlyHandler);
-builder.Services.AddHortiplannerAccounts();
+builder.Services.AddHortiplannerAccounts(builder.Configuration);
 
 var app = builder.Build();
 
@@ -99,6 +99,7 @@ app.UseDefaultFiles();
 app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<ExpectedActorMiddleware>();
 
 app.MapOpenApi().AllowAnonymous();
 app.MapHealthEndpoints();

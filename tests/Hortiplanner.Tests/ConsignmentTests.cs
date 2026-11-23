@@ -120,6 +120,39 @@ public sealed class ConsignmentTests(PostgresFixture database)
     }
 
     [Fact]
+    public async Task Packages_already_passported_still_count_against_the_stock_allocation()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        using var settings = await nursery.Owner.PutAsJsonAsync(Route("/api/settings/nursery"), new { registrationNumber = "123456" }, Cancellation);
+        var (batch, tray) = await SowAsync(nursery, "Lavender", "Lavandula angustifolia");
+        var package = new { lines = new[] { Line(tray, batch, 15) } };
+        var id = await AddAsync(nursery.Owner, "/api/consignments", new { kind = "TradeSale", sentTo = "Hilltop", packages = new[] { package, package } });
+        var other = await AddAsync(nursery.Owner, "/api/consignments", new { kind = "TradeSale", sentTo = "Riverside", packages = new[] { package } });
+
+        async Task<string[]> PassportPathsAsync(Guid consignment) =>
+            [.. (await nursery.Owner.GetFromJsonAsync<JsonElement>(Route($"/api/consignments/{consignment}"), Cancellation))
+                .GetProperty("packages").EnumerateArray()
+                .Select(item => $"/api/consignments/{consignment}/packages/{item.GetProperty("id").GetGuid()}/passport")];
+
+        var paths = await PassportPathsAsync(id);
+        var examined = new { examined = true };
+        Assert.Equal(HttpStatusCode.Created, await PostStatusAsync(nursery.Owner, paths[0], examined));
+
+        Task CountAsync(int counted) => PostForTextAsync(nursery.Staff, $"/api/containers/{tray}/count",
+            new { eventId = Guid.NewGuid(), occurredAt = DateTimeOffset.UtcNow, batchId = batch, counted });
+
+        await CountAsync(20);
+        Assert.Equal(HttpStatusCode.OK, await PostStatusAsync(nursery.Owner, paths[0], examined));
+        using var refused = await PostAsync(nursery.Owner, paths[1], examined);
+        Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
+        Assert.Equal("TooMany", (await refused.Content.ReadFromJsonAsync<JsonElement>(Cancellation)).GetProperty("problem").GetString());
+
+        await CountAsync(40);
+        Assert.Equal(HttpStatusCode.Created, await PostStatusAsync(nursery.Owner, paths[1], examined));
+        Assert.Equal(HttpStatusCode.Conflict, await PostStatusAsync(nursery.Owner, Assert.Single(await PassportPathsAsync(other)), examined));
+    }
+
+    [Fact]
     public async Task A_cancelled_invoice_cannot_back_a_package_passport()
     {
         await using var nursery = await TwoPersonNursery.CreateAsync(database);

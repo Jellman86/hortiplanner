@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.Security.Claims;
+using System.Security.Cryptography.X509Certificates;
 using Hortiplanner.Api.Data;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -18,16 +20,32 @@ internal static class AccountServices
     public const string BenchPolicy = "BenchStation";
     public const string BenchScheme = "BenchStation";
 
-    /// <summary>Marks a session started with a PIN at a bench station, which never carries the owner's powers.</summary>
+    /// <summary>The station ID for a bench session, which never carries the owner's powers.</summary>
     public const string BenchSessionClaim = "hortiplanner:bench_session";
 
     /// <summary>Whether this is the owner signed in as themselves: at a bench, by PIN, they act as staff.</summary>
     public static bool IsOwner(System.Security.Claims.ClaimsPrincipal user) =>
         user.IsInRole(OwnerRole) && user.FindFirst(BenchSessionClaim) is null;
     public const string SignInMethodClaim = "hortiplanner:sign_in_method";
+    public const string CredentialCheckedAtClaim = "hortiplanner:credential_checked_at";
 
-    public static Task SignInAsync(SignInManager<AppUser> signIn, AppUser person, string method) =>
-        signIn.SignInWithClaimsAsync(person, isPersistent: true, [new Claim(SignInMethodClaim, method)]);
+    public static Task SignInAsync(SignInManager<AppUser> signIn, AppUser person, string method)
+    {
+        var claims = new List<Claim> { new(SignInMethodClaim, method) };
+        if (SignInRules.IsPersonalMethod(method))
+        {
+            var clock = signIn.Context.RequestServices.GetRequiredService<TimeProvider>();
+            claims.Add(new Claim(CredentialCheckedAtClaim, clock.GetUtcNow().ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture)));
+        }
+
+        return signIn.SignInWithClaimsAsync(person, isPersistent: true, claims);
+    }
+
+    public static Task RenewSignInAsync(SignInManager<AppUser> signIn, AppUser person, ClaimsPrincipal current) =>
+        signIn.SignInWithClaimsAsync(person, isPersistent: true, SessionClaims(current));
+
+    private static IEnumerable<Claim> SessionClaims(ClaimsPrincipal? principal) =>
+        principal?.Claims.Where(claim => claim.Type is BenchSessionClaim or SignInMethodClaim or CredentialCheckedAtClaim) ?? [];
 
     public const string OidcScheme = "Oidc";
 
@@ -65,23 +83,38 @@ internal static class AccountServices
     {
         options.ValidationInterval = TimeSpan.FromMinutes(1);
 
-        // A bench session stays a bench session when its cookie is renewed.
+        // Renewing the cookie preserves how and when the person signed in.
         options.OnRefreshingPrincipal = context =>
         {
-            foreach (var claim in context.CurrentPrincipal?.Claims.Where(claim => claim.Type is BenchSessionClaim or SignInMethodClaim) ?? [])
-            {
-                context.NewPrincipal?.Identities.First().AddClaim(new Claim(claim.Type, claim.Value));
-            }
-
+            context.NewPrincipal?.Identities.First().AddClaims(SessionClaims(context.CurrentPrincipal));
             return Task.CompletedTask;
         };
     }
 
-    public static IServiceCollection AddHortiplannerAccounts(this IServiceCollection services)
+    private static void ConfigureKeyRing(IServiceCollection services, IConfiguration configuration)
     {
         // Kept in the database, so a redeploy of the container does not sign everyone out. The name is from before
         // the app was called Hortiplanner: changing it would make the saved keys, and everything they protect, unreadable.
-        services.AddDataProtection().SetApplicationName("GrowLog").PersistKeysToDbContext<HortiplannerDbContext>();
+        var protection = services.AddDataProtection().SetApplicationName("GrowLog").PersistKeysToDbContext<HortiplannerDbContext>();
+        if (configuration["DataProtection:CertificatePath"] is { Length: > 0 } certificatePath)
+        {
+            var certificate = X509CertificateLoader.LoadPkcs12FromFile(
+                certificatePath, configuration["DataProtection:CertificatePassword"], X509KeyStorageFlags.EphemeralKeySet);
+
+            using var privateKey = certificate.GetRSAPrivateKey();
+            if (privateKey is null)
+            {
+                certificate.Dispose();
+                throw new InvalidOperationException("The Data Protection certificate must have an RSA private key.");
+            }
+
+            protection.ProtectKeysWithCertificate(certificate);
+        }
+    }
+
+    public static IServiceCollection AddHortiplannerAccounts(this IServiceCollection services, IConfiguration configuration)
+    {
+        ConfigureKeyRing(services, configuration);
 
         var authentication = services.AddAuthentication(IdentityConstants.ApplicationScheme);
         authentication.AddIdentityCookies();
@@ -146,23 +179,46 @@ internal static class AccountServices
         {
             return;
         }
+
+        var cancellationToken = context.HttpContext.RequestAborted;
         var method = principal.FindFirst(SignInMethodClaim)?.Value;
-        if (method is not null && !string.Equals(method, "name", StringComparison.Ordinal) || principal.FindFirst(BenchSessionClaim) is not null)
+        var services = context.HttpContext.RequestServices;
+        if (principal.FindFirst(BenchSessionClaim) is { } station)
+        {
+            var db = services.GetRequiredService<HortiplannerDbContext>();
+            var settings = await db.GetNurserySettingsAsync(cancellationToken);
+            if (settings.FeaturesOff.Contains(NurseryFeature.BenchStations)
+                || method is not "pin" && (method is not "name" || SignInRules.BenchNeedsPin(settings.SignInLevel))
+                || !await BenchEndpoints.StationIsActiveAsync(station.Value, db, cancellationToken))
+            {
+                await EndSessionAsync(context);
+            }
+
+            return;
+        }
+
+        if (method is not (null or "name"))
         {
             return;
         }
-        var db = context.HttpContext.RequestServices.GetRequiredService<HortiplannerDbContext>();
-        var users = context.HttpContext.RequestServices.GetRequiredService<UserManager<AppUser>>();
+
+        var nursery = services.GetRequiredService<HortiplannerDbContext>();
+        var users = services.GetRequiredService<UserManager<AppUser>>();
         var person = await users.GetUserAsync(principal);
-        var level = (await db.GetNurserySettingsAsync(context.HttpContext.RequestAborted)).SignInLevel;
+        var level = (await nursery.GetNurserySettingsAsync(cancellationToken)).SignInLevel;
         var isOwner = person is not null && await users.IsInRoleAsync(person, OwnerRole);
         var refused = method is null ? level == SignInLevel.Strict && !isOwner
             : person is null || !SignInRules.CanTapName(level, person.NameOnlySignIn, isOwner);
         if (refused)
         {
-            context.RejectPrincipal();
-            await context.HttpContext.SignOutAsync(IdentityConstants.ApplicationScheme);
+            await EndSessionAsync(context);
         }
+    }
+
+    private static Task EndSessionAsync(CookieValidatePrincipalContext context)
+    {
+        context.RejectPrincipal();
+        return context.HttpContext.SignOutAsync(IdentityConstants.ApplicationScheme);
     }
 
     /// <summary>Always registered, because the owner can turn it on at any time. It does nothing until they do.</summary>

@@ -42,6 +42,7 @@
 
   async function record(reason: Schemas["LossReason"], label: string) {
     busy = true;
+    problem = "";
     const item: WorkRequest = work.lose(
       container.id,
       {
@@ -52,8 +53,13 @@
       },
       when,
     );
-    const outcome = await recordWork(item);
-    busy = false;
+    let outcome;
+
+    try {
+      outcome = await recordWork(item);
+    } finally {
+      busy = false;
+    }
 
     if (isRecorded(outcome)) {
       onDone(

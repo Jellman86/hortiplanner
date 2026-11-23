@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { api, sessionEnded } from "./api/client";
+  import { clearTemporaryAskState } from "./lib/assistant.svelte";
   import { rememberMe, rememberedMe } from "./lib/offline";
   import { forgetReturn, playTuneOnFirstTapIfReturning } from "./lib/tune";
   import {
@@ -74,6 +75,7 @@
 
   function onSessionEnded() {
     if (start?.screen === "home") {
+      clearTemporaryAskState();
       void load(null);
     }
   }

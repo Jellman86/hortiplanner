@@ -68,9 +68,28 @@ internal static class BatchEditEndpoints
         TimeProvider clock,
         CancellationToken cancellationToken)
     {
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await store.LockRequestAsync(id, cancellationToken);
+
         if (await db.Batches.FirstOrDefaultAsync(batch => batch.Id == id, cancellationToken) is not { } batch)
         {
             return TypedResults.NotFound();
+        }
+
+        Purchase? purchase = null;
+        if (batch.PurchaseLineId is { } lineId)
+        {
+            purchase = await WorkEndpoints.BatchPurchaseAsync(lineId, db, cancellationToken);
+            if (purchase is null || request.Source == BatchSource.Cuttings)
+            {
+                return TypedResults.BadRequest();
+            }
+
+            request = request with { SupplierId = purchase.SupplierId };
+            if (request.StartedAt is not null)
+            {
+                request = request with { StartedAt = WorkEndpoints.PurchaseStart(purchase, clock) };
+            }
         }
 
         if (!await IsValidAsync(request, db, clock, cancellationToken))
@@ -82,8 +101,25 @@ internal static class BatchEditEndpoints
         {
             return TypedResults.Conflict(new EditRefused("MotherPlant"));
         }
-        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        var start = await FindLockedStartAsync(db, id, cancellationToken);
 
+        if (purchase is not null && start is not null)
+        {
+            var day = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(start.At, clock.LocalTimeZone).DateTime);
+            request = request with { StartedAt = day == purchase.PurchasedOn ? start.At : WorkEndpoints.PurchaseStart(purchase, clock) };
+        }
+
+        var result = await SaveEditAsync(new Restart(batch, start, request, wanted, Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!)), db, store, clock, cancellationToken);
+        if (result is IStatusCodeHttpResult { StatusCode: StatusCodes.Status204NoContent })
+        {
+            await transaction.CommitAsync(cancellationToken);
+        }
+
+        return result;
+    }
+
+    private static async Task<Start?> FindLockedStartAsync(HortiplannerDbContext db, Guid id, CancellationToken cancellationToken)
+    {
         // Nothing else may be recorded in the tray between checking the start can change and changing it.
         var start = await FindStartAsync(db, id, cancellationToken);
 
@@ -93,12 +129,17 @@ internal static class BatchEditEndpoints
             start = await FindStartAsync(db, id, cancellationToken);
         }
 
+        return start;
+    }
+
+    private static async Task<IResult> SaveEditAsync(Restart edit, HortiplannerDbContext db, EventStore store, TimeProvider clock, CancellationToken cancellationToken)
+    {
+        var (batch, _, _, wanted, userId) = edit;
         var changes = await DescribeAsync(batch, wanted, db, cancellationToken);
-        var userId = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
         try
         {
-            if (await RestartAsync(new Restart(batch, start, request, wanted, userId), db, store, clock, changes, cancellationToken) is { } refused)
+            if (await RestartAsync(edit, db, store, clock, changes, cancellationToken) is { } refused)
             {
                 return refused;
             }
@@ -118,14 +159,13 @@ internal static class BatchEditEndpoints
         db.CatalogueChanges.Add(new CatalogueChange
         {
             Entity = nameof(Batch),
-            EntityKey = id.ToString(),
+            EntityKey = batch.Id.ToString(),
             Action = "Modified",
             ChangedBy = userId,
             Changes = JsonSerializer.Serialize(changes),
         });
 
         await db.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
         return TypedResults.NoContent();
     }
 
@@ -271,7 +311,7 @@ internal static class BatchEditEndpoints
         again.Lines.Add(new EventLine { ContainerId = start.ContainerId, BatchId = batch.Id, QuantityChange = quantity });
 
         // The new start first, then the undo, so the stock never dips below what later work took from it.
-        var restarted = await store.AppendAsync(again, cancellationToken);
+        var restarted = await store.AppendAsync(again, cancellationToken, alreadyOnServerClock: true, keepHistoricalPlace: true);
         var undone = restarted == AppendResult.Stored ? await store.AppendAsync(undo, cancellationToken) : restarted;
 
         if (restarted != AppendResult.Stored || undone != AppendResult.Stored)

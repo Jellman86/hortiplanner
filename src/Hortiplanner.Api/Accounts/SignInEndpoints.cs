@@ -20,10 +20,10 @@ internal static class SignInEndpoints
 
         var settings = app.MapGroup("/api/account/settings");
         settings.MapGet("/", GetSettingsAsync).Produces<AccountSettings>();
-        settings.MapPost("/password", SetOwnPasswordAsync).AddEndpointFilter<OwnSettingsFilter>();
-        settings.MapPost("/pin", SetOwnPinAsync).AddEndpointFilter<OwnSettingsFilter>();
-        settings.MapPost("/passkey-options", GetOwnPasskeyOptionsAsync).AddEndpointFilter<OwnSettingsFilter>();
-        settings.MapPost("/passkey", AddOwnPasskeyAsync).AddEndpointFilter<OwnSettingsFilter>();
+        settings.MapPost("/password", SetOwnPasswordAsync).AddEndpointFilter<PersonalCredentialFilter>();
+        settings.MapPost("/pin", SetOwnPinAsync).AddEndpointFilter<PersonalCredentialFilter>();
+        settings.MapPost("/passkey-options", GetOwnPasskeyOptionsAsync).AddEndpointFilter<PersonalCredentialFilter>();
+        settings.MapPost("/passkey", AddOwnPasskeyAsync).AddEndpointFilter<PersonalCredentialFilter>();
     }
 
     /// <summary>How much signing in the nursery wants, so a device knows what to show first.</summary>
@@ -181,7 +181,7 @@ internal static class SignInEndpoints
         }
 
         // The change ends other sessions. This one carries on.
-        await AccountServices.SignInAsync(signIn, me, "password");
+        await AccountServices.RenewSignInAsync(signIn, me, principal);
         return TypedResults.NoContent();
     }
 
@@ -202,8 +202,7 @@ internal static class SignInEndpoints
         }
 
         me.PinHash = hasher.HashPassword(me, request.Pin);
-        await users.UpdateAsync(me);
-        return TypedResults.NoContent();
+        return (await users.UpdateAsync(me)).Succeeded ? TypedResults.NoContent() : TypedResults.Conflict();
     }
 
     private static async Task<IResult> GetOwnPasskeyOptionsAsync(
@@ -246,10 +245,9 @@ internal static class SignInEndpoints
         }
 
         me.NameOnlySignIn = false;
-        await users.AddOrUpdatePasskeyAsync(me, attestation.Passkey);
-        await users.UpdateAsync(me);
-        await AccountServices.SignInAsync(signIn, me, "passkey");
-        return TypedResults.NoContent();
+        return (await users.AddOrUpdatePasskeyAsync(me, attestation.Passkey)).Succeeded
+            ? TypedResults.NoContent()
+            : TypedResults.BadRequest();
     }
 
     internal sealed record SignInPerson(Guid Id, string Name, bool NameOnly, bool HasPassword, DateTimeOffset? PictureAt);

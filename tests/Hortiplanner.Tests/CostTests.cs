@@ -346,6 +346,34 @@ public sealed class CostTests(PostgresFixture database)
     }
 
     [Fact]
+    public async Task A_two_penny_purchase_split_four_ways_has_no_negative_shares_and_reconciles()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var (supplier, _, line) = await BuyAsync(nursery.Owner, 0.02m, 0.02m);
+        var plant = await AddPlantAsync(nursery.Owner);
+        var batches = new List<Guid>();
+        for (var index = 0; index < 4; index++)
+        {
+            batches.Add((await StartFromAsync(nursery.Owner, plant, line, supplier, 10)).Batch);
+        }
+
+        var shares = new List<(decimal WithVat, decimal BeforeVat)>();
+        foreach (var batch in batches)
+        {
+            shares.Add(Pair((await CostingAsync(nursery.Owner, batch)).GetProperty("material").GetProperty("cost")));
+        }
+
+        Assert.All(shares, share =>
+        {
+            Assert.InRange(share.BeforeVat, 0m, 0.01m);
+            Assert.InRange(share.WithVat - share.BeforeVat, 0m, 0.01m);
+        });
+        Assert.Equal(0.02m, shares.Sum(share => share.BeforeVat));
+        Assert.Equal(0.02m, shares.Sum(share => share.WithVat - share.BeforeVat));
+        Assert.Equal((0.04m, 0.02m), Pair((await MoneyAsync(nursery.Owner)).GetProperty("totals").GetProperty("spent")));
+    }
+
+    [Fact]
     public async Task A_voided_purchase_leaves_the_tray_asking_again()
     {
         await using var nursery = await TwoPersonNursery.CreateAsync(database);
@@ -1141,6 +1169,37 @@ public sealed class CostTests(PostgresFixture database)
         Assert.Equal(2, takings.GetProperty("noPrice").GetInt32());
         Assert.Equal(12, takings.GetProperty("sold").GetInt32());
         Assert.Equal((39m, 39m), Rounded(takings.GetProperty("total")));
+    }
+
+    [Fact]
+    public async Task Invoice_VAT_pennies_are_shared_across_batch_details_money_figures_and_CSV()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        using var settings = await nursery.Owner.PutAsJsonAsync(Route("/api/settings/nursery"), new { vatRegistered = true, vatNumber = "123456789" }, Cancellation);
+        settings.EnsureSuccessStatusCode();
+        var plant = await AddPlantAsync(nursery.Owner);
+        var (first, firstTray) = await StartAsync(nursery.Staff, plant);
+        var (second, secondTray) = await StartAsync(nursery.Staff, plant);
+        var customer = Json(await PostForTextAsync(nursery.Owner, "/api/customers", new { name = "Hilltop" })).GetProperty("id").GetGuid();
+        object Line(Guid? batchId, Guid? containerId) =>
+            new { description = "Lavender", quantity = 1, unitPrice = 0.03m, vatRate = 20m, plantId = plant, batchId, containerId };
+
+        await PostForTextAsync(nursery.Owner, "/api/invoices", new { customerId = customer, lines = new[] { Line(first, firstTray), Line(null, null), Line(second, secondTray), Line(null, null) } });
+        var invoice = Assert.Single((await nursery.Owner.GetFromJsonAsync<JsonElement>(Route("/api/invoices"), Cancellation)).EnumerateArray());
+        var firstTaken = Pair((await CostingAsync(nursery.Owner, first)).GetProperty("takings").GetProperty("invoiceTakings"));
+        var secondTaken = Pair((await CostingAsync(nursery.Owner, second)).GetProperty("takings").GetProperty("invoiceTakings"));
+        Assert.Equal((0.04m, 0.03m), firstTaken);
+        Assert.Equal((0.03m, 0.03m), secondTaken);
+
+        var money = await MoneyAsync(nursery.Owner);
+        var unbatched = Pair(PlantNamed(money, plant).GetProperty("unbatched"));
+        Assert.Equal((0.07m, 0.06m), unbatched);
+        Assert.Equal((invoice.GetProperty("total").GetDecimal(), 0.12m), Pair(money.GetProperty("totals").GetProperty("taken")));
+        Assert.Equal(invoice.GetProperty("total").GetDecimal(), firstTaken.WithVat + secondTaken.WithVat + unbatched.WithVat);
+
+        var csv = (await nursery.Owner.GetStringAsync(Route("/api/figures/money.csv"), Cancellation)).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+        var withVat = Array.IndexOf(csv[0].Split(','), "Takings from invoices with VAT");
+        Assert.Equal(["0.03", "0.04"], csv.Skip(1).Select(line => line.Split(',')[withVat]).Order(StringComparer.Ordinal), StringComparer.Ordinal);
     }
 
     private static object Sale(Guid id, Guid batch, int quantity, decimal? priceEach, DateTimeOffset at) =>

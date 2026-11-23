@@ -21,4 +21,7 @@ internal enum AppendResult
 
     /// <summary>Nothing was stored: it would leave a tray with plants in it on a site, where trays never stand.</summary>
     OnSite,
+
+    /// <summary>The destination does not exist or is no longer in use.</summary>
+    PlaceUnavailable,
 }

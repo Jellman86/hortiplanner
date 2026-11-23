@@ -1391,6 +1391,44 @@ namespace Hortiplanner.Api.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Hortiplanner.Api.Data.LocationChange", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset>("EffectiveAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("effective_at");
+
+                    b.Property<Guid>("LocationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("location_id");
+
+                    b.Property<string>("PreviousKind")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("previous_kind");
+
+                    b.Property<Guid?>("PreviousParentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("previous_parent_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_location_changes");
+
+                    b.HasIndex("PreviousParentId")
+                        .HasDatabaseName("ix_location_changes_previous_parent_id");
+
+                    b.HasIndex("LocationId", "EffectiveAt")
+                        .HasDatabaseName("ix_location_changes_location_id_effective_at");
+
+                    b.ToTable("location_changes", (string)null);
+                });
+
             modelBuilder.Entity("Hortiplanner.Api.Data.MapPicture", b =>
                 {
                     b.Property<int>("Id")
@@ -1499,6 +1537,10 @@ namespace Hortiplanner.Api.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("notes");
 
+                    b.Property<DateOnly?>("ScheduledDue")
+                        .HasColumnType("date")
+                        .HasColumnName("scheduled_due");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("text")
@@ -1543,6 +1585,10 @@ namespace Hortiplanner.Api.Data.Migrations
                     b.Property<DateOnly?>("NextDueBefore")
                         .HasColumnType("date")
                         .HasColumnName("next_due_before");
+
+                    b.Property<DateOnly?>("NextDueCandidate")
+                        .HasColumnType("date")
+                        .HasColumnName("next_due_candidate");
 
                     b.HasKey("Id")
                         .HasName("pk_jobs_done");
@@ -3393,6 +3439,22 @@ namespace Hortiplanner.Api.Data.Migrations
                         .HasForeignKey("ParentId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_locations_locations_parent_id");
+                });
+
+            modelBuilder.Entity("Hortiplanner.Api.Data.LocationChange", b =>
+                {
+                    b.HasOne("Hortiplanner.Api.Data.Location", null)
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_location_changes_locations_location_id");
+
+                    b.HasOne("Hortiplanner.Api.Data.Location", null)
+                        .WithMany()
+                        .HasForeignKey("PreviousParentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_location_changes_locations_previous_parent_id");
                 });
 
             modelBuilder.Entity("Hortiplanner.Api.Data.MotherPlant", b =>

@@ -196,11 +196,26 @@ public sealed class BenchStationTests(PostgresFixture database)
         await using var nursery = await Nursery.CreateAsync(database);
         var stations = await nursery.Owner.GetFromJsonAsync<JsonElement>(Route("/api/bench/stations"), Cancellation);
         var id = stations.EnumerateArray().Single().GetProperty("id").GetGuid();
+        Assert.Equal(HttpStatusCode.NoContent, await nursery.PinSignInAsync(Pin));
+        Assert.Equal(HttpStatusCode.OK, await GetStatusAsync(nursery.Bench, "/api/containers/active"));
 
         Assert.Equal(HttpStatusCode.NoContent, await PostStatusAsync(nursery.Owner, $"/api/bench/stations/{id}/revoke"));
 
+        Assert.Equal(HttpStatusCode.Unauthorized, await GetStatusAsync(nursery.Bench, "/api/containers/active"));
         Assert.Equal(HttpStatusCode.Unauthorized, await nursery.PinSignInAsync(Pin));
         Assert.Equal(HttpStatusCode.Unauthorized, await GetStatusAsync(nursery.Bench, "/api/bench/people"));
+    }
+
+    [Fact]
+    public async Task Turning_bench_stations_off_ends_the_active_staff_session()
+    {
+        await using var nursery = await Nursery.CreateAsync(database);
+        Assert.Equal(HttpStatusCode.NoContent, await nursery.PinSignInAsync(Pin));
+
+        using var disabled = await nursery.Owner.PutAsJsonAsync(Route("/api/settings/features/BenchStations"), new { on = false }, Cancellation);
+        Assert.Equal(HttpStatusCode.NoContent, disabled.StatusCode);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, await MeStatusAsync(nursery.Bench));
     }
 
     [Fact]
@@ -314,6 +329,21 @@ public sealed class BenchStationTests(PostgresFixture database)
         var people = await nursery.Bench.GetFromJsonAsync<JsonElement>(Route("/api/bench/people"), Cancellation);
         Assert.Contains(people.EnumerateArray(), person => person.GetProperty("id").GetGuid() == noPin);
         Assert.Equal(HttpStatusCode.NoContent, await PostStatusAsync(nursery.Bench, "/api/bench/sign-in", new { userId = noPin, pin = "" }));
+    }
+
+    [Fact]
+    public async Task Requiring_a_pin_at_the_bench_ends_a_name_tap_session()
+    {
+        await using var nursery = await Nursery.CreateAsync(database);
+        await SetSignInLevelAsync(nursery.Owner, "Names");
+        Assert.Equal(HttpStatusCode.NoContent, await nursery.PinSignInAsync(string.Empty));
+        Assert.Equal(HttpStatusCode.OK, await MeStatusAsync(nursery.Bench));
+
+        await SetSignInLevelAsync(nursery.Owner, "Personal");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, await MeStatusAsync(nursery.Bench));
+        Assert.Equal(HttpStatusCode.NoContent, await nursery.PinSignInAsync(Pin));
+        Assert.Equal(HttpStatusCode.OK, await MeStatusAsync(nursery.Bench));
     }
 
     [Fact]

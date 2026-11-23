@@ -101,6 +101,7 @@
   import Undo2 from "@lucide/svelte/icons/undo-2";
   import {
     assistant,
+    clearTemporaryAskState,
     loadAssistant,
     type AskAbout,
   } from "../lib/assistant.svelte";
@@ -659,6 +660,7 @@
       }
     }
 
+    clearTemporaryAskState();
     stopQueue();
     await api.POST("/api/account/sign-out");
     onSignedOut();

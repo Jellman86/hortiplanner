@@ -149,7 +149,7 @@ public sealed class SignInOptionsTests(PostgresFixture database)
     }
 
     [Fact]
-    public async Task Setting_a_password_in_settings_ends_name_only_sign_in()
+    public async Task Someone_who_only_taps_their_name_needs_an_invitation_to_set_a_password()
     {
         await using var app = await CreateAppAsync(database);
         using var owner = Client(app);
@@ -158,9 +158,11 @@ public sealed class SignInOptionsTests(PostgresFixture database)
         var id = await AddNameOnlyAsync(owner);
 
         using var phone = Client(app);
-        await ByNameAsync(phone, id);
+        Assert.Equal(HttpStatusCode.NoContent, await ByNameAsync(phone, id));
+        Assert.Equal(HttpStatusCode.Forbidden, await PostStatusAsync(phone, "/api/account/settings/password", new { newPassword = Password }));
 
-        Assert.Equal(HttpStatusCode.NoContent, await PostStatusAsync(phone, "/api/account/settings/password", new { newPassword = Password }));
+        var token = Json(await PostForTextAsync(owner, $"/api/staff/{id}/invite")).GetProperty("token").GetString();
+        Assert.Equal(HttpStatusCode.NoContent, await PostStatusAsync(phone, "/api/invites/complete-with-password", new { userId = id, token, password = Password }));
         Assert.Equal(HttpStatusCode.OK, await MeStatusAsync(phone));
 
         using var other = Client(app);
@@ -195,11 +197,11 @@ public sealed class SignInOptionsTests(PostgresFixture database)
         using var owner = Client(app);
         using var ownerKey = new TestAuthenticator();
         await SetUpOwnerAsync(owner, ownerKey);
-        var id = await AddNameOnlyAsync(owner);
+        var id = await AddWithPasswordAsync(owner);
 
         using var phone = Client(app);
         using var phoneKey = new TestAuthenticator();
-        await ByNameAsync(phone, id);
+        Assert.Equal(HttpStatusCode.NoContent, await ByPasswordAsync(phone, id));
 
         var options = await PostForTextAsync(phone, "/api/account/settings/passkey-options");
         Assert.Equal(HttpStatusCode.NoContent, await PostStatusAsync(phone, "/api/account/settings/passkey", new { credential = Json(phoneKey.Register(options)) }));
@@ -214,6 +216,27 @@ public sealed class SignInOptionsTests(PostgresFixture database)
         using var other = Client(app);
         Assert.Equal(HttpStatusCode.Unauthorized, await ByNameAsync(other, id));
         Assert.Equal(HttpStatusCode.NoContent, await SignInAsync(other, phoneKey));
+    }
+
+    [Fact]
+    public async Task A_personal_session_must_be_rechecked_after_ten_minutes_to_change_credentials()
+    {
+        var clock = new TestClock();
+        await using var app = await CreateAppAsync(database, clock: clock);
+        using var owner = Client(app);
+        using var ownerKey = new TestAuthenticator();
+        await SetUpOwnerAsync(owner, ownerKey);
+
+        clock.Advance(TimeSpan.FromMinutes(11));
+        Assert.Equal(HttpStatusCode.OK, await MeStatusAsync(owner));
+        Assert.Equal(HttpStatusCode.Forbidden, await PostStatusAsync(owner, "/api/account/settings/passkey-options"));
+        Assert.Equal(HttpStatusCode.Forbidden, await PostStatusAsync(owner, "/api/account/settings/password", new { newPassword = Password }));
+        var ownerId = await OwnerIdAsync(owner);
+        Assert.Equal(HttpStatusCode.Forbidden, await PostStatusAsync(owner, $"/api/staff/{ownerId}/password", new { password = Password }));
+        Assert.Equal(HttpStatusCode.Forbidden, await PostStatusAsync(owner, $"/api/staff/{ownerId}/invite"));
+
+        Assert.Equal(HttpStatusCode.NoContent, await SignInAsync(owner, ownerKey));
+        Assert.Equal(HttpStatusCode.NoContent, await PostStatusAsync(owner, "/api/account/settings/password", new { newPassword = Password }));
     }
 
     [Fact]

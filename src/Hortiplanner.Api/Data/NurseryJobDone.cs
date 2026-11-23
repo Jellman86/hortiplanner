@@ -14,5 +14,8 @@ internal sealed class NurseryJobDone
     /// <summary>When the job was next due before this, so a tap made by mistake can be undone.</summary>
     public DateOnly? NextDueBefore { get; init; }
 
+    /// <summary>The due date this completion contributes to the current schedule, if any.</summary>
+    public DateOnly? NextDueCandidate { get; init; }
+
     public DateTimeOffset CreatedAt { get; private set; }
 }

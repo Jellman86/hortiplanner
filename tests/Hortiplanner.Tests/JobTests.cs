@@ -59,6 +59,26 @@ public sealed class JobTests(PostgresFixture database)
     }
 
     [Fact]
+    public async Task Undoing_an_older_completion_keeps_the_schedule_from_the_newer_one()
+    {
+        await using var nursery = await TwoPersonNursery.CreateAsync(database);
+        var firstDue = Today.AddDays(-2);
+        var id = Json(await PostForTextAsync(nursery.Owner, "/api/jobs", new { title = "Water", everyDays = 7, firstDue })).GetProperty("id").GetGuid();
+        var path = $"/api/jobs/{id}";
+        var yesterday = new { doneOn = Today.AddDays(-1) };
+        Assert.Equal(HttpStatusCode.Created, await PostStatusAsync(nursery.Staff, $"{path}/done", yesterday));
+
+        var replies = await Task.WhenAll(PostStatusAsync(nursery.Owner, $"{path}/done", new { }), PostStatusAsync(nursery.Staff, $"{path}/done", new { }));
+        Assert.Contains(HttpStatusCode.Created, replies);
+        Assert.Contains(HttpStatusCode.OK, replies);
+        Assert.Equal(HttpStatusCode.NoContent, await PostStatusAsync(nursery.Staff, $"{path}/undo-done", yesterday));
+        Assert.Equal(Today.AddDays(7), NextDue(Assert.Single((await JobsAsync(nursery.Staff)).EnumerateArray())));
+
+        Assert.Equal(HttpStatusCode.NoContent, await PostStatusAsync(nursery.Owner, $"{path}/undo-done", new { }));
+        Assert.Equal(firstDue, NextDue(Assert.Single((await JobsAsync(nursery.Staff)).EnumerateArray())));
+    }
+
+    [Fact]
     public async Task Alerts_say_why_they_are_there_and_staff_see_only_their_own()
     {
         await using var nursery = await TwoPersonNursery.CreateAsync(database);

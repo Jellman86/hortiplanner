@@ -23,6 +23,7 @@ const fallbackDescription = "Saved work";
  */
 export class WorkQueue {
   private readonly waitingKey: string;
+  readonly owner: string;
   stopped = false;
   private readonly failedKey: string;
 
@@ -30,19 +31,42 @@ export class WorkQueue {
     private readonly store: Store,
     owner: string,
   ) {
+    this.owner = owner;
     this.waitingKey = `hortiplanner.queue.${owner}`;
     this.failedKey = `hortiplanner.failed.${owner}`;
+  }
+
+  private withActor(request: WorkRequest): WorkRequest {
+    return request.actor ? request : { ...request, actor: this.owner };
   }
 
   private state(): { waiting: QueuedWork[]; failed: FailedWork[] } {
     try {
       const stored = JSON.parse(this.store.getItem(this.waitingKey) ?? "[]");
-      // Earlier apps used separate keys. Upgrade on the first successful write.
+      // Earlier apps used separate keys and had no explicit actor on each item. Upgrade cleanly on read/write.
+      const bindWaiting = (list: QueuedWork[]) =>
+        list.map((item) => ({
+          ...item,
+          request: this.withActor(item.request),
+        }));
+      const bindFailed = (list: FailedWork[]) =>
+        list.map((item) =>
+          item.request
+            ? { ...item, request: this.withActor(item.request) }
+            : item,
+        );
+
       if (Array.isArray(stored)) {
         const failed = JSON.parse(this.store.getItem(this.failedKey) ?? "[]");
-        return { waiting: stored, failed: Array.isArray(failed) ? failed : [] };
+        return {
+          waiting: bindWaiting(stored),
+          failed: Array.isArray(failed) ? bindFailed(failed) : [],
+        };
       }
-      return { waiting: stored.waiting ?? [], failed: stored.failed ?? [] };
+      return {
+        waiting: bindWaiting(stored.waiting ?? []),
+        failed: bindFailed(stored.failed ?? []),
+      };
     } catch {
       return { waiting: [], failed: [] };
     }
@@ -79,7 +103,10 @@ export class WorkQueue {
   }
 
   add(request: WorkRequest) {
-    this.save([...this.items, { request, description: fallbackDescription }]);
+    this.save([
+      ...this.items,
+      { request: this.withActor(request), description: fallbackDescription },
+    ]);
   }
 
   describe(eventId: string, description: string) {
@@ -135,8 +162,15 @@ export class WorkQueue {
       return;
     }
 
-    const waiting = previous.items;
-    const failed = previous.failed;
+    const waiting = previous.items.map((item) => ({
+      ...item,
+      request: { ...item.request, actor: this.owner },
+    }));
+    const failed = previous.failed.map((item) =>
+      item.request
+        ? { ...item, request: { ...item.request, actor: this.owner } }
+        : item,
+    );
 
     // Copy before clearing; a failed clear is safe to retry without duplicating work.
     this.save(
@@ -171,7 +205,10 @@ export async function flush(
   explain: (outcome: Outcome, url: string) => string,
 ): Promise<void> {
   for (let item = queue.next; item && !queue.stopped; item = queue.next) {
-    const outcome = await send(item.request);
+    const request = item.request.actor
+      ? item.request
+      : { ...item.request, actor: queue.owner };
+    const outcome = await send(request);
 
     if (outcome.kind === "stored") {
       queue.remove(item.request.body.eventId);
@@ -261,15 +298,17 @@ export function describeWaiting(eventId: string, description: string) {
 /** Sends work now, or keeps it on this device if the server can't be reached. */
 export async function recordWork(item: WorkRequest): Promise<Outcome> {
   const originating = active;
-  const outcome = await submit(item);
+  const bound: WorkRequest =
+    originating && !item.actor ? { ...item, actor: originating.owner } : item;
+  const outcome = await submit(bound);
 
   if (outcome.kind === "unreachable" && originating) {
     try {
-      originating.add(item);
+      originating.add(bound);
     } catch {
       return { kind: "storageFailed" };
     }
-    return { kind: "queued", eventId: item.body.eventId };
+    return { kind: "queued", eventId: bound.body.eventId };
   }
 
   return outcome;

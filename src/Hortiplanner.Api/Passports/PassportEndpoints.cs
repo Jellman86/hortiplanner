@@ -125,49 +125,111 @@ internal static class PassportEndpoints
                     || (row.Event.Type == EventType.Corrected && db.Events.Any(original => original.Id == row.Event.CorrectsEventId && ChangesThePlants.Contains(original.Type)))),
             cancellationToken);
 
+        var now = clock.GetUtcNow();
+        var plane = botanical?.TrimStart().StartsWith("Platanus", StringComparison.OrdinalIgnoreCase) == true;
+        var (covered, since) = batch.Source == BatchSource.BoughtIn && !string.Equals(batch.OriginCountry, PassportOrigin.GreatBritain, StringComparison.Ordinal)
+            && xylellaHost == false && !plane && !changed
+            ? await CoverSinceAsync(containerId, now, db, cancellationToken)
+            : (false, null);
+
         return new PassportOrigin.Facts(
             batch.Source,
             batch.OriginCountry,
             arrivedAt,
-            clock.GetUtcNow(),
+            now,
             changed,
-            await UnderCoverSinceAsync(containerId, db, cancellationToken),
+            covered ? since : null,
             xylellaHost,
-            CeratocystisHost: botanical?.TrimStart().StartsWith("Platanus", StringComparison.OrdinalIgnoreCase) == true,
-            OutsideSince: await UnderCoverSinceAsync(containerId, db, cancellationToken, underCover: false));
+            CeratocystisHost: plane,
+            OutsideSince: covered ? null : since);
     }
 
-    /// <summary>Since when the tray has been under cover without a break, going back from where it is now; null if it isn't.</summary>
-    private static async Task<DateTimeOffset?> UnderCoverSinceAsync(Guid containerId, HortiplannerDbContext db, CancellationToken cancellationToken, bool underCover = true)
+    /// <summary>Walks the tray's placements and the place hierarchy backwards to the last change of cover.</summary>
+    private static async Task<(bool Covered, DateTimeOffset? Since)> CoverSinceAsync(
+        Guid containerId, DateTimeOffset now, HortiplannerDbContext db, CancellationToken cancellationToken)
     {
-        var placings = await db.Events
+        var placements = await db.Events
             .AsNoTracking()
             .Where(e => e.ContainerId == containerId && e.LocationId != null && !db.Events.Any(correction => correction.CorrectsEventId == e.Id))
             .Select(e => new
             {
                 LocationId = e.LocationId!.Value,
+                e.RecordedAt,
+                e.Id,
                 At = e.CorrectsEventId == null ? e.OccurredAt : db.Events.Where(original => original.Id == e.CorrectsEventId).Select(original => original.OccurredAt).First(),
             })
+            .Where(placing => placing.At <= now)
             .OrderBy(placing => placing.At)
+            .ThenBy(placing => placing.RecordedAt)
+            .ThenBy(placing => placing.Id)
             .ToListAsync(cancellationToken);
 
-        var places = await db.Locations.AsNoTracking().ToDictionaryAsync(place => place.Id, cancellationToken);
-        DateTimeOffset? since = null;
-
-        for (var index = placings.Count - 1; index >= 0 && IsCovered(placings[index].LocationId, places) == underCover; index--)
+        if (placements.Count == 0)
         {
-            since = placings[index].At;
+            return (false, null);
         }
 
-        return since;
+        var history = await PlaceHistoryAsync(placements[0].At, db, cancellationToken);
+        return CoverSince([.. placements.Select(row => (row.LocationId, row.At))], history, now);
     }
 
-    /// <summary>A place is under cover if it, or any place it sits inside, is a greenhouse, polytunnel or cold frame.</summary>
-    private static bool IsCovered(Guid placeId, Dictionary<Guid, Location> places)
+    private static async Task<List<PlaceHistory>> PlaceHistoryAsync(DateTimeOffset first, HortiplannerDbContext db, CancellationToken cancellationToken) =>
+        // Read each place and its changes in the same database snapshot.
+        await db.Locations.AsNoTracking()
+            .Select(place => new PlaceHistory(place.Id, new PlaceAtTime(place.Kind, place.ParentId),
+                db.LocationChanges.Where(change => change.LocationId == place.Id && change.EffectiveAt > first).ToList()))
+            .ToListAsync(cancellationToken);
+
+    private static (bool Covered, DateTimeOffset? Since) CoverSince(
+        List<(Guid LocationId, DateTimeOffset At)> placements, List<PlaceHistory> rows, DateTimeOffset now)
     {
+        var places = rows.ToDictionary(place => place.Id, place => place.Current);
+        var changes = rows.SelectMany(place => place.Changes).OrderByDescending(change => change.Id).ToLookup(change => change.EffectiveAt);
+        var placementIndex = placements.Count - 1;
+
+        void Rewind(DateTimeOffset at)
+        {
+            foreach (var change in changes[at])
+            {
+                places[change.LocationId] = new PlaceAtTime(change.PreviousKind, change.PreviousParentId);
+            }
+        }
+
+        foreach (var at in changes.Select(group => group.Key).Where(at => at > now).OrderDescending())
+        {
+            Rewind(at);
+        }
+
+        var covered = IsCovered(placements[placementIndex].LocationId, places);
+        var boundaries = placements.Select(placing => placing.At).Union(changes.Select(group => group.Key).Where(at => at <= now));
+        foreach (var at in boundaries.OrderDescending())
+        {
+            Rewind(at);
+            while (placementIndex >= 0 && placements[placementIndex].At == at)
+            {
+                placementIndex--;
+            }
+
+            if (placementIndex < 0 || IsCovered(placements[placementIndex].LocationId, places) != covered)
+            {
+                return (covered, at);
+            }
+        }
+
+        return (covered, placements[0].At);
+    }
+
+    private sealed record PlaceHistory(Guid Id, PlaceAtTime Current, List<LocationChange> Changes);
+
+    private sealed record PlaceAtTime(LocationKind Kind, Guid? ParentId);
+
+    /// <summary>A place is under cover if it, or any place it sits inside, is a greenhouse, polytunnel or cold frame.</summary>
+    private static bool IsCovered(Guid placeId, Dictionary<Guid, PlaceAtTime> places)
+    {
+        var seen = new HashSet<Guid>();
         Guid? current = placeId;
 
-        for (var depth = 0; current is { } id && places.TryGetValue(id, out var place) && depth < 12; depth++)
+        while (current is { } id && seen.Add(id) && places.TryGetValue(id, out var place))
         {
             if (Covered.Contains(place.Kind))
             {
@@ -216,6 +278,7 @@ internal static class PassportEndpoints
             return TypedResults.Conflict(new PassportRefused("NotExamined"));
         }
 
+        await store.LockPlacesAsync(cancellationToken);
         if (await MakeDraftAsync(request.BatchId, request.ContainerId, db, store, clock, cancellationToken, activeGrowthConfirmed: request.ActiveGrowthConfirmed) is not { } draft)
         {
             return TypedResults.NotFound();

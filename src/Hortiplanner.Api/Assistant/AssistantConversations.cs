@@ -27,8 +27,6 @@ internal static class AssistantConversations
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
-    private static readonly HashSet<string> PrivateMethods = new(StringComparer.Ordinal) { "password", "passkey", "oidc" };
-
     public static void MapConversationEndpoints(this RouteGroupBuilder assistant)
     {
         var conversations = assistant.MapGroup("/conversations");
@@ -40,10 +38,7 @@ internal static class AssistantConversations
     }
 
     /// <summary>Signed in as themselves, by their own password, passkey or staff login, and not at a bench.</summary>
-    internal static bool IsPrivate(ClaimsPrincipal user) =>
-        user.FindFirst(AccountServices.BenchSessionClaim) is null
-        && user.FindFirstValue(AccountServices.SignInMethodClaim) is { } method
-        && PrivateMethods.Contains(method);
+    internal static bool IsPrivate(ClaimsPrincipal user) => SignInRules.IsPersonal(user);
 
     private static Guid UserId(ClaimsPrincipal user) => Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
 

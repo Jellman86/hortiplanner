@@ -8,19 +8,28 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: publish-${{ github.ref }}
-  cancel-in-progress: false
+env:
+  IMAGE: ghcr.io/jellman86/hortiplanner
 
 jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  security:
+    uses: ./.github/workflows/security.yml
+    permissions:
+      contents: read
+      pull-requests: read
+
   image:
+    needs: [ci, security]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
       packages: write
-    env:
-      IMAGE: ghcr.io/jellman86/hortiplanner
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -29,7 +38,7 @@ jobs:
         run: |
           version=dev
           if [ "$GITHUB_REF_TYPE" = tag ]; then version="${GITHUB_REF_NAME#v}"; fi
-          docker build --tag "$IMAGE:$GITHUB_SHA" --tag "$IMAGE:$GITHUB_REF_NAME" \
+          docker build --tag "$IMAGE:$GITHUB_SHA" \
             --label "org.opencontainers.image.source=https://github.com/Jellman86/hortiplanner" \
             --label "org.opencontainers.image.revision=$GITHUB_SHA" \
             --label "org.opencontainers.image.version=$version" \
@@ -41,7 +50,43 @@ jobs:
         run: echo "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
         env:
           REGISTRY_TOKEN: ${{ github.token }}
-      - name: Publish the image
+      - name: Publish the commit image
+        id: push
+        shell: bash
         run: |
-          docker push "$IMAGE:$GITHUB_SHA"
-          docker push "$IMAGE:$GITHUB_REF_NAME"
+          docker push "$IMAGE:$GITHUB_SHA" | tee "$RUNNER_TEMP/image-push.log"
+          digest=$(awk '$2 == "digest:" { print $3 }' "$RUNNER_TEMP/image-push.log")
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "\`$IMAGE@$digest\`" >> "$GITHUB_STEP_SUMMARY"
+      - name: Promote the release image
+        if: github.ref_type == 'tag'
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: docker buildx imagetools create --prefer-index=false --tag "$IMAGE:$GITHUB_REF_NAME" "$IMAGE@$DIGEST"
+
+  rolling:
+    if: github.ref == 'refs/heads/dev'
+    needs: image
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      packages: write
+    concurrency:
+      group: publish-dev
+      queue: max
+      cancel-in-progress: false
+    steps:
+      - name: Promote the latest dev image
+        env:
+          DIGEST: ${{ needs.image.outputs.digest }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          head=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/dev" --jq '.object.sha')
+          if [ "$head" != "$GITHUB_SHA" ]; then
+            echo "The dev branch has moved on. The commit image is still available."
+            exit 0
+          fi
+          echo "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker buildx imagetools create --prefer-index=false --tag "$IMAGE:dev" "$IMAGE@$DIGEST"

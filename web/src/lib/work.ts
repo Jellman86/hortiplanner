@@ -6,6 +6,8 @@ import type { Schemas } from "./types";
 export interface WorkRequest {
   url: string;
   body: { eventId: string; occurredAt: string };
+  /** The person who recorded this work, verified against the active session before any write. */
+  actor?: string;
 }
 
 export type Outcome =
@@ -119,7 +121,11 @@ export const work = {
 
 const passingTrouble = [408, 425, 429, 502, 503, 504];
 
-export async function submit(item: WorkRequest): Promise<Outcome> {
+export async function submit(
+  item: WorkRequest,
+  actor?: string,
+): Promise<Outcome> {
+  const expectedActor = item.actor ?? actor;
   let response: Response;
 
   try {
@@ -129,6 +135,7 @@ export async function submit(item: WorkRequest): Promise<Outcome> {
         "Content-Type": "application/json",
         // When this was sent by this device's clock, so a clock that's out can be allowed for.
         "X-Device-Time": new Date().toISOString(),
+        ...(expectedActor ? { "X-Expected-Actor": expectedActor } : {}),
       },
       body: JSON.stringify(item.body),
     });
@@ -147,23 +154,39 @@ export async function submit(item: WorkRequest): Promise<Outcome> {
   }
 
   if (response.ok) {
-    const result = (await response.json()) as {
-      labelCode?: string;
-      batchId?: string;
-      countedSince?: boolean;
-    };
-    return {
-      kind: "stored",
-      eventId: item.body.eventId,
-      labelCode: result.labelCode,
-      batchId: result.batchId,
-      countedSince: result.countedSince,
-    };
+    try {
+      const result = (await response.json()) as {
+        labelCode?: string;
+        batchId?: string;
+        countedSince?: boolean;
+      };
+      return {
+        kind: "stored",
+        eventId: item.body.eventId,
+        labelCode: result.labelCode,
+        batchId: result.batchId,
+        countedSince: result.countedSince,
+      };
+    } catch {
+      // Headers arrived, then the connection broke before the body: retry safely with the same eventId.
+      return { kind: "unreachable" };
+    }
   }
 
   if (response.status === 409) {
-    const result = (await response.json()) as { problem: string };
-    return { kind: "refused", problem: result.problem };
+    let result: { problem?: string };
+    try {
+      result = (await response.json()) as { problem?: string };
+    } catch {
+      return { kind: "unreachable" };
+    }
+
+    if (result?.problem === "actor_mismatch") {
+      window.dispatchEvent(new Event(sessionEnded));
+      return { kind: "signedOut" };
+    }
+
+    return { kind: "refused", problem: result?.problem ?? "conflict" };
   }
 
   return { kind: "rejected" };
